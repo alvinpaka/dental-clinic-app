@@ -178,7 +178,8 @@ const submitEdit = () => {
   }
 
   if (editingItem.value) {
-    editForm.put(route('inventory.update', editingItem.value.id), {
+    const updateUrl = `/inventory/${editingItem.value.id}`;
+    editForm.put(updateUrl, {
       onSuccess: () => {
         editForm.reset();
         isEditOpen.value = false;
@@ -189,13 +190,16 @@ const submitEdit = () => {
 };
 
 const confirmDelete = () => {
-  if (editingItem.value) {
-    router.delete(route('inventory.destroy', editingItem.value.id), {
+  if (editingItem.value && editingItem.value.id) {
+    const deleteUrl = `/inventory/${editingItem.value.id}`;
+    router.delete(deleteUrl, {
       onSuccess: () => {
         isDeleteOpen.value = false;
         editingItem.value = null;
       },
     });
+  } else {
+    alert('Invalid item selected for deletion.');
   }
 };
 
@@ -248,7 +252,7 @@ const getTotalValue = (item: InventoryItem) => {
             <div class="flex items-center gap-3">
               <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                 <Package class="w-4 h-4 mr-1" />
-                {{ props.items.data.length }} Total Items
+                {{ props.stats?.total_items || 0 }} Total Items
               </Badge>
 
               <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
