@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PatientController;
@@ -12,13 +11,14 @@ use App\Http\Controllers\StaffController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PrescriptionController;
 use App\Http\Controllers\ReportController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
 
 // Auth routes (Breeze)
 require __DIR__.'/auth.php';
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth', 'verified')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Resources
@@ -28,7 +28,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('invoices', InvoiceController::class);
     Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
     Route::resource('staff', StaffController::class);
-    Route::resource('inventory', InventoryController::class);
+    Route::resource('inventory', InventoryController::class)->parameters(['inventory' => 'id'])->except(['create', 'edit', 'show']);
     Route::resource('prescriptions', PrescriptionController::class);
 
     // Reports

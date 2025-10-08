@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\InventoryItem;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 
 class InventoryController extends Controller
 {
@@ -44,9 +45,22 @@ class InventoryController extends Controller
     public function index()
     {
         $items = InventoryItem::paginate(10);
+        
+        // Compute stats
+        $totalItems = InventoryItem::count();
+        $lowStockItems = InventoryItem::where('quantity', '<=', DB::raw('low_stock_threshold'))->where('quantity', '>', 0)->count();
+        $outOfStock = InventoryItem::where('quantity', 0)->count();
+        $totalValue = InventoryItem::sum(DB::raw('quantity * unit_price'));
+
         return Inertia::render('Inventory/Index', [
             'items' => $items,
             'categories' => self::INVENTORY_CATEGORIES,
+            'stats' => [
+                'total_items' => $totalItems,
+                'low_stock_items' => $lowStockItems,
+                'total_value' => $totalValue,
+                'out_of_stock' => $outOfStock,
+            ],
         ]);
     }
 
@@ -54,10 +68,13 @@ class InventoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
             'category' => 'required|string',
             'quantity' => 'required|integer|min:0',
             'unit_price' => 'required|numeric|min:0',
             'low_stock_threshold' => 'required|integer|min:1',
+            'supplier' => 'nullable|string|max:255',
+            'expiry_date' => 'nullable|date',
         ]);
 
         InventoryItem::create($validated);
@@ -65,5 +82,31 @@ class InventoryController extends Controller
         return redirect()->route('inventory.index')->with('success', 'Item added.');
     }
 
-    // ... other methods, including update quantity
+    public function update(Request $request, $id)
+    {
+        $inventoryItem = InventoryItem::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'category' => 'required|string',
+            'quantity' => 'required|integer|min:0',
+            'unit_price' => 'required|numeric|min:0',
+            'low_stock_threshold' => 'required|integer|min:1',
+            'supplier' => 'nullable|string|max:255',
+            'expiry_date' => 'nullable|date',
+        ]);
+
+        $inventoryItem->update($validated);
+
+        return redirect()->route('inventory.index')->with('success', 'Item updated.')->setStatusCode(303);
+    }
+
+    public function destroy($id)
+    {
+        $inventoryItem = InventoryItem::findOrFail($id);
+        $inventoryItem->delete();
+
+        return redirect()->route('inventory.index')->with('success', 'Item deleted.')->setStatusCode(303);
+    }
 }
