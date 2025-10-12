@@ -18,7 +18,7 @@ Route::get('/', [LandingController::class, 'index'])->name('landing');
 // Auth routes (Breeze)
 require __DIR__.'/auth.php';
 
-Route::middleware('auth', 'verified')->group(function () {
+Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Resources

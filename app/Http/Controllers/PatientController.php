@@ -17,12 +17,21 @@ class PatientController extends Controller
             $patient->dob_formatted = $patient->dob ? \Carbon\Carbon::parse($patient->dob)->format('M d, Y') : null;
             return $patient;
         });
-        return Inertia::render('Patients/Index', ['patients' => $patients]);
+        return Inertia::render('Patients/Index', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
+            'patients' => $patients
+        ]);
     }
 
     public function create()
     {
-        return Inertia::render('Patients/Create');
+        return Inertia::render('Patients/Create', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
+        ]);
     }
 
     public function store(Request $request)
@@ -46,13 +55,24 @@ class PatientController extends Controller
     {
         $patient->load(['appointments', 'treatments', 'invoices', 'prescriptions']);
         $patients = Patient::select('id', 'name', 'email')->get();
-        return Inertia::render('Patients/Show', ['patient' => $patient, 'patients' => $patients]);
+        return Inertia::render('Patients/Show', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
+            'patient' => $patient,
+            'patients' => $patients
+        ]);
     }
 
     // Update and destroy similar...
     public function edit(Patient $patient)
     {
-        return Inertia::render('Patients/Edit', ['patient' => $patient]);
+        return Inertia::render('Patients/Edit', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
+            'patient' => $patient
+        ]);
     }
 
     public function update(Request $request, Patient $patient)

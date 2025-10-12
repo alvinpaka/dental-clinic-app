@@ -20,6 +20,9 @@ class ReportController extends Controller
             ->get();
 
         return Inertia::render('Reports/Index', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
             'revenueData' => $revenueData,
             'treatmentTrends' => $treatmentTrends,
         ]);

@@ -2,6 +2,14 @@
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import { Button } from '@/Components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/Components/ui/dropdown-menu';
 import { computed, ref, onMounted } from 'vue';
 import { useThemeStore } from '@/Stores/theme';
 
@@ -14,6 +22,11 @@ const props = defineProps<{
 const page = usePage();
 
 usePage().props.jetstream ??= {}; // For Breeze dark mode compat
+
+// Initialize theme from localStorage on component mount
+onMounted(() => {
+  themeStore.initTheme();
+});
 
 const navigationItems = [
   { value: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: 'fas fa-tachometer-alt' },
@@ -39,19 +52,102 @@ const activeTab = computed(() => {
 
 <template>
   <div class="min-h-screen bg-background">
-    <nav class="bg-primary text-primary-foreground shadow-lg">
-      <div class="flex items-center justify-between p-4">
-        <Link href="/dashboard" class="text-xl font-bold">Dental Clinic</Link>
-        <div class="flex items-center space-x-4">
-          <Button variant="ghost" @click="themeStore.toggleDarkMode" size="sm">
-            <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon']"></i>
-          </Button>
-          <Button variant="ghost" @click="router.post(route('logout'))">Logout</Button>
+    <!-- Fixed Header -->
+    <nav class="fixed top-0 left-0 right-0 bg-primary text-primary-foreground shadow-lg z-50 border-b border-primary-foreground/10 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800">
+      <div class="flex items-center justify-between px-4 py-3">
+        <!-- Logo and Title Section -->
+        <div class="flex items-center space-x-3">
+          <!-- Logo/Icon -->
+          <div class="flex items-center justify-center w-10 h-10 bg-white/10 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+            <i class="fas fa-tooth text-xl text-white dark:text-slate-200"></i>
+          </div>
+          <div>
+            <Link href="/dashboard" class="text-xl font-bold hover:text-white/90 dark:hover:text-slate-200 transition-colors">
+              Dental Clinic
+            </Link>
+            <p class="text-xs text-primary-foreground/70 dark:text-slate-300 hidden sm:block">Professional Dental Care</p>
+          </div>
         </div>
+
+        <!-- Right Section -->
+        <div class="flex items-center space-x-3">
+          <!-- Dark Mode Toggle -->
+          <Button
+            variant="ghost"
+            @click="themeStore.toggleDarkMode"
+            size="sm"
+            class="hover:bg-white/10 dark:hover:bg-slate-800/50 transition-all duration-200"
+          >
+            <i :class="[
+              'fas transition-all duration-200',
+              themeStore.isDark
+                ? 'fa-sun text-yellow-300 rotate-180'
+                : 'fa-moon hover:text-yellow-300 dark:text-slate-300 dark:hover:text-yellow-300'
+            ]"></i>
+          </Button>
+
+          <!-- User Menu Dropdown -->
+          <div class="relative">
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button
+                  variant="ghost"
+                  class="hover:bg-white/10 dark:hover:bg-slate-800/50 transition-all duration-200 px-3"
+                >
+                  <i class="fas fa-user-md mr-2 dark:text-slate-300"></i>
+                  <span class="hidden sm:inline dark:text-slate-200">{{ page.props.auth?.user?.name || 'User' }}</span>
+                  <i class="fas fa-chevron-down ml-2 text-xs dark:text-slate-400"></i>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent class="w-56" align="end">
+                <DropdownMenuLabel class="font-normal">
+                  <div class="flex flex-col space-y-1">
+                    <p class="text-sm font-medium leading-none">{{ page.props.auth?.user?.name || 'User' }}</p>
+                    <p class="text-xs leading-none text-muted-foreground">
+                      {{ page.props.auth?.user?.email || 'user@example.com' }}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem as-child>
+                  <Link href="/profile" class="cursor-pointer">
+                    <i class="fas fa-user mr-2 h-4 w-4"></i>
+                    <span>Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child>
+                  <Link href="/settings" class="cursor-pointer">
+                    <i class="fas fa-cog mr-2 h-4 w-4"></i>
+                    <span>Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  @click="router.post(route('logout'))"
+                  class="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                >
+                  <i class="fas fa-sign-out-alt mr-2 h-4 w-4"></i>
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <Button
+          variant="ghost"
+          size="sm"
+          class="md:hidden hover:bg-white/10 dark:hover:bg-slate-800/50"
+        >
+          <i class="fas fa-bars dark:text-slate-300"></i>
+        </Button>
       </div>
     </nav>
-    <div class="flex">
-      <aside class="hidden md:block w-64 bg-muted p-4">
+
+    <div class="flex pt-16">
+      <!-- Fixed Sidebar -->
+      <aside class="hidden md:block fixed left-0 top-16 w-64 bg-muted p-4 h-screen overflow-y-auto z-40">
         <nav class="space-y-1">
           <Link
             v-for="item in navigationItems"
@@ -69,7 +165,9 @@ const activeTab = computed(() => {
           </Link>
         </nav>
       </aside>
-      <main class="flex-1 p-6 md:ml-0">
+
+      <!-- Main Content Area (offset for fixed sidebar) -->
+      <main class="flex-1 md:ml-64 p-6">
         <slot />
       </main>
     </div>

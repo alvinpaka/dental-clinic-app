@@ -32,6 +32,9 @@ class TreatmentController extends Controller
         ];
         
         return Inertia::render('Treatments/Index', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
             'treatments' => $treatments, 
             'patients' => $patients,
             'appointmentTypes' => $appointmentTypes
@@ -41,7 +44,12 @@ class TreatmentController extends Controller
     public function show(Treatment $treatment)
     {
         $treatment->load(['patient', 'appointment']);
-        return Inertia::render('Treatments/Show', ['treatment' => $treatment]);
+        return Inertia::render('Treatments/Show', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
+            'treatment' => $treatment
+        ]);
     }
 
     public function store(Request $request)

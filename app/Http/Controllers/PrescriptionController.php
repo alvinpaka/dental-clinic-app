@@ -17,6 +17,9 @@ class PrescriptionController extends Controller
         $medicines = DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get();
         
         return Inertia::render('Prescriptions/Index', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
             'prescriptions' => $prescriptions,
             'patients' => $patients,
             'medicines' => $medicines
@@ -93,6 +96,9 @@ class PrescriptionController extends Controller
         $prescription->load(['patient', 'dentist', 'medicine']);
         
         return Inertia::render('Prescriptions/Show', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
             'prescription' => $prescription,
         ]);
     }
@@ -104,6 +110,9 @@ class PrescriptionController extends Controller
         $medicines = DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get();
         
         return Inertia::render('Prescriptions/Edit', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
             'prescription' => $prescription,
             'patients' => $patients,
             'medicines' => $medicines,

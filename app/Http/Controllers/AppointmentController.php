@@ -49,6 +49,9 @@ class AppointmentController extends Controller
         ];
 
         return Inertia::render('Appointments/Index', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
             'appointments' => $appointments,
             'patients' => $patients,
             'stats' => $stats,
