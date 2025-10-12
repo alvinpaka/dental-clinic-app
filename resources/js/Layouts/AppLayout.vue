@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { useThemeStore } from '@/Stores/theme';
 import { Button } from '@/Components/ui/button';
-import { Moon, Sun } from 'lucide-vue-next';
+import { computed, ref, onMounted } from 'vue';
+import { useThemeStore } from '@/Stores/theme';
 
-const { isDark, toggleDarkMode, initTheme } = useThemeStore();
-initTheme();
+const themeStore = useThemeStore();
 
 const props = defineProps<{
   title: string;
@@ -16,9 +15,26 @@ const page = usePage();
 
 usePage().props.jetstream ??= {}; // For Breeze dark mode compat
 
-const isActive = (path: string) => {
-  return page.url === path || page.url.startsWith(path + '/');
-};
+const navigationItems = [
+  { value: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: 'fas fa-tachometer-alt' },
+  { value: 'patients', label: 'Patients', href: '/patients', icon: 'fas fa-users' },
+  { value: 'appointments', label: 'Appointments', href: '/appointments', icon: 'fas fa-calendar-check' },
+  { value: 'treatments', label: 'Treatments', href: '/treatments', icon: 'fas fa-tooth' },
+  { value: 'invoices', label: 'Billing', href: '/invoices', icon: 'fas fa-file-invoice-dollar' },
+  { value: 'staff', label: 'Staff', href: '/staff', icon: 'fas fa-user-md' },
+  { value: 'inventory', label: 'Inventory', href: '/inventory', icon: 'fas fa-boxes' },
+  { value: 'prescriptions', label: 'Prescriptions', href: '/prescriptions', icon: 'fas fa-pills' },
+  { value: 'reports', label: 'Reports', href: '/reports', icon: 'fas fa-chart-bar' },
+];
+
+const activeTab = computed(() => {
+  for (const item of navigationItems) {
+    if (page.url === item.href || page.url.startsWith(item.href + '/')) {
+      return item.value;
+    }
+  }
+  return 'dashboard';
+});
 </script>
 
 <template>
@@ -27,9 +43,8 @@ const isActive = (path: string) => {
       <div class="flex items-center justify-between p-4">
         <Link href="/dashboard" class="text-xl font-bold">Dental Clinic</Link>
         <div class="flex items-center space-x-4">
-          <Button variant="ghost" @click="toggleDarkMode" size="sm">
-            <Sun v-if="isDark" class="h-4 w-4" />
-            <Moon v-else class="h-4 w-4" />
+          <Button variant="ghost" @click="themeStore.toggleDarkMode" size="sm">
+            <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon']"></i>
           </Button>
           <Button variant="ghost" @click="router.post(route('logout'))">Logout</Button>
         </div>
@@ -37,87 +52,20 @@ const isActive = (path: string) => {
     </nav>
     <div class="flex">
       <aside class="hidden md:block w-64 bg-muted p-4">
-        <nav class="space-y-2">
-          <Link 
-            href="/dashboard" 
+        <nav class="space-y-1">
+          <Link
+            v-for="item in navigationItems"
+            :key="item.value"
+            :href="item.href"
             :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/dashboard') }
+              'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
+              activeTab === item.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
             ]"
           >
-            Dashboard
-          </Link>
-          <Link 
-            href="/patients" 
-            :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/patients') }
-            ]"
-          >
-            Patients
-          </Link>
-          <Link 
-            href="/appointments" 
-            :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/appointments') }
-            ]"
-          >
-            Appointments
-          </Link>
-          <Link 
-            href="/treatments" 
-            :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/treatments') }
-            ]"
-          >
-            Treatments
-          </Link>
-          <Link 
-            href="/invoices" 
-            :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/invoices') }
-            ]"
-          >
-            Billing
-          </Link>
-          <Link 
-            href="/staff" 
-            :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/staff') }
-            ]"
-          >
-            Staff
-          </Link>
-          <Link 
-            href="/inventory" 
-            :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/inventory') }
-            ]"
-          >
-            Inventory
-          </Link>
-          <Link 
-            href="/prescriptions" 
-            :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/prescriptions') }
-            ]"
-          >
-            Prescriptions
-          </Link>
-          <Link 
-            href="/reports" 
-            :class="[
-              'block p-2 rounded hover:bg-accent transition-colors', 
-              { 'bg-accent text-accent-foreground font-semibold': isActive('/reports') }
-            ]"
-          >
-            Reports
+            <i :class="[item.icon, 'mr-2 w-4 h-4']"></i>
+            {{ item.label }}
           </Link>
         </nav>
       </aside>

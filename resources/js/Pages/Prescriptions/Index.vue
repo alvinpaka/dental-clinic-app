@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
 import { ref, computed } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
@@ -8,31 +9,17 @@ import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Plus, Search, MoreVertical, FileText, User, Calendar, Pill, Clock, AlertTriangle, CheckCircle } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-interface Patient {
-  id: number;
-  name: string;
-  email: string;
-}
-
-interface Prescription {
-  id: number;
-  patient: { id: number; name: string; email: string };
-  medication: string;
-  dosage: string;
-  frequency: string;
-  duration: string;
-  instructions?: string;
-  issue_date: string;
-  expiry_date?: string;
-  status: 'active' | 'completed' | 'cancelled' | 'expired';
-  dentist: { id: number; name: string };
-  refill_count?: number;
-  max_refills?: number;
-  created_at?: string;
+interface DentalMedicine {
+  medicine_id: number;
+  medicine_name: string;
+  category: string;
+  dosage_form: string | null;
+  prescription_required: boolean;
 }
 
 interface Props {
@@ -41,6 +28,7 @@ interface Props {
     links: any[];
   };
   patients: Patient[];
+  medicines: DentalMedicine[];
   stats?: {
     total_prescriptions: number;
     active_prescriptions: number;
@@ -52,8 +40,9 @@ interface Props {
 const props = defineProps<Props>();
 
 const searchQuery = ref('');
-const statusFilter = ref('');
+const statusFilter = ref('all');
 const selectedPatient = ref<Patient | null>(null);
+const activeTab = ref('grid');
 
 // Filtered prescriptions
 const filteredPrescriptions = computed(() => {
@@ -69,7 +58,7 @@ const filteredPrescriptions = computed(() => {
   }
 
   // Status filter
-  if (statusFilter.value) {
+  if (statusFilter.value && statusFilter.value !== 'all') {
     prescriptions = prescriptions.filter(rx => rx.status === statusFilter.value);
   }
 
@@ -77,19 +66,42 @@ const filteredPrescriptions = computed(() => {
 });
 
 // Forms
-const createForm = useForm({
-  patient_id: null as number | null,
+interface Prescription {
+  id: number;
+  patient: { id: number; name: string; email: string };
+  medicine_id?: number;
+  medication: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  instructions?: string;
+  issue_date: string;
+  expiry_date?: string;
+  status: 'active' | 'completed' | 'cancelled' | 'expired';
+  dentist: { id: number; name: string };
+  refill_count?: number;
+  max_refills?: number;
+  created_at?: string;
+}
+
+const createForm = useForm<Prescription>({
+  id: null,
+  patient_id: null,
+  medicine_id: null,
   medication: '',
   dosage: '',
   frequency: '',
   duration: '',
   instructions: '',
+  issue_date: '',
   expiry_date: '',
+  status: '',
   max_refills: 0,
 });
 
 const editForm = useForm({
-  patient_id: null as number | null,
+  patient_id: null,
+  medicine_id: null,
   medication: '',
   dosage: '',
   frequency: '',
@@ -102,9 +114,11 @@ const editForm = useForm({
 
 // Modal states
 const isCreateOpen = ref(false);
+const isViewOpen = ref(false);
 const isEditOpen = ref(false);
 const isDeleteOpen = ref(false);
 const editingPrescription = ref<Prescription | null>(null);
+const viewingPrescription = ref<Prescription | null>(null);
 
 // Event handlers
 const openCreate = () => {
@@ -113,11 +127,17 @@ const openCreate = () => {
   isCreateOpen.value = true;
 };
 
+const openView = (prescription: Prescription) => {
+  viewingPrescription.value = prescription;
+  isViewOpen.value = true;
+};
+
 const openEdit = (prescription: Prescription) => {
   editingPrescription.value = prescription;
   selectedPatient.value = props.patients.find(p => p.id === prescription.patient.id) || null;
 
   editForm.patient_id = prescription.patient.id;
+  editForm.medicine_id = prescription.medicine_id || null;
   editForm.medication = prescription.medication;
   editForm.dosage = prescription.dosage;
   editForm.frequency = prescription.frequency;
@@ -136,7 +156,7 @@ const openDelete = (prescription: Prescription) => {
 };
 
 const submitCreate = () => {
-  if (!createForm.patient_id || !createForm.medication || !createForm.dosage) {
+  if (!createForm.patient_id || !createForm.medicine_id || !createForm.dosage) {
     alert('Please fill in all required fields');
     return;
   }
@@ -150,7 +170,7 @@ const submitCreate = () => {
 };
 
 const submitEdit = () => {
-  if (!editForm.patient_id || !editForm.medication || !editForm.dosage) {
+  if (!editForm.patient_id || !editForm.medicine_id || !editForm.dosage) {
     alert('Please fill in all required fields');
     return;
   }
@@ -316,170 +336,282 @@ const getRefillStatus = (current: number, max: number) => {
           </Card>
         </div>
 
-        <!-- Search and Filters -->
+        <!-- Main Content -->
         <Card class="border-0 shadow-xl bg-white dark:bg-gray-900 mb-8">
-          <CardContent class="p-6">
-            <div class="flex flex-col md:flex-row gap-4 items-center">
-              <div class="relative flex-1">
-                <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  v-model="searchQuery"
-                  placeholder="Search prescriptions by patient, medication, or dentist..."
-                  class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                />
-              </div>
-
-              <Select v-model="statusFilter">
-                <SelectTrigger class="w-48 h-12">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+          <CardHeader class="pb-4">
+            <div>
+              <CardTitle class="text-2xl text-gray-900 dark:text-white">Prescription Management</CardTitle>
+              <CardDescription class="text-gray-600 dark:text-gray-400">
+                View and manage all patient prescriptions
+              </CardDescription>
             </div>
+          </CardHeader>
+
+          <CardContent>
+            <Tabs v-model="activeTab" class="w-full">
+              <TabsList class="grid w-full grid-cols-2">
+                <TabsTrigger value="grid">Grid View</TabsTrigger>
+                <TabsTrigger value="list">List View</TabsTrigger>
+              </TabsList>
+
+              <!-- Grid View -->
+              <TabsContent value="grid" class="mt-0">
+                <div class="space-y-6">
+                  <!-- Search and Filters -->
+                  <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="relative flex-1">
+                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        v-model="searchQuery"
+                        placeholder="Search prescriptions by patient, medication, or dentist..."
+                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      />
+                    </div>
+
+                    <Select v-model="statusFilter">
+                      <SelectTrigger class="w-48 h-12">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="expired">Expired</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <!-- Prescriptions Grid -->
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <Card
+                      v-for="(prescription, index) in filteredPrescriptions"
+                      :key="prescription.id"
+                      :class="[
+                        'border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group',
+                        prescription.status === 'expired' && prescription.status !== 'completed' ? 'ring-2 ring-red-200 dark:ring-red-800' : '',
+                        isExpiringSoon(prescription.expiry_date || '') ? 'ring-2 ring-amber-200 dark:ring-amber-800' : ''
+                      ]"
+                    >
+                      <CardHeader class="pb-4">
+                        <div class="flex items-start justify-between">
+                          <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <Pill class="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors line-clamp-2">
+                                {{ prescription.medication }}
+                              </CardTitle>
+                              <CardDescription class="text-gray-600 dark:text-gray-400">
+                                {{ prescription.patient.name }}
+                              </CardDescription>
+                            </div>
+                          </div>
+
+                          <div class="flex items-center space-x-2">
+                            <Badge :class="getStatusColor(prescription.status)" variant="secondary">
+                              <i :class="[getStatusIcon(prescription.status), 'mr-1']"></i>
+                              {{ prescription.status }}
+                            </Badge>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger as-child>
+                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <MoreVertical class="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem @click="openView(prescription)">
+                                  <i class="fas fa-eye mr-2"></i>
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click="openEdit(prescription)">
+                                  <i class="fas fa-edit mr-2"></i>
+                                  Edit Prescription
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click="openDelete(prescription)" class="text-red-600">
+                                  <i class="fas fa-trash mr-2"></i>
+                                  Delete Prescription
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                          <div class="flex items-center space-x-2">
+                            <User class="w-4 h-4 text-gray-400" />
+                            <span class="text-gray-600 dark:text-gray-400">{{ prescription.dentist.name }}</span>
+                          </div>
+                          <div class="flex items-center space-x-2">
+                            <Calendar class="w-4 h-4 text-gray-400" />
+                            <span class="text-gray-600 dark:text-gray-400">{{ formatDate(prescription.issue_date) }}</span>
+                          </div>
+                          <div class="flex items-center space-x-2 col-span-2">
+                            <i class="fas fa-prescription-bottle text-gray-400 w-4"></i>
+                            <span class="text-gray-600 dark:text-gray-400">{{ prescription.dosage }} • {{ prescription.frequency }}</span>
+                          </div>
+                        </div>
+
+                        <div v-if="prescription.instructions" class="flex items-start space-x-2 text-sm">
+                          <FileText class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                          <span class="text-gray-600 dark:text-gray-400 line-clamp-2">{{ prescription.instructions }}</span>
+                        </div>
+
+                        <div v-if="prescription.expiry_date" class="flex items-center space-x-2">
+                          <Clock class="w-4 h-4 text-gray-400" />
+                          <span :class="['text-sm', isExpiringSoon(prescription.expiry_date) ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-600 dark:text-gray-400']">
+                            Expires {{ formatDate(prescription.expiry_date) }}
+                            <i v-if="isExpiringSoon(prescription.expiry_date)" class="fas fa-exclamation-triangle ml-1"></i>
+                          </span>
+                        </div>
+
+                        <div v-if="prescription.refill_count !== undefined && prescription.max_refills" class="flex items-center space-x-2">
+                          <i class="fas fa-sync text-gray-400 w-4"></i>
+                          <span class="text-sm text-gray-600 dark:text-gray-400">
+                            {{ getRefillStatus(prescription.refill_count, prescription.max_refills).text }}
+                          </span>
+                        </div>
+
+                        <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
+                          <Button variant="outline" size="sm" @click="openView(prescription)">
+                            <i class="fas fa-eye mr-2"></i>
+                            View Details
+                          </Button>
+                          <Button size="sm" @click="openEdit(prescription)">
+                            <i class="fas fa-edit mr-2"></i>
+                            Edit
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <!-- Empty State -->
+                    <div v-if="filteredPrescriptions.length === 0" class="col-span-full">
+                      <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
+                        <CardContent class="p-12 text-center">
+                          <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
+                            <Pill class="w-12 h-12 text-gray-400" />
+                          </div>
+                          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                            {{ searchQuery || (statusFilter !== 'all') ? 'No prescriptions found' : 'No prescriptions yet' }}
+                          </h3>
+                          <p class="text-gray-600 dark:text-gray-400 mb-6">
+                            {{ searchQuery || (statusFilter !== 'all') ? 'Try adjusting your search criteria' : 'Get started by issuing your first prescription' }}
+                          </p>
+                          <Button v-if="!searchQuery && statusFilter === 'all'" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                            <Plus class="w-4 h-4 mr-2" />
+                            Issue First Prescription
+                          </Button>
+                          <Button v-else @click="searchQuery = ''; statusFilter = 'all'" variant="outline">
+                            Clear Filters
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <!-- List View -->
+              <TabsContent value="list" class="mt-0">
+                <div class="space-y-4">
+                  <!-- Search and Filters -->
+                  <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="relative flex-1">
+                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        v-model="searchQuery"
+                        placeholder="Search prescriptions..."
+                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      />
+                    </div>
+
+                    <Select v-model="statusFilter">
+                      <SelectTrigger class="w-48 h-12">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="expired">Expired</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <!-- Prescriptions List -->
+                  <div class="space-y-3 max-h-96 overflow-y-auto">
+                    <Card
+                      v-for="(prescription, index) in filteredPrescriptions"
+                      :key="prescription.id"
+                      class="border hover:shadow-md transition-shadow cursor-pointer group"
+                      @click="openView(prescription)"
+                    >
+                      <CardContent class="p-4">
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <Pill class="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                                {{ prescription.patient.name }} - {{ prescription.medication }}
+                              </h4>
+                              <p class="text-sm text-gray-600 dark:text-gray-400">
+                                {{ prescription.dosage }} • {{ prescription.frequency }} • {{ prescription.dentist.name }}
+                                <span v-if="prescription.expiry_date"> • Expires {{ formatDate(prescription.expiry_date) }}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div class="flex items-center space-x-2">
+                            <Badge :class="getStatusColor(prescription.status)" variant="secondary">
+                              <i :class="[getStatusIcon(prescription.status), 'mr-1']"></i>
+                              {{ prescription.status }}
+                            </Badge>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger as-child @click.stop>
+                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
+                                  <MoreVertical class="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem @click.stop="openView(prescription)">
+                                  <i class="fas fa-eye mr-2"></i>
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="openEdit(prescription)">
+                                  <i class="fas fa-edit mr-2"></i>
+                                  Edit Prescription
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="openDelete(prescription)" class="text-red-600">
+                                  <i class="fas fa-trash mr-2"></i>
+                                  Delete Prescription
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div v-if="filteredPrescriptions.length === 0" class="text-center py-8">
+                      <Pill class="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No prescriptions found</h3>
+                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or issue a new prescription.</p>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-
-        <!-- Prescriptions Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card
-            v-for="(prescription, index) in filteredPrescriptions"
-            :key="prescription.id"
-            :class="[
-              'border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group',
-              prescription.status === 'expired' && prescription.status !== 'completed' ? 'ring-2 ring-red-200 dark:ring-red-800' : '',
-              isExpiringSoon(prescription.expiry_date || '') ? 'ring-2 ring-amber-200 dark:ring-amber-800' : ''
-            ]"
-          >
-            <CardHeader class="pb-4">
-              <div class="flex items-start justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                    <Pill class="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors line-clamp-2">
-                      {{ prescription.medication }}
-                    </CardTitle>
-                    <CardDescription class="text-gray-600 dark:text-gray-400">
-                      {{ prescription.patient.name }}
-                    </CardDescription>
-                  </div>
-                </div>
-
-                <div class="flex items-center space-x-2">
-                  <Badge :class="getStatusColor(prescription.status)" variant="secondary">
-                    <i :class="[getStatusIcon(prescription.status), 'mr-1']"></i>
-                    {{ prescription.status }}
-                  </Badge>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger as-child>
-                      <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreVertical class="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem as-child>
-                        <Link :href="route('prescriptions.show', prescription.id)" class="flex items-center">
-                          <i class="fas fa-eye mr-2"></i>
-                          View Details
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem @click="openEdit(prescription)">
-                        <i class="fas fa-edit mr-2"></i>
-                        Edit Prescription
-                      </DropdownMenuItem>
-                      <DropdownMenuItem @click="openDelete(prescription)" class="text-red-600">
-                        <i class="fas fa-trash mr-2"></i>
-                        Delete Prescription
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent class="space-y-4">
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div class="flex items-center space-x-2">
-                  <User class="w-4 h-4 text-gray-400" />
-                  <span class="text-gray-600 dark:text-gray-400">{{ prescription.dentist.name }}</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <Calendar class="w-4 h-4 text-gray-400" />
-                  <span class="text-gray-600 dark:text-gray-400">{{ formatDate(prescription.issue_date) }}</span>
-                </div>
-                <div class="flex items-center space-x-2 col-span-2">
-                  <i class="fas fa-prescription-bottle text-gray-400 w-4"></i>
-                  <span class="text-gray-600 dark:text-gray-400">{{ prescription.dosage }} • {{ prescription.frequency }}</span>
-                </div>
-              </div>
-
-              <div v-if="prescription.instructions" class="flex items-start space-x-2 text-sm">
-                <FileText class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <span class="text-gray-600 dark:text-gray-400 line-clamp-2">{{ prescription.instructions }}</span>
-              </div>
-
-              <div v-if="prescription.expiry_date" class="flex items-center space-x-2">
-                <Clock class="w-4 h-4 text-gray-400" />
-                <span :class="['text-sm', isExpiringSoon(prescription.expiry_date) ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-600 dark:text-gray-400']">
-                  Expires {{ formatDate(prescription.expiry_date) }}
-                  <i v-if="isExpiringSoon(prescription.expiry_date)" class="fas fa-exclamation-triangle ml-1"></i>
-                </span>
-              </div>
-
-              <div v-if="prescription.refill_count !== undefined && prescription.max_refills" class="flex items-center space-x-2">
-                <i class="fas fa-sync text-gray-400 w-4"></i>
-                <span class="text-sm text-gray-600 dark:text-gray-400">
-                  {{ getRefillStatus(prescription.refill_count, prescription.max_refills).text }}
-                </span>
-              </div>
-
-              <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                <Button variant="outline" size="sm" as-child>
-                  <Link :href="route('prescriptions.show', prescription.id)">
-                    <i class="fas fa-eye mr-2"></i>
-                    View Details
-                  </Link>
-                </Button>
-                <Button size="sm" @click="openEdit(prescription)">
-                  <i class="fas fa-edit mr-2"></i>
-                  Edit
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <!-- Empty State -->
-          <div v-if="filteredPrescriptions.length === 0" class="col-span-full">
-            <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
-              <CardContent class="p-12 text-center">
-                <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
-                  <Pill class="w-12 h-12 text-gray-400" />
-                </div>
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                  {{ searchQuery || statusFilter ? 'No prescriptions found' : 'No prescriptions yet' }}
-                </h3>
-                <p class="text-gray-600 dark:text-gray-400 mb-6">
-                  {{ searchQuery || statusFilter ? 'Try adjusting your search criteria' : 'Get started by issuing your first prescription' }}
-                </p>
-                <Button v-if="!searchQuery && !statusFilter" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-                  <Plus class="w-4 h-4 mr-2" />
-                  Issue First Prescription
-                </Button>
-                <Button v-else @click="searchQuery = ''; statusFilter = ''" variant="outline">
-                  Clear Filters
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -498,7 +630,7 @@ const getRefillStatus = (current: number, max: number) => {
         <form @submit.prevent="submitCreate" class="space-y-6">
           <div class="space-y-2">
             <Label for="patient" class="text-gray-700 dark:text-gray-300">Patient</Label>
-            <Select v-model="createForm.patient_id">
+            <Select id="patient" v-model="createForm.patient_id">
               <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                 <SelectValue placeholder="Select a patient" />
               </SelectTrigger>
@@ -511,14 +643,18 @@ const getRefillStatus = (current: number, max: number) => {
           </div>
 
           <div class="space-y-2">
-            <Label for="medication" class="text-gray-700 dark:text-gray-300">Medication</Label>
-            <Input
-              id="medication"
-              v-model="createForm.medication"
-              placeholder="e.g., Amoxicillin, Ibuprofen"
-              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
-            />
+            <Label for="medicine" class="text-gray-700 dark:text-gray-300">Medication</Label>
+            <Select id="medicine" v-model="createForm.medicine_id">
+              <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <SelectValue placeholder="Select a medication" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="medicine in props.medicines" :key="medicine.medicine_id" :value="medicine.medicine_id">
+                  {{ medicine.medicine_name }} ({{ medicine.category }})
+                  <span v-if="medicine.dosage_form" class="text-gray-500 text-sm"> - {{ medicine.dosage_form }}</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -535,7 +671,7 @@ const getRefillStatus = (current: number, max: number) => {
 
             <div class="space-y-2">
               <Label for="frequency" class="text-gray-700 dark:text-gray-300">Frequency</Label>
-              <Select v-model="createForm.frequency">
+              <Select id="frequency" v-model="createForm.frequency">
                 <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                   <SelectValue placeholder="How often" />
                 </SelectTrigger>
@@ -616,6 +752,194 @@ const getRefillStatus = (current: number, max: number) => {
       </DialogContent>
     </Dialog>
 
+    <!-- View Prescription Details Modal -->
+    <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
+      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Prescription Details
+          </DialogTitle>
+          <DialogDescription class="text-gray-600 dark:text-gray-400">
+            Detailed information for prescription #{{ viewingPrescription?.id }}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div v-if="viewingPrescription" class="space-y-6">
+          <!-- Status and Actions -->
+          <div class="flex items-center justify-between">
+            <Badge :class="getStatusColor(viewingPrescription.status)" variant="secondary" class="text-lg px-3 py-1">
+              <i :class="[getStatusIcon(viewingPrescription.status), 'w-5 h-5 mr-2']"></i>
+              {{ viewingPrescription.status }}
+            </Badge>
+            <div class="flex gap-2">
+              <Button @click="openEdit(viewingPrescription)" variant="outline">
+                <i class="fas fa-edit mr-2"></i>
+                Edit
+              </Button>
+              <Button @click="openDelete(viewingPrescription)" variant="destructive">
+                <i class="fas fa-trash mr-2"></i>
+                Delete
+              </Button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Main Prescription Details -->
+            <div class="lg:col-span-2 space-y-6">
+              <!-- Medication Info -->
+              <Card class="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle class="flex items-center">
+                    <Pill class="w-5 h-5 mr-2 text-blue-600" />
+                    Medication Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Medication</label>
+                      <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ viewingPrescription.medication }}</p>
+                      <p v-if="viewingPrescription.medicine" class="text-sm text-gray-600 dark:text-gray-400">
+                        {{ viewingPrescription.medicine.category }}
+                        <span v-if="viewingPrescription.medicine.dosage_form"> • {{ viewingPrescription.medicine.dosage_form }}</span>
+                      </p>
+                    </div>
+
+                    <div>
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Dosage & Frequency</label>
+                      <p class="text-gray-900 dark:text-white">{{ viewingPrescription.dosage }} • {{ viewingPrescription.frequency }}</p>
+                    </div>
+
+                    <div>
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Duration</label>
+                      <p class="text-gray-900 dark:text-white">{{ viewingPrescription.duration }}</p>
+                    </div>
+
+                    <div v-if="viewingPrescription.max_refills">
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Refills</label>
+                      <p class="text-gray-900 dark:text-white">
+                        {{ getRefillStatus(viewingPrescription.refill_count || 0, viewingPrescription.max_refills).text }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div v-if="viewingPrescription.instructions" class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Instructions</label>
+                    <p class="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                      {{ viewingPrescription.instructions }}
+                    </p>
+                  </div>
+
+                  <div v-if="viewingPrescription.medicine?.common_uses" class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Common Uses</label>
+                    <p class="text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                      {{ viewingPrescription.medicine.common_uses }}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <!-- Medicine Information -->
+              <Card v-if="viewingPrescription.medicine" class="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle class="flex items-center">
+                    <FileText class="w-5 h-5 mr-2 text-green-600" />
+                    Medicine Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+                      <p class="text-gray-900 dark:text-white">{{ viewingPrescription.medicine.category }}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Dosage Form</label>
+                      <p class="text-gray-900 dark:text-white">{{ viewingPrescription.medicine.dosage_form || 'N/A' }}</p>
+                    </div>
+                    <div class="md:col-span-2">
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Prescription Required</label>
+                      <Badge :variant="viewingPrescription.medicine.prescription_required ? 'destructive' : 'secondary'" class="mt-1">
+                        {{ viewingPrescription.medicine.prescription_required ? 'Yes' : 'No' }}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="space-y-6">
+              <!-- Patient Info -->
+              <Card class="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle class="flex items-center">
+                    <User class="w-5 h-5 mr-2 text-purple-600" />
+                    Patient Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                  <div>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                    <p class="text-gray-900 dark:text-white font-medium">{{ viewingPrescription.patient.name }}</p>
+                  </div>
+                  <div>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                    <p class="text-gray-900 dark:text-white">{{ viewingPrescription.patient.email }}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <!-- Dentist Info -->
+              <Card class="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle class="flex items-center">
+                    <User class="w-5 h-5 mr-2 text-indigo-600" />
+                    Prescribed By
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Dentist</label>
+                    <p class="text-gray-900 dark:text-white font-medium">{{ viewingPrescription.dentist.name }}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <!-- Dates -->
+              <Card class="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle class="flex items-center">
+                    <Calendar class="w-5 h-5 mr-2 text-gray-600" />
+                    Important Dates
+                  </CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-3">
+                  <div>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Issue Date</label>
+                    <p class="text-gray-900 dark:text-white">{{ formatDate(viewingPrescription.issue_date) }}</p>
+                  </div>
+                  <div v-if="viewingPrescription.expiry_date">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Expiry Date</label>
+                    <p :class="['font-medium', isExpiringSoon(viewingPrescription.expiry_date) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white']">
+                      {{ formatDate(viewingPrescription.expiry_date) }}
+                      <AlertTriangle v-if="isExpiringSoon(viewingPrescription.expiry_date)" class="w-4 h-4 inline ml-1" />
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" @click="isViewOpen = false">
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <!-- Edit Prescription Modal -->
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
       <DialogContent class="max-w-md">
@@ -631,7 +955,7 @@ const getRefillStatus = (current: number, max: number) => {
         <form @submit.prevent="submitEdit" class="space-y-6">
           <div class="space-y-2">
             <Label for="edit-patient" class="text-gray-700 dark:text-gray-300">Patient</Label>
-            <Select v-model="editForm.patient_id">
+            <Select id="edit-patient" v-model="editForm.patient_id">
               <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                 <SelectValue placeholder="Select a patient" />
               </SelectTrigger>
@@ -644,14 +968,18 @@ const getRefillStatus = (current: number, max: number) => {
           </div>
 
           <div class="space-y-2">
-            <Label for="edit-medication" class="text-gray-700 dark:text-gray-300">Medication</Label>
-            <Input
-              id="edit-medication"
-              v-model="editForm.medication"
-              placeholder="e.g., Amoxicillin, Ibuprofen"
-              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
-            />
+            <Label for="edit-medicine" class="text-gray-700 dark:text-gray-300">Medication</Label>
+            <Select id="edit-medicine" v-model="editForm.medicine_id">
+              <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <SelectValue placeholder="Select a medication" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="medicine in props.medicines" :key="medicine.medicine_id" :value="medicine.medicine_id">
+                  {{ medicine.medicine_name }} ({{ medicine.category }})
+                  <span v-if="medicine.dosage_form" class="text-gray-500 text-sm"> - {{ medicine.dosage_form }}</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -668,7 +996,7 @@ const getRefillStatus = (current: number, max: number) => {
 
             <div class="space-y-2">
               <Label for="edit-frequency" class="text-gray-700 dark:text-gray-300">Frequency</Label>
-              <Select v-model="editForm.frequency">
+              <Select id="edit-frequency" v-model="editForm.frequency">
                 <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                   <SelectValue placeholder="How often" />
                 </SelectTrigger>
@@ -700,7 +1028,7 @@ const getRefillStatus = (current: number, max: number) => {
 
             <div class="space-y-2">
               <Label for="edit-status" class="text-gray-700 dark:text-gray-300">Status</Label>
-              <Select v-model="editForm.status">
+              <Select id="edit-status" v-model="editForm.status">
                 <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                   <SelectValue placeholder="Prescription status" />
                 </SelectTrigger>

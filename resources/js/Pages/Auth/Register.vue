@@ -24,12 +24,6 @@ const form = useForm({
   terms: false,
 });
 
-const submit = () => {
-  form.post(route('register'), {
-    onFinish: () => form.reset('password', 'password_confirmation'),
-  });
-};
-
 const toggleTheme = () => {
   isDark.value = !isDark.value;
   document.documentElement.classList.toggle('dark');
@@ -41,6 +35,12 @@ onMounted(() => {
     document.documentElement.classList.add('dark');
   }
 });
+
+const submit = () => {
+  form.post(route('register'), {
+    onFinish: () => form.reset('password', 'password_confirmation'),
+  });
+};
 </script>
 
 <template>

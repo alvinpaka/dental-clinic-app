@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
 import { ref, computed } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
@@ -8,6 +9,7 @@ import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Plus, Search, MoreVertical, Package, AlertTriangle, CheckCircle, ShoppingCart, TrendingUp, TrendingDown, Receipt  } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -49,6 +51,7 @@ const props = defineProps<Props>();
 const searchQuery = ref('');
 const categoryFilter = ref('');
 const statusFilter = ref('');
+const activeTab = ref('grid');
 
 // Filtered items
 const filteredItems = computed(() => {
@@ -205,8 +208,8 @@ const confirmDelete = () => {
 
 // Helper functions
 const getStockStatus = (item: InventoryItem) => {
-  if (item.quantity === 0) return { status: 'out_of_stock', label: 'Out of Stock', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
-  if (item.quantity <= item.low_stock_threshold) return { status: 'low_stock', label: 'Low Stock', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' };
+  if ((item.quantity ?? 0) === 0) return { status: 'out_of_stock', label: 'Out of Stock', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
+  if ((item.quantity ?? 0) <= item.low_stock_threshold) return { status: 'low_stock', label: 'Low Stock', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' };
   return { status: 'in_stock', label: 'In Stock', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' };
 };
 
@@ -326,173 +329,303 @@ const getTotalValue = (item: InventoryItem) => {
           </Card>
         </div>
 
-        <!-- Search and Filters -->
+        <!-- Main Content -->
         <Card class="border-0 shadow-xl bg-white dark:bg-gray-900 mb-8">
-          <CardContent class="p-6">
-            <div class="flex flex-col md:flex-row gap-4 items-center">
-              <div class="relative flex-1">
-                <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  v-model="searchQuery"
-                  placeholder="Search inventory by name, description, or category..."
-                  class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                />
-              </div>
-
-              <div class="flex items-center gap-2">
-                <Select v-model="categoryFilter">
-                  <SelectTrigger class="w-40 h-12">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent v-if="props.categories && props.categories.length > 0">
-                    <SelectItem v-for="category in props.categories" :key="category.id" :value="category.name">
-                      <div class="flex flex-col">
-                        <span class="font-medium">{{ category.name }}</span>
-                        <span class="text-xs text-gray-500">{{ category.description }}</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select v-model="statusFilter">
-                  <SelectTrigger class="w-36 h-12">
-                    <SelectValue placeholder="All Items" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="in_stock">In Stock</SelectItem>
-                    <SelectItem value="low_stock">Low Stock</SelectItem>
-                    <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <CardHeader class="pb-4">
+            <div>
+              <CardTitle class="text-2xl text-gray-900 dark:text-white">Inventory Management</CardTitle>
+              <CardDescription class="text-gray-600 dark:text-gray-400">
+                View and manage your dental supplies and equipment
+              </CardDescription>
             </div>
+          </CardHeader>
+
+          <CardContent>
+            <Tabs v-model="activeTab" class="w-full">
+              <TabsList class="grid w-full grid-cols-2">
+                <TabsTrigger value="grid">Grid View</TabsTrigger>
+                <TabsTrigger value="list">List View</TabsTrigger>
+              </TabsList>
+
+              <!-- Grid View -->
+              <TabsContent value="grid" class="mt-0">
+                <div class="space-y-6">
+                  <!-- Search and Filters -->
+                  <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="relative flex-1">
+                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        v-model="searchQuery"
+                        placeholder="Search inventory by name, description, or category..."
+                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      />
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <Select v-model="categoryFilter">
+                        <SelectTrigger class="w-40 h-12">
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent v-if="props.categories && props.categories.length > 0">
+                          <SelectItem v-for="category in props.categories" :key="category.id" :value="category.name">
+                            <div class="flex flex-col">
+                              <span class="font-medium">{{ category.name }}</span>
+                              <span class="text-xs text-gray-500">{{ category.description }}</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Select v-model="statusFilter">
+                        <SelectTrigger class="w-36 h-12">
+                          <SelectValue placeholder="All Items" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in_stock">In Stock</SelectItem>
+                          <SelectItem value="low_stock">Low Stock</SelectItem>
+                          <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <!-- Inventory Grid -->
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <Card
+                      v-for="(item, index) in filteredItems"
+                      :key="item.id"
+                      :class="[
+                        'border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group',
+                        getStockStatus(item).status === 'out_of_stock' ? 'ring-2 ring-red-200 dark:ring-red-800' : '',
+                        getStockStatus(item).status === 'low_stock' ? 'ring-2 ring-amber-200 dark:ring-amber-800' : ''
+                      ]"
+                    >
+                      <CardHeader class="pb-4">
+                        <div class="flex items-start justify-between">
+                          <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <Package class="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors line-clamp-2">
+                                {{ item.name }}
+                              </CardTitle>
+                              <CardDescription class="text-gray-600 dark:text-gray-400">
+                                ID: {{ item.id }}
+                              </CardDescription>
+                            </div>
+                          </div>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreVertical class="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem @click="openView(item)">
+                                <i class="fas fa-eye mr-2"></i>
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem @click="openEdit(item)">
+                                <i class="fas fa-edit mr-2"></i>
+                                Edit Item
+                              </DropdownMenuItem>
+                              <DropdownMenuItem @click="openDelete(item)" class="text-red-600">
+                                <i class="fas fa-trash mr-2"></i>
+                                Delete Item
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent class="space-y-4">
+                        <div v-if="item.description" class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                          {{ item.description }}
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                          <div class="flex items-center space-x-2">
+                            <i class="fas fa-hashtag text-gray-400 w-4"></i>
+                            <span class="text-gray-600 dark:text-gray-400">{{ item.quantity }} in stock</span>
+                          </div>
+                          <div class="flex items-center space-x-2">
+                            <Receipt class="w-4 h-4 text-gray-400" />
+                            <span class="text-gray-600 dark:text-gray-400">{{ formatCurrency(item.unit_price) }}</span>
+                          </div>
+                          <div class="flex items-center space-x-2">
+                            <i class="fas fa-chart-line text-gray-400 w-4"></i>
+                            <span class="text-gray-600 dark:text-gray-400">Total: {{ formatCurrency(getTotalValue(item)) }}</span>
+                          </div>
+                          <div v-if="item.expiry_date" class="flex items-center space-x-2">
+                            <i :class="['fas w-4', isExpiringSoon(item.expiry_date) ? 'fa-exclamation-triangle text-amber-500' : 'fa-calendar text-gray-400']"></i>
+                            <span :class="['text-sm', isExpiringSoon(item.expiry_date) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-600 dark:text-gray-400']">
+                              Expires {{ new Date(item.expiry_date).toLocaleDateString() }}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                          <Badge :class="getStockStatus(item).color" variant="secondary">
+                            <i :class="['fas mr-1', getStockStatus(item).status === 'out_of_stock' ? 'fa-times-circle' : getStockStatus(item).status === 'low_stock' ? 'fa-exclamation-triangle' : 'fa-check-circle']"></i>
+                            {{ getStockStatus(item).label }}
+                          </Badge>
+
+                          <span class="text-xs text-gray-500 dark:text-gray-400">
+                            Low: {{ item.low_stock_threshold }}
+                          </span>
+                        </div>
+
+                        <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
+                          <Button variant="outline" size="sm" @click="openView(item)">
+                            View Details
+                          </Button>
+                          <Button size="sm" @click="openEdit(item)">
+                            <i class="fas fa-edit mr-2"></i>
+                            Edit
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <!-- Empty State -->
+                    <div v-if="filteredItems.length === 0" class="col-span-full">
+                      <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
+                        <CardContent class="p-12 text-center">
+                          <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
+                            <Package class="w-12 h-12 text-gray-400" />
+                          </div>
+                          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                            {{ searchQuery || categoryFilter || statusFilter ? 'No items found' : 'No inventory items yet' }}
+                          </h3>
+                          <p class="text-gray-600 dark:text-gray-400 mb-6">
+                            {{ searchQuery || categoryFilter || statusFilter ? 'Try adjusting your search criteria' : 'Get started by adding your first inventory item' }}
+                          </p>
+                          <Button v-if="!searchQuery && !categoryFilter && !statusFilter" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                            <Plus class="w-4 h-4 mr-2" />
+                            Add First Item
+                          </Button>
+                          <Button v-else @click="searchQuery = ''; categoryFilter = ''; statusFilter = ''" variant="outline">
+                            Clear Filters
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <!-- List View -->
+              <TabsContent value="list" class="mt-0">
+                <div class="space-y-4">
+                  <!-- Search and Filters -->
+                  <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="relative flex-1">
+                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        v-model="searchQuery"
+                        placeholder="Search inventory..."
+                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      />
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <Select v-model="categoryFilter">
+                        <SelectTrigger class="w-40 h-12">
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent v-if="props.categories && props.categories.length > 0">
+                          <SelectItem v-for="category in props.categories" :key="category.id" :value="category.name">
+                            <div class="flex flex-col">
+                              <span class="font-medium">{{ category.name }}</span>
+                              <span class="text-xs text-gray-500">{{ category.description }}</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Select v-model="statusFilter">
+                        <SelectTrigger class="w-36 h-12">
+                          <SelectValue placeholder="All Items" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in_stock">In Stock</SelectItem>
+                          <SelectItem value="low_stock">Low Stock</SelectItem>
+                          <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <!-- Inventory List -->
+                  <div class="space-y-3 max-h-96 overflow-y-auto">
+                    <Card
+                      v-for="(item, index) in filteredItems"
+                      :key="item.id"
+                      class="border hover:shadow-md transition-shadow cursor-pointer group"
+                      @click="openView(item)"
+                    >
+                      <CardContent class="p-4">
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <Package class="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                                {{ item.name }}
+                              </h4>
+                              <p class="text-sm text-gray-600 dark:text-gray-400">
+                                {{ item.quantity }} in stock • {{ formatCurrency(item.unit_price) }} each • {{ formatCurrency(getTotalValue(item)) }} total
+                                <span v-if="item.category"> • {{ item.category }}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div class="flex items-center space-x-2">
+                            <Badge :class="getStockStatus(item).color" variant="secondary">
+                              <i :class="['fas mr-1', getStockStatus(item).status === 'out_of_stock' ? 'fa-times-circle' : getStockStatus(item).status === 'low_stock' ? 'fa-exclamation-triangle' : 'fa-check-circle']"></i>
+                              {{ getStockStatus(item).label }}
+                            </Badge>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger as-child @click.stop>
+                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
+                                  <MoreVertical class="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem @click.stop="openView(item)">
+                                  <i class="fas fa-eye mr-2"></i>
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="openEdit(item)">
+                                  <i class="fas fa-edit mr-2"></i>
+                                  Edit Item
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="openDelete(item)" class="text-red-600">
+                                  <i class="fas fa-trash mr-2"></i>
+                                  Delete Item
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div v-if="filteredItems.length === 0" class="text-center py-8">
+                      <Package class="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No items found</h3>
+                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or add a new inventory item.</p>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-
-        <!-- Inventory Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card
-            v-for="(item, index) in filteredItems"
-            :key="item.id"
-            :class="[
-              'border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group',
-              getStockStatus(item).status === 'out_of_stock' ? 'ring-2 ring-red-200 dark:ring-red-800' : '',
-              getStockStatus(item).status === 'low_stock' ? 'ring-2 ring-amber-200 dark:ring-amber-800' : ''
-            ]"
-          >
-            <CardHeader class="pb-4">
-              <div class="flex items-start justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                    <Package class="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors line-clamp-2">
-                      {{ item.name }}
-                    </CardTitle>
-                    <CardDescription class="text-gray-600 dark:text-gray-400">
-                      ID: {{ item.id }}
-                    </CardDescription>
-                  </div>
-                </div>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger as-child>
-                    <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical class="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem @click="openView(item)">
-                      <i class="fas fa-eye mr-2"></i>
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="openEdit(item)">
-                      <i class="fas fa-edit mr-2"></i>
-                      Edit Item
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="openDelete(item)" class="text-red-600">
-                      <i class="fas fa-trash mr-2"></i>
-                      Delete Item
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardHeader>
-
-            <CardContent class="space-y-4">
-              <div v-if="item.description" class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                {{ item.description }}
-              </div>
-
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div class="flex items-center space-x-2">
-                  <i class="fas fa-hashtag text-gray-400 w-4"></i>
-                  <span class="text-gray-600 dark:text-gray-400">{{ item.quantity }} in stock</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <Receipt class="w-4 h-4 text-gray-400" />
-                  <span class="text-gray-600 dark:text-gray-400">{{ formatCurrency(item.unit_price) }}</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <i class="fas fa-chart-line text-gray-400 w-4"></i>
-                  <span class="text-gray-600 dark:text-gray-400">Total: {{ formatCurrency(getTotalValue(item)) }}</span>
-                </div>
-                <div v-if="item.expiry_date" class="flex items-center space-x-2">
-                  <i :class="['fas w-4', isExpiringSoon(item.expiry_date) ? 'fa-exclamation-triangle text-amber-500' : 'fa-calendar text-gray-400']"></i>
-                  <span :class="['text-sm', isExpiringSoon(item.expiry_date) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-600 dark:text-gray-400']">
-                    Expires {{ new Date(item.expiry_date).toLocaleDateString() }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="flex items-center justify-between">
-                <Badge :class="getStockStatus(item).color" variant="secondary">
-                  <i :class="['fas mr-1', getStockStatus(item).status === 'out_of_stock' ? 'fa-times-circle' : getStockStatus(item).status === 'low_stock' ? 'fa-exclamation-triangle' : 'fa-check-circle']"></i>
-                  {{ getStockStatus(item).label }}
-                </Badge>
-
-                <span class="text-xs text-gray-500 dark:text-gray-400">
-                  Low: {{ item.low_stock_threshold }}
-                </span>
-              </div>
-
-              <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                <Button variant="outline" size="sm" @click="openView(item)">
-                  View Details
-                </Button>
-                <Button size="sm" @click="openEdit(item)">
-                  <i class="fas fa-edit mr-2"></i>
-                  Edit
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <!-- Empty State -->
-          <div v-if="filteredItems.length === 0" class="col-span-full">
-            <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
-              <CardContent class="p-12 text-center">
-                <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
-                  <Package class="w-12 h-12 text-gray-400" />
-                </div>
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                  {{ searchQuery || categoryFilter || statusFilter ? 'No items found' : 'No inventory items yet' }}
-                </h3>
-                <p class="text-gray-600 dark:text-gray-400 mb-6">
-                  {{ searchQuery || categoryFilter || statusFilter ? 'Try adjusting your search criteria' : 'Get started by adding your first inventory item' }}
-                </p>
-                <Button v-if="!searchQuery && !categoryFilter && !statusFilter" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-                  <Plus class="w-4 h-4 mr-2" />
-                  Add First Item
-                </Button>
-                <Button v-else @click="searchQuery = ''; categoryFilter = ''; statusFilter = ''" variant="outline">
-                  Clear Filters
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
       </div>
     </div>
 

@@ -12,6 +12,10 @@ class DashboardController extends Controller
     public function index()
     {
         return Inertia::render('Dashboard', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
+            'patients' => Patient::select('id', 'name', 'email')->orderBy('name')->get(),
             'stats' => [
                 'total_patients' => Patient::count(),
                 'upcoming_appointments' => Appointment::where('start_time', '>', now())->count(),
