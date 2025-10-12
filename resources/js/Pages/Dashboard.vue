@@ -25,7 +25,18 @@ interface Stats {
   low_stock_items: number;
 }
 
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+interface Auth {
+  user: User;
+}
+
 const props = defineProps<{
+  auth: Auth;
   stats: Stats;
 }>();
 
@@ -137,31 +148,31 @@ const statCards = [
 
 const quickActions = [
   {
-    title: 'New Patient',
-    description: 'Add a new patient record',
-    icon: 'fas fa-user-plus',
-    href: route('patients.create'),
+    title: 'View Patients',
+    description: 'Manage patient records',
+    icon: 'fas fa-users',
+    href: route('patients.index'),
     color: 'from-blue-500 to-cyan-500',
   },
   {
-    title: 'Schedule Appointment',
-    description: 'Book a new appointment',
-    icon: 'fas fa-calendar-plus',
-    href: route('appointments.create'),
+    title: 'View Appointments',
+    description: 'Manage appointments',
+    icon: 'fas fa-calendar-check',
+    href: route('appointments.index'),
     color: 'from-green-500 to-emerald-500',
   },
   {
-    title: 'Create Invoice',
-    description: 'Generate patient invoice',
+    title: 'View Invoices',
+    description: 'Manage invoices',
     icon: 'fa-solid fa-money-bill-1',
-    href: route('invoices.create'),
+    href: route('invoices.index'),
     color: 'from-purple-500 to-indigo-500',
   },
   {
-    title: 'Add Treatment',
-    description: 'Record treatment details',
+    title: 'View Treatments',
+    description: 'Manage treatments',
     icon: 'fas fa-tooth',
-    href: route('treatments.create'),
+    href: route('treatments.index'),
     color: 'from-orange-500 to-red-500',
   },
 ];
@@ -176,7 +187,7 @@ const quickActions = [
           <div class="flex items-center justify-between">
             <div>
               <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
-                {{ greeting }}, Dr. Smith!
+                {{ greeting }}, {{ auth.user.name }}!
               </h1>
               <p class="text-gray-600 dark:text-gray-400 text-lg">
                 Welcome back to your dental practice dashboard. Here's what's happening today.

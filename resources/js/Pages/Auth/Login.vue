@@ -7,19 +7,24 @@ import { Label } from '@/Components/ui/label';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Alert, AlertDescription } from '@/Components/ui/alert';
 import { ref, onMounted } from 'vue';
+import { useThemeStore } from '@/Stores/theme';
 
 defineProps<{
   canResetPassword?: boolean;
   status?: string;
 }>();
 
-const isDark = ref(false);
+const themeStore = useThemeStore();
 const showPassword = ref(false);
 
 const form = useForm({
   email: '',
   password: '',
   remember: false,
+});
+
+onMounted(() => {
+  themeStore.initTheme();
 });
 
 const submit = () => {
@@ -29,22 +34,10 @@ const submit = () => {
     },
   });
 };
-
-const toggleTheme = () => {
-  isDark.value = !isDark.value;
-  document.documentElement.classList.toggle('dark');
-};
-
-onMounted(() => {
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    isDark.value = true;
-    document.documentElement.classList.add('dark');
-  }
-});
 </script>
 
 <template>
-  <div :class="['min-h-screen transition-colors duration-300 flex', isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50']">
+  <div :class="['min-h-screen transition-colors duration-300 flex', themeStore.isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50']">
     <!-- Left Side - Branding & Info -->
     <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-600 p-12 flex-col justify-between relative overflow-hidden">
       <!-- Background Pattern -->
@@ -140,10 +133,9 @@ onMounted(() => {
           </Link>
         </div>
 
-        <!-- Theme Toggle -->
         <div class="flex justify-end mb-4">
-          <Button variant="ghost" size="icon" @click="toggleTheme" class="rounded-full">
-            <i :class="['fas', isDark ? 'fa-sun text-yellow-300' : 'fa-moon']"></i>
+          <Button variant="ghost" size="icon" @click="themeStore.toggleDarkMode" class="rounded-full">
+            <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon']"></i>
           </Button>
         </div>
 

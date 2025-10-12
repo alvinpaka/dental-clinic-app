@@ -8,6 +8,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Carbon\Carbon;
 
 class InvoiceController extends Controller
 {
@@ -75,4 +76,13 @@ class InvoiceController extends Controller
         return redirect()->route('invoices.index')->with('success', 'Invoice deleted.');
     }
 
+    public function markPaid(Invoice $invoice)
+    {
+        $invoice->update([
+            'status' => 'paid',
+            'paid_at' => Carbon::now(),
+        ]);
+
+        return redirect()->route('invoices.index')->with('success', 'Invoice marked as paid.');
+    }
 }

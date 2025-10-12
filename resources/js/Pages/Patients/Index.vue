@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
 import { ref, computed } from 'vue';
-import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Plus, Search, MoreVertical, Users, UserPlus, Calendar, Phone } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -38,6 +40,7 @@ const props = defineProps<Props>();
 const searchQuery = ref('');
 const sortBy = ref('name');
 const sortOrder = ref('asc');
+const activeTab = ref('grid');
 
 // Define forms with useForm
 const createForm = useForm({
@@ -242,152 +245,273 @@ const calculateAge = (dob: string) => {
           </Card>
         </div>
 
-        <!-- Search and Filters -->
+        <!-- Main Content -->
         <Card class="border-0 shadow-xl bg-white dark:bg-gray-900 mb-8">
-          <CardContent class="p-6">
-            <div class="flex flex-col md:flex-row gap-4 items-center">
-              <div class="relative flex-1">
-                <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  v-model="searchQuery"
-                  placeholder="Search patients by name, email, or phone..."
-                  class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                />
-              </div>
-
-              <div class="flex items-center gap-2">
-                <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
-                <Select v-model="sortBy">
-                  <SelectTrigger class="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name">Name</SelectItem>
-                    <SelectItem value="email">Email</SelectItem>
-                    <SelectItem value="phone">Phone</SelectItem>
-                    <SelectItem value="dob">Age</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Button
-                  @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
-                  variant="outline"
-                  size="sm"
-                  class="px-3"
-                >
-                  <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
-                </Button>
-              </div>
+          <CardHeader class="pb-4">
+            <div>
+              <CardTitle class="text-2xl text-gray-900 dark:text-white">Patient Management</CardTitle>
+              <CardDescription class="text-gray-600 dark:text-gray-400">
+                View and manage all patient records
+              </CardDescription>
             </div>
+          </CardHeader>
+
+          <CardContent>
+            <Tabs v-model="activeTab" class="w-full">
+              <TabsList class="grid w-full grid-cols-2">
+                <TabsTrigger value="grid">Grid View</TabsTrigger>
+                <TabsTrigger value="list">List View</TabsTrigger>
+              </TabsList>
+
+              <!-- Grid View -->
+              <TabsContent value="grid" class="mt-0">
+                <div class="space-y-6">
+                  <!-- Search and Filters -->
+                  <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="relative flex-1">
+                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        v-model="searchQuery"
+                        placeholder="Search patients by name, email, or phone..."
+                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      />
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
+                      <Select v-model="sortBy">
+                        <SelectTrigger class="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="name">Name</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="phone">Phone</SelectItem>
+                          <SelectItem value="dob">Age</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
+                        variant="outline"
+                        size="sm"
+                        class="px-3"
+                      >
+                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <!-- Patients Grid -->
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <Card
+                      v-for="(patient, index) in filteredPatients"
+                      :key="patient.id"
+                      class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group"
+                    >
+                      <CardHeader class="pb-4">
+                        <div class="flex items-start justify-between">
+                          <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <span class="text-white font-bold text-lg">{{ patient.name.charAt(0).toUpperCase() }}</span>
+                            </div>
+                            <div>
+                              <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
+                                {{ patient.name }}
+                              </CardTitle>
+                              <CardDescription class="text-gray-600 dark:text-gray-400">
+                                ID: {{ patient.id }}
+                              </CardDescription>
+                            </div>
+                          </div>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreVertical class="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem @click="openView(patient)">
+                                <i class="fas fa-eye mr-2"></i>
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem @click="openEdit(patient)">
+                                <i class="fas fa-edit mr-2"></i>
+                                Edit Patient
+                              </DropdownMenuItem>
+                              <DropdownMenuItem @click="openDelete(patient)" class="text-red-600">
+                                <i class="fas fa-trash mr-2"></i>
+                                Delete Patient
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                          <div class="flex items-center space-x-2">
+                            <i class="fas fa-envelope text-gray-400 w-4"></i>
+                            <span class="text-gray-600 dark:text-gray-400 truncate">{{ patient.email }}</span>
+                          </div>
+                          <div class="flex items-center space-x-2">
+                            <Phone class="w-4 h-4 text-gray-400" />
+                            <span class="text-gray-600 dark:text-gray-400">{{ patient.phone }}</span>
+                          </div>
+                          <div class="flex items-center space-x-2">
+                            <i class="fas fa-birthday-cake text-gray-400 w-4"></i>
+                            <span class="text-gray-600 dark:text-gray-400">{{ patient.dob_formatted }}</span>
+                          </div>
+                          <div class="flex items-center space-x-2">
+                            <i class="fas fa-user text-gray-400 w-4"></i>
+                            <span class="text-gray-600 dark:text-gray-400">{{ calculateAge(patient.dob) }} years old</span>
+                          </div>
+                        </div>
+
+                        <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
+                          <Button variant="outline" size="sm" @click="openView(patient)">
+                            <i class="fas fa-eye mr-2"></i>
+                            View Profile
+                          </Button>
+                          <Button size="sm" as-child>
+                            <Link :href="route('appointments.index', { patient_id: patient.id })">
+                              <Calendar class="w-4 h-4 mr-2" />
+                              Book Appointment
+                            </Link>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <!-- Empty State -->
+                    <div v-if="filteredPatients.length === 0" class="col-span-full">
+                      <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
+                        <CardContent class="p-12 text-center">
+                          <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
+                            <Users class="w-12 h-12 text-gray-400" />
+                          </div>
+                          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                            {{ searchQuery ? 'No patients found' : 'No patients yet' }}
+                          </h3>
+                          <p class="text-gray-600 dark:text-gray-400 mb-6">
+                            {{ searchQuery ? 'Try adjusting your search criteria' : 'Get started by adding your first patient' }}
+                          </p>
+                          <Button v-if="!searchQuery" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                            <Plus class="w-4 h-4 mr-2" />
+                            Add First Patient
+                          </Button>
+                          <Button v-else @click="searchQuery = ''" variant="outline">
+                            Clear Search
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <!-- List View -->
+              <TabsContent value="list" class="mt-0">
+                <div class="space-y-4">
+                  <!-- Search and Filters -->
+                  <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="relative flex-1">
+                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        v-model="searchQuery"
+                        placeholder="Search patients..."
+                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      />
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
+                      <Select v-model="sortBy">
+                        <SelectTrigger class="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="name">Name</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="phone">Phone</SelectItem>
+                          <SelectItem value="dob">Age</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
+                        variant="outline"
+                        size="sm"
+                        class="px-3"
+                      >
+                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <!-- Patients List -->
+                  <div class="space-y-3 max-h-96 overflow-y-auto">
+                    <Card
+                      v-for="(patient, index) in filteredPatients"
+                      :key="patient.id"
+                      class="border hover:shadow-md transition-shadow cursor-pointer group"
+                      @click="openView(patient)"
+                    >
+                      <CardContent class="p-4">
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <span class="text-white font-bold text-sm">{{ patient.name.charAt(0).toUpperCase() }}</span>
+                            </div>
+                            <div>
+                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                                {{ patient.name }}
+                              </h4>
+                              <p class="text-sm text-gray-600 dark:text-gray-400">
+                                {{ patient.email }} • {{ patient.phone }} • {{ calculateAge(patient.dob) }} years old
+                              </p>
+                            </div>
+                          </div>
+
+                          <div class="flex items-center space-x-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger as-child @click.stop>
+                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
+                                  <MoreVertical class="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem @click.stop="openView(patient)">
+                                  <i class="fas fa-eye mr-2"></i>
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="openEdit(patient)">
+                                  <i class="fas fa-edit mr-2"></i>
+                                  Edit Patient
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="openDelete(patient)" class="text-red-600">
+                                  <i class="fas fa-trash mr-2"></i>
+                                  Delete Patient
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div v-if="filteredPatients.length === 0" class="text-center py-8">
+                      <Users class="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No patients found</h3>
+                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or add a new patient.</p>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-
-        <!-- Patients Grid/List -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card
-            v-for="(patient, index) in filteredPatients"
-            :key="patient.id"
-            class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group"
-          >
-            <CardHeader class="pb-4">
-              <div class="flex items-start justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                    <span class="text-white font-bold text-lg">{{ patient.name.charAt(0).toUpperCase() }}</span>
-                  </div>
-                  <div>
-                    <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
-                      {{ patient.name }}
-                    </CardTitle>
-                    <CardDescription class="text-gray-600 dark:text-gray-400">
-                      ID: {{ patient.id }}
-                    </CardDescription>
-                  </div>
-                </div>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger as-child>
-                    <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical class="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem @click="openView(patient)">
-                      <i class="fas fa-eye mr-2"></i>
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="openEdit(patient)">
-                      <i class="fas fa-edit mr-2"></i>
-                      Edit Patient
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="openDelete(patient)" class="text-red-600">
-                      <i class="fas fa-trash mr-2"></i>
-                      Delete Patient
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardHeader>
-
-            <CardContent class="space-y-4">
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div class="flex items-center space-x-2">
-                  <i class="fas fa-envelope text-gray-400 w-4"></i>
-                  <span class="text-gray-600 dark:text-gray-400 truncate">{{ patient.email }}</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <Phone class="w-4 h-4 text-gray-400" />
-                  <span class="text-gray-600 dark:text-gray-400">{{ patient.phone }}</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <i class="fas fa-birthday-cake text-gray-400 w-4"></i>
-                  <span class="text-gray-600 dark:text-gray-400">{{ patient.dob_formatted }}</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <i class="fas fa-user text-gray-400 w-4"></i>
-                  <span class="text-gray-600 dark:text-gray-400">{{ calculateAge(patient.dob) }} years old</span>
-                </div>
-              </div>
-
-              <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                <Button variant="outline" size="sm" @click="openView(patient)">
-                  <i class="fas fa-eye mr-2"></i>
-                  View Profile
-                </Button>
-                <Button size="sm" as-child>
-                  <Link :href="route('appointments.index', { patient_id: patient.id })">
-                    <Calendar class="w-4 h-4 mr-2" />
-                    Book Appointment
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <!-- Empty State -->
-          <div v-if="filteredPatients.length === 0" class="col-span-full">
-            <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
-              <CardContent class="p-12 text-center">
-                <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
-                  <Users class="w-12 h-12 text-gray-400" />
-                </div>
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                  {{ searchQuery ? 'No patients found' : 'No patients yet' }}
-                </h3>
-                <p class="text-gray-600 dark:text-gray-400 mb-6">
-                  {{ searchQuery ? 'Try adjusting your search criteria' : 'Get started by adding your first patient' }}
-                </p>
-                <Button v-if="!searchQuery" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-                  <Plus class="w-4 h-4 mr-2" />
-                  Add First Patient
-                </Button>
-                <Button v-else @click="searchQuery = ''" variant="outline">
-                  Clear Search
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
       </div>
     </div>
 

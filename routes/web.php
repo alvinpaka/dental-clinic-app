@@ -27,7 +27,10 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::resource('treatments', TreatmentController::class);
     Route::resource('invoices', InvoiceController::class);
     Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
+    Route::put('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
+    // Staff Management Routes
     Route::resource('staff', StaffController::class);
+    Route::put('staff/{staff}/update-roles', [StaffController::class, 'updateRoles'])->name('staff.update-roles');
     Route::resource('inventory', InventoryController::class)->parameters(['inventory' => 'id'])->except(['create', 'edit', 'show']);
     Route::resource('prescriptions', PrescriptionController::class);
 

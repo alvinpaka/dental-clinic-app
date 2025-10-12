@@ -9,9 +9,28 @@ class Prescription extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['patient_id', 'dentist_id', 'medication', 'dosage', 'issue_date', 'instructions'];
+    protected $fillable = [
+        'patient_id', 
+        'dentist_id', 
+        'medicine_id',
+        'medication', 
+        'dosage', 
+        'frequency',
+        'duration',
+        'issue_date', 
+        'expiry_date',
+        'instructions',
+        'max_refills',
+        'status',
+        'refill_count'
+    ];
 
-    protected $casts = ['issue_date' => 'date'];
+    protected $casts = [
+        'issue_date' => 'date',
+        'expiry_date' => 'date',
+        'max_refills' => 'integer',
+        'refill_count' => 'integer'
+    ];
 
     public function patient()
     {
@@ -21,5 +40,10 @@ class Prescription extends Model
     public function dentist()
     {
         return $this->belongsTo(User::class, 'dentist_id');
+    }
+
+    public function medicine()
+    {
+        return $this->belongsTo(DentalMedicine::class, 'medicine_id', 'medicine_id');
     }
 }

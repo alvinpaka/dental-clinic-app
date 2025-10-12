@@ -13,7 +13,29 @@ class TreatmentController extends Controller
     {
         $treatments = Treatment::with(['patient:id,name,email', 'appointment'])->paginate(10);
         $patients = Patient::select('id', 'name', 'email')->get();
-        return Inertia::render('Treatments/Index', ['treatments' => $treatments, 'patients' => $patients]);
+        
+        $appointmentTypes = [
+            'Dental Cleaning',
+            'Tooth Extraction',
+            'Root Canal',
+            'Dental Filling',
+            'Dental Crown',
+            'Dental Bridge',
+            'Dental Implant',
+            'Teeth Whitening',
+            'Orthodontic Treatment',
+            'Periodontal Treatment',
+            'Dental X-Ray',
+            'Oral Surgery',
+            'Emergency Dental Care',
+            'Dental Consultation'
+        ];
+        
+        return Inertia::render('Treatments/Index', [
+            'treatments' => $treatments, 
+            'patients' => $patients,
+            'appointmentTypes' => $appointmentTypes
+        ]);
     }
 
     public function show(Treatment $treatment)

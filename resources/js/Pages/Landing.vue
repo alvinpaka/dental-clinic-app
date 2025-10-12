@@ -5,22 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Com
 import { Badge } from '@/Components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { ref, onMounted, computed } from 'vue';
+import { useThemeStore } from '@/Stores/theme';
 
-const isDark = ref(false);
+const themeStore = useThemeStore();
 const isScrolled = ref(false);
 const mobileMenuOpen = ref(false);
 const activeTab = ref('all');
 
-const toggleTheme = () => {
-  isDark.value = !isDark.value;
-  document.documentElement.classList.toggle('dark');
-};
-
 onMounted(() => {
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    isDark.value = true;
-    document.documentElement.classList.add('dark');
-  }
+  themeStore.initTheme();
 
   const handleScroll = () => {
     isScrolled.value = window.scrollY > 20;
@@ -125,7 +118,7 @@ const iconMap: Record<string, string> = {
 </script>
 
 <template>
-  <div :class="['min-h-screen transition-colors duration-300', isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50']">
+  <div :class="['min-h-screen transition-colors duration-300', themeStore.isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50']">
     <!-- Floating Header -->
     <header :class="['fixed top-0 left-0 right-0 z-50 transition-all duration-300', isScrolled ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg shadow-lg' : 'bg-transparent']">
       <div class="container mx-auto px-4 py-4">
@@ -147,8 +140,8 @@ const iconMap: Record<string, string> = {
           </nav>
 
           <div class="flex items-center space-x-3">
-            <Button variant="ghost" size="icon" @click="toggleTheme" class="rounded-full">
-              <i :class="['fas', isDark ? 'fa-sun text-yellow-300' : 'fa-moon']"></i>
+            <Button variant="ghost" size="icon" @click="themeStore.toggleDarkMode" class="rounded-full">
+              <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon']"></i>
             </Button>
             
             <Button variant="ghost" class="hidden md:inline-flex" as-child>
