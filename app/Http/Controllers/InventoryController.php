@@ -53,6 +53,9 @@ class InventoryController extends Controller
         $totalValue = InventoryItem::sum(DB::raw('quantity * unit_price'));
 
         return Inertia::render('Inventory/Index', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
             'items' => $items,
             'categories' => self::INVENTORY_CATEGORIES,
             'stats' => [

@@ -16,6 +16,9 @@ class StaffController extends Controller
         $roles = Role::all();
 
         return Inertia::render('Staff/Index', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
             'staff' => $staff,
             'roles' => $roles
         ]);

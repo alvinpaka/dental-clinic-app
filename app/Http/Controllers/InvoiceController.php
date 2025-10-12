@@ -21,7 +21,13 @@ class InvoiceController extends Controller
         })->with(['treatments' => function($query) {
             $query->select('id', 'patient_id', 'procedure', 'cost')->where('cost', '>', 0);
         }])->select('id', 'name', 'email')->get();
-        return Inertia::render('Invoices/Index', ['invoices' => $invoices, 'patients' => $patients]);
+        return Inertia::render('Invoices/Index', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
+            'invoices' => $invoices,
+            'patients' => $patients
+        ]);
     }
 
     public function store(Request $request)
@@ -59,7 +65,12 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice)
     {
         $invoice->load(['patient', 'treatment']);
-        return Inertia::render('Invoices/Show', ['invoice' => $invoice]);
+        return Inertia::render('Invoices/Show', [
+            'auth' => [
+                'user' => auth()->user(),
+            ],
+            'invoice' => $invoice
+        ]);
     }
 
     public function download(Invoice $invoice)
