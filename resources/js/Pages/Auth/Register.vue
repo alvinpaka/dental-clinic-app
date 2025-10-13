@@ -38,7 +38,11 @@ onMounted(() => {
 
 const submit = () => {
   form.post(route('register'), {
-    onFinish: () => form.reset('password', 'password_confirmation'),
+    onFinish: () => {
+      if (!form.hasErrors) {
+        form.reset('password', 'password_confirmation');
+      }
+    },
   });
 };
 </script>
@@ -166,6 +170,14 @@ const submit = () => {
               </AlertDescription>
             </Alert>
 
+            <!-- Validation Error Alert -->
+            <Alert v-if="form.hasErrors" class="mb-6 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+              <i class="fas fa-exclamation-triangle text-red-600 dark:text-red-400 mr-2"></i>
+              <AlertDescription class="text-red-800 dark:text-red-300">
+                <strong>Registration failed.</strong> Please check the errors below and try again.
+              </AlertDescription>
+            </Alert>
+
             <form @submit.prevent="submit" class="space-y-6">
               <!-- Name Field -->
               <div class="space-y-2">
@@ -279,24 +291,28 @@ const submit = () => {
               </div>
 
               <!-- Terms & Conditions -->
-              <div class="flex items-start space-x-2">
-                <Checkbox
-                  id="terms"
-                  v-model:checked="form.terms"
-                  class="border-gray-300 dark:border-gray-600 mt-1"
-                />
-                <Label
-                  for="terms"
-                  class="text-sm text-gray-600 dark:text-gray-400 cursor-pointer leading-relaxed"
-                >
-                  I agree to the <Link href="/terms" class="text-blue-600 hover:text-blue-700 dark:text-cyan-400 dark:hover:text-cyan-300 underline">Terms of Service</Link>
-                  and <Link href="/privacy" class="text-blue-600 hover:text-blue-700 dark:text-cyan-400 dark:hover:text-cyan-300 underline">Privacy Policy</Link>
-                </Label>
+              <div class="space-y-2">
+                <div class="flex items-start space-x-2">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    v-model="form.terms"
+                    class="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-800 dark:focus:ring-blue-600"
+                    :class="{ 'border-red-500 dark:border-red-500': form.errors.terms }"
+                  />
+                  <label
+                    for="terms"
+                    class="text-sm text-gray-600 dark:text-gray-400 cursor-pointer leading-relaxed"
+                  >
+                    I agree to the <Link href="/terms" class="text-blue-600 hover:text-blue-700 dark:text-cyan-400 dark:hover:text-cyan-300 underline">Terms of Service</Link>
+                    and <Link href="/privacy" class="text-blue-600 hover:text-blue-700 dark:text-cyan-400 dark:hover:text-cyan-300 underline">Privacy Policy</Link>
+                  </label>
+                </div>
+                <p v-if="form.errors.terms" class="text-sm text-red-600 dark:text-red-400 flex items-center">
+                  <i class="fas fa-exclamation-circle mr-1"></i>
+                  {{ form.errors.terms }}
+                </p>
               </div>
-              <p v-if="form.errors.terms" class="text-sm text-red-600 dark:text-red-400 flex items-center mt-1">
-                <i class="fas fa-exclamation-circle mr-1"></i>
-                {{ form.errors.terms }}
-              </p>
 
               <!-- Submit Button -->
               <Button
