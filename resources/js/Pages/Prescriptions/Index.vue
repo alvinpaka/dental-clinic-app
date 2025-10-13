@@ -488,7 +488,7 @@ const getRefillStatus = (current: number, max: number) => {
                               Edit
                             </Button>
                             <Button v-if="!prescription.invoice" size="sm" as-child>
-                              <Link :href="route('invoices.create', { prescription_id: prescription.id })">
+                              <Link :href="route('invoices.create')">
                                 <i class="fas fa-file-invoice mr-2"></i>
                                 Create Invoice
                               </Link>

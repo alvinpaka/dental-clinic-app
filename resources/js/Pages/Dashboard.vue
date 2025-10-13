@@ -1,28 +1,38 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Bar } from 'vue-chartjs';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
 interface Stats {
   total_patients: number;
   upcoming_appointments: number;
   monthly_revenue: number;
   low_stock_items: number;
+}
+
+interface TodaysAppointment {
+  id: number;
+  patient_name: string;
+  time: string;
+  status: string;
+  notes: string | null;
+}
+
+interface Activity {
+  type: string;
+  icon: string;
+  color: string;
+  message: string;
+  time: string;
+}
+
+interface PendingTasks {
+  unpaid_invoices: number;
+  pending_appointments: number;
+  low_stock_count: number;
 }
 
 interface User {
@@ -38,6 +48,9 @@ interface Auth {
 const props = defineProps<{
   auth: Auth;
   stats: Stats;
+  todaysAppointments: TodaysAppointment[];
+  recentActivity: Activity[];
+  pendingTasks: PendingTasks;
 }>();
 
 const currentTime = ref(new Date());
@@ -54,63 +67,25 @@ const greeting = computed(() => {
   return 'Good evening';
 });
 
-const chartData = ref({
-  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-  datasets: [
-    {
-      label: 'Revenue (UGX)',
-      data: [6500, 5900, 8000, 8100, 5600, 8500],
-      backgroundColor: [
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(16, 185, 129, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(239, 68, 68, 0.8)',
-        'rgba(139, 92, 246, 0.8)',
-        'rgba(236, 72, 153, 0.8)',
-      ],
-      borderColor: [
-        'rgb(59, 130, 246)',
-        'rgb(16, 185, 129)',
-        'rgb(245, 158, 11)',
-        'rgb(239, 68, 68)',
-        'rgb(139, 92, 246)',
-        'rgb(236, 72, 153)',
-      ],
-      borderWidth: 1,
-    },
-  ],
-});
+const getStatusColor = (status: string) => {
+  const colors: Record<string, string> = {
+    confirmed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    completed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  };
+  return colors[status] || 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400';
+};
 
-const chartOptions = ref({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'top' as const,
-      labels: {
-        usePointStyle: true,
-        padding: 20,
-      },
-    },
-    tooltip: {
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: 'white',
-      bodyColor: 'white',
-      borderColor: 'rgba(59, 130, 246, 0.5)',
-      borderWidth: 1,
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        callback: function(value: any) {
-          return 'UGX' + value.toLocaleString();
-        },
-      },
-    },
-  },
-});
+const getActivityIconColor = (color: string) => {
+  const colors: Record<string, string> = {
+    blue: 'text-blue-600 bg-blue-100 dark:bg-blue-900/30',
+    green: 'text-green-600 bg-green-100 dark:bg-green-900/30',
+    purple: 'text-purple-600 bg-purple-100 dark:bg-purple-900/30',
+    red: 'text-red-600 bg-red-100 dark:bg-red-900/30',
+  };
+  return colors[color] || 'text-gray-600 bg-gray-100 dark:bg-gray-900/30';
+};
 
 const statCards = [
   {
@@ -208,7 +183,7 @@ const quickActions = [
         </div>
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Card
             v-for="(stat, index) in statCards"
             :key="index"
@@ -231,26 +206,107 @@ const quickActions = [
 
         <!-- Main Content Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <!-- Revenue Chart -->
+          <!-- Today's Appointments -->
           <div class="lg:col-span-2">
             <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
               <CardHeader class="pb-4">
                 <div class="flex items-center justify-between">
                   <div>
-                    <CardTitle class="text-2xl text-gray-900 dark:text-white">Revenue Overview</CardTitle>
+                    <CardTitle class="text-2xl text-gray-900 dark:text-white">Today's Appointments</CardTitle>
                     <CardDescription class="text-gray-600 dark:text-gray-400">
-                      Monthly revenue performance for the last 6 months
+                      Scheduled appointments for today
                     </CardDescription>
                   </div>
-                  <Badge class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    <i class="fas fa-arrow-up mr-1"></i>
-                    +12% from last month
-                  </Badge>
+                  <Link :href="route('appointments.index')">
+                    <Button variant="outline" size="sm">
+                      View All
+                    </Button>
+                  </Link>
                 </div>
               </CardHeader>
               <CardContent>
-                <div class="h-80">
-                  <Bar :data="chartData" :options="chartOptions" />
+                <div v-if="todaysAppointments.length > 0" class="space-y-4">
+                  <div 
+                    v-for="appointment in todaysAppointments" 
+                    :key="appointment.id"
+                    class="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                  >
+                    <div class="flex items-center space-x-4">
+                      <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                        <i class="fas fa-user text-white"></i>
+                      </div>
+                      <div>
+                        <h4 class="font-semibold text-gray-900 dark:text-white">{{ appointment.patient_name }}</h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ appointment.time }}</p>
+                        <p v-if="appointment.notes" class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ appointment.notes }}</p>
+                      </div>
+                    </div>
+                    <Badge :class="getStatusColor(appointment.status)">
+                      {{ appointment.status }}
+                    </Badge>
+                  </div>
+                </div>
+                <div v-else class="text-center py-12">
+                  <i class="fas fa-calendar-times text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                  <p class="text-gray-500 dark:text-gray-400">No appointments scheduled for today</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <!-- Pending Tasks -->
+            <Card class="border-0 shadow-xl bg-white dark:bg-gray-900 mt-8">
+              <CardHeader>
+                <CardTitle class="text-2xl text-gray-900 dark:text-white">Pending Tasks</CardTitle>
+                <CardDescription class="text-gray-600 dark:text-gray-400">
+                  Items that require your attention
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div class="space-y-4">
+                  <Link :href="route('invoices.index')" class="flex items-center justify-between p-4 rounded-lg bg-red-50 dark:bg-red-900/20 hover:shadow-md transition-shadow">
+                    <div class="flex items-center space-x-3">
+                      <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <i class="fas fa-file-invoice text-red-600 dark:text-red-400"></i>
+                      </div>
+                      <div>
+                        <h4 class="font-semibold text-gray-900 dark:text-white">Unpaid Invoices</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Pending payment</p>
+                      </div>
+                    </div>
+                    <Badge class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                      {{ pendingTasks.unpaid_invoices }}
+                    </Badge>
+                  </Link>
+
+                  <Link :href="route('appointments.index')" class="flex items-center justify-between p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 hover:shadow-md transition-shadow">
+                    <div class="flex items-center space-x-3">
+                      <div class="w-10 h-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                        <i class="fas fa-calendar-alt text-yellow-600 dark:text-yellow-400"></i>
+                      </div>
+                      <div>
+                        <h4 class="font-semibold text-gray-900 dark:text-white">Pending Appointments</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Awaiting confirmation</p>
+                      </div>
+                    </div>
+                    <Badge class="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                      {{ pendingTasks.pending_appointments }}
+                    </Badge>
+                  </Link>
+
+                  <Link :href="route('inventory.index')" class="flex items-center justify-between p-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 hover:shadow-md transition-shadow">
+                    <div class="flex items-center space-x-3">
+                      <div class="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                        <i class="fas fa-boxes text-orange-600 dark:text-orange-400"></i>
+                      </div>
+                      <div>
+                        <h4 class="font-semibold text-gray-900 dark:text-white">Low Stock Items</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Need restocking</p>
+                      </div>
+                    </div>
+                    <Badge class="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                      {{ pendingTasks.low_stock_count }}
+                    </Badge>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -295,36 +351,24 @@ const quickActions = [
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div class="space-y-4">
-                  <div class="flex items-start space-x-3">
-                    <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                      <i class="fas fa-user-plus text-blue-600 dark:text-blue-400"></i>
+                <div v-if="recentActivity.length > 0" class="space-y-4">
+                  <div 
+                    v-for="(activity, index) in recentActivity" 
+                    :key="index"
+                    class="flex items-start space-x-3"
+                  >
+                    <div :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', getActivityIconColor(activity.color)]">
+                      <i :class="['fas', activity.icon]"></i>
                     </div>
                     <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium text-gray-900 dark:text-white">New patient registered</p>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">Sarah Johnson - 2 hours ago</p>
+                      <p class="text-sm font-medium text-gray-900 dark:text-white">{{ activity.message }}</p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400">{{ activity.time }}</p>
                     </div>
                   </div>
-
-                  <div class="flex items-start space-x-3">
-                    <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                      <i class="fas fa-calendar-check text-green-600 dark:text-green-400"></i>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium text-gray-900 dark:text-white">Appointment completed</p>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">Mike Chen - Dental cleaning - 4 hours ago</p>
-                    </div>
-                  </div>
-
-                  <div class="flex items-start space-x-3">
-                    <div class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-                      <i class="fa-solid fa-money-bill-1 text-purple-600 dark:text-purple-400"></i>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium text-gray-900 dark:text-white">Payment received</p>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">UGX250 - Invoice #1234 - 6 hours ago</p>
-                    </div>
-                  </div>
+                </div>
+                <div v-else class="text-center py-8">
+                  <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600 mb-2"></i>
+                  <p class="text-gray-500 dark:text-gray-400 text-sm">No recent activity</p>
                 </div>
               </CardContent>
             </Card>

@@ -46,9 +46,4 @@ class Prescription extends Model
     {
         return $this->belongsTo(DentalMedicine::class, 'medicine_id', 'medicine_id');
     }
-
-    public function invoice()
-    {
-        return $this->hasOne(Invoice::class);
-    }
 }

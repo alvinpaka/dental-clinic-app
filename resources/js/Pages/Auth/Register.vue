@@ -59,12 +59,16 @@ const submit = () => {
       <div class="relative z-10">
         <!-- Logo -->
         <Link href="/" class="flex items-center space-x-3 mb-12">
-          <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-            <i class="fas fa-sparkles text-white text-xl"></i>
+          <!-- Logo/Icon -->
+          <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+            <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
           </div>
-          <span class="text-3xl font-bold text-white">
-            DentalPro
-          </span>
+          <div>
+            <span class="text-2xl font-bold text-white">
+              DentalPro
+            </span>
+            <p class="text-xs text-blue-100">Professional Dental Care</p>
+          </div>
         </Link>
 
         <!-- Feature Highlights -->

@@ -12,7 +12,7 @@ class PrescriptionController extends Controller
 {
     public function index()
     {
-        $prescriptions = Prescription::with(['patient', 'dentist', 'medicine', 'invoice'])->paginate(10);
+        $prescriptions = Prescription::with(['patient', 'dentist', 'medicine'])->paginate(10);
         $patients = Patient::select('id', 'name', 'email')->get();
         $medicines = DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get();
         
