@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
@@ -38,6 +38,14 @@ interface Invoice {
   paid_at?: string;
 }
 
+interface Prefill {
+  patient_id: number;
+  treatment_id: number | null;
+  prescription_id?: number | null;
+  amount: number;
+  due_date: string;
+}
+
 interface Props {
   invoices: {
     data: Invoice[];
@@ -50,6 +58,7 @@ interface Props {
     pending_amount: number;
     overdue_count: number;
   };
+  prefill?: Prefill | null;
 }
 
 const props = defineProps<Props>();
@@ -84,6 +93,7 @@ const filteredInvoices = computed(() => {
 const createForm = useForm({
   patient_id: null as number | null,
   treatment_id: null as number | null,
+  prescription_id: null as number | null,
   amount: '',
   due_date: '',
   notes: '',
@@ -92,6 +102,7 @@ const createForm = useForm({
 const editForm = useForm({
   patient_id: null as number | null,
   treatment_id: null as number | null,
+  prescription_id: null as number | null,
   amount: '',
   due_date: '',
   status: '',
@@ -143,10 +154,8 @@ const getStatusBadgeVariant = (status: string) => {
 };
 
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'UGX',
-  }).format(amount);
+  const whole = Math.round(amount);
+  return `UGX ${whole.toLocaleString('en-US')}`;
 };
 
 const formatDate = (dateString: string) => {
@@ -244,6 +253,19 @@ const downloadPDF = (invoice: Invoice) => {
 const markAsPaid = (invoice: Invoice) => {
   router.put(`/invoices/${invoice.id}/mark-paid`);
 };
+
+onMounted(() => {
+  if (props.prefill) {
+    // Preselect patient and treatment
+    selectedPatient.value = props.patients.find(p => p.id === props.prefill!.patient_id) || null;
+    createForm.patient_id = props.prefill.patient_id;
+    createForm.treatment_id = props.prefill.treatment_id;
+    createForm.prescription_id = props.prefill.prescription_id ?? null;
+    createForm.amount = (props.prefill.amount ?? '').toString();
+    createForm.due_date = props.prefill.due_date;
+    isCreateOpen.value = true;
+  }
+});
 </script>
 
 <template>

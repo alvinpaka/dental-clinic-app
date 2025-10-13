@@ -87,6 +87,11 @@ const submitTreatment = () => {
     }
   });
 };
+
+const formatUGX = (value: number | string) => {
+  const n = Number(value || 0);
+  return `UGX ${Math.round(n).toLocaleString('en-US')}`;
+};
 </script>
 
 <template>
@@ -106,10 +111,15 @@ const submitTreatment = () => {
             <p class="text-gray-600">{{ props.patient.email }} • {{ props.patient.phone }}</p>
           </div>
         </div>
-        <Button @click="openCreateTreatment" class="bg-dental-blue hover:bg-dental-dark flex items-center space-x-2">
-          <Plus class="mr-2 h-4 w-4" />
-          <span>Add Treatment</span>
-        </Button>
+        <div class="flex items-center gap-2">
+          <Button @click="openCreateTreatment" class="bg-dental-blue hover:bg-dental-dark flex items-center space-x-2">
+            <Plus class="mr-2 h-4 w-4" />
+            <span>Add Treatment</span>
+          </Button>
+          <Button variant="outline" @click="$inertia.visit(route('patients.odontogram.show', props.patient.id))">
+            Odontogram
+          </Button>
+        </div>
       </div>
 
       <!-- Patient Details -->
@@ -162,7 +172,7 @@ const submitTreatment = () => {
                     {{ new Date(treatment.created_at).toLocaleDateString() }}
                   </p>
                 </div>
-                <Badge variant="secondary">${{ treatment.cost }}</Badge>
+                <Badge variant="secondary">{{ formatUGX(treatment.cost) }}</Badge>
               </div>
             </div>
           </div>

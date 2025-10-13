@@ -29,6 +29,11 @@ const downloadPDF = () => {
     window.open(route('invoices.show', { id: 'download', pdf_path: props.invoice.pdf_path }), '_blank');
   }
 };
+
+const formatUGX = (value: number) => {
+  const whole = Math.round(value);
+  return `UGX ${whole.toLocaleString('en-US')}`;
+};
 </script>
 
 <template>
@@ -67,7 +72,7 @@ const downloadPDF = () => {
           </div>
           <div>
             <label class="text-sm font-medium text-gray-500">Amount</label>
-            <p class="text-sm">${{ props.invoice.amount }}</p>
+            <p class="text-sm">{{ formatUGX(props.invoice.amount) }}</p>
           </div>
           <div>
             <label class="text-sm font-medium text-gray-500">Due Date</label>
@@ -81,7 +86,7 @@ const downloadPDF = () => {
           </div>
           <div v-if="props.invoice.treatment" class="col-span-2">
             <label class="text-sm font-medium text-gray-500">Treatment</label>
-            <p class="text-sm">{{ props.invoice.treatment.procedure }} - ${{ props.invoice.treatment.cost }}</p>
+            <p class="text-sm">{{ props.invoice.treatment.procedure }} - {{ formatUGX(props.invoice.treatment.cost) }}</p>
           </div>
         </CardContent>
       </Card>

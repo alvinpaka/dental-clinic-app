@@ -45,6 +45,7 @@ interface Props {
     total_month: number;
     upcoming: number;
   };
+  appointmentTypes?: string[];
 }
 
 const props = defineProps<Props>();
@@ -540,14 +541,9 @@ const confirmDelete = () => {
                   <SelectValue placeholder="Appointment type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Consultation">Consultation</SelectItem>
-                  <SelectItem value="Cleaning">Cleaning</SelectItem>
-                  <SelectItem value="Filling">Filling</SelectItem>
-                  <SelectItem value="Root Canal">Root Canal</SelectItem>
-                  <SelectItem value="Crown">Crown</SelectItem>
-                  <SelectItem value="Extraction">Extraction</SelectItem>
-                  <SelectItem value="X-Ray">X-Ray</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem v-for="type in (props.appointmentTypes || [])" :key="type" :value="type">
+                    {{ type }}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -691,14 +687,9 @@ const confirmDelete = () => {
                 <SelectValue placeholder="Appointment type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Consultation">Consultation</SelectItem>
-                <SelectItem value="Cleaning">Cleaning</SelectItem>
-                <SelectItem value="Filling">Filling</SelectItem>
-                <SelectItem value="Root Canal">Root Canal</SelectItem>
-                <SelectItem value="Crown">Crown</SelectItem>
-                <SelectItem value="Extraction">Extraction</SelectItem>
-                <SelectItem value="X-Ray">X-Ray</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
+                <SelectItem v-for="type in (props.appointmentTypes || [])" :key="type" :value="type">
+                  {{ type }}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>

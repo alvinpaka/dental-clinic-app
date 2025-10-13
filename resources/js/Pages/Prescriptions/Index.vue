@@ -81,6 +81,7 @@ interface Prescription {
   dentist: { id: number; name: string };
   refill_count?: number;
   max_refills?: number;
+  invoice?: { id: number };
   created_at?: string;
 }
 
@@ -481,10 +482,18 @@ const getRefillStatus = (current: number, max: number) => {
                             <i class="fas fa-eye mr-2"></i>
                             View Details
                           </Button>
-                          <Button size="sm" @click="openEdit(prescription)">
-                            <i class="fas fa-edit mr-2"></i>
-                            Edit
-                          </Button>
+                          <div class="flex items-center space-x-2">
+                            <Button size="sm" @click="openEdit(prescription)">
+                              <i class="fas fa-edit mr-2"></i>
+                              Edit
+                            </Button>
+                            <Button v-if="!prescription.invoice" size="sm" as-child>
+                              <Link :href="route('invoices.create', { prescription_id: prescription.id })">
+                                <i class="fas fa-file-invoice mr-2"></i>
+                                Create Invoice
+                              </Link>
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

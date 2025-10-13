@@ -32,6 +32,23 @@ class AppointmentController extends Controller
 
         $patients = Patient::select('id', 'name', 'email')->get();
 
+        $appointmentTypes = [
+            'Dental Cleaning',
+            'Tooth Extraction',
+            'Root Canal',
+            'Dental Filling',
+            'Dental Crown',
+            'Dental Bridge',
+            'Dental Implant',
+            'Teeth Whitening',
+            'Orthodontic Treatment',
+            'Periodontal Treatment',
+            'Dental X-Ray',
+            'Oral Surgery',
+            'Emergency Dental Care',
+            'Dental Consultation'
+        ];
+
         // Calculate stats
         $now = now();
         $startOfDay = $now->copy()->startOfDay();
@@ -55,6 +72,7 @@ class AppointmentController extends Controller
             'appointments' => $appointments,
             'patients' => $patients,
             'stats' => $stats,
+            'appointmentTypes' => $appointmentTypes,
         ]);
     }
 
