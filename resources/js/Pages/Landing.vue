@@ -124,12 +124,16 @@ const iconMap: Record<string, string> = {
       <div class="container mx-auto px-4 py-4">
         <div class="flex justify-between items-center">
           <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center shadow-lg">
-              <i class="fas fa-sparkles text-white"></i>
+            <!-- Logo/Icon -->
+            <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+              <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
             </div>
-            <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              DentalPro
-            </span>
+            <div>
+              <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                DentalPro
+              </span>
+              <p class="text-xs text-gray-600 dark:text-slate-300 hidden sm:block">Professional Dental Care</p>
+            </div>
           </div>
 
           <!-- Desktop Navigation -->
@@ -141,10 +145,10 @@ const iconMap: Record<string, string> = {
 
           <div class="flex items-center space-x-3">
             <Button variant="ghost" size="icon" @click="themeStore.toggleDarkMode" class="rounded-full">
-              <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon']"></i>
+              <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon text-gray-700']"></i>
             </Button>
             
-            <Button variant="ghost" class="hidden md:inline-flex" as-child>
+            <Button variant="ghost" class="hidden md:inline-flex text-gray-700 dark:text-gray-300" as-child>
               <Link href="/login">Login</Link>
             </Button>
             
@@ -155,7 +159,7 @@ const iconMap: Record<string, string> = {
               </Link>
             </Button>
 
-            <Button variant="ghost" size="icon" class="md:hidden" @click="mobileMenuOpen = !mobileMenuOpen">
+            <Button variant="ghost" size="icon" class="md:hidden text-gray-700 dark:text-gray-300" @click="mobileMenuOpen = !mobileMenuOpen">
               <i :class="['fas', mobileMenuOpen ? 'fa-times' : 'fa-bars']"></i>
             </Button>
           </div>

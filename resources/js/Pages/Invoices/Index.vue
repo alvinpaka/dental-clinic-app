@@ -41,7 +41,6 @@ interface Invoice {
 interface Prefill {
   patient_id: number;
   treatment_id: number | null;
-  prescription_id?: number | null;
   amount: number;
   due_date: string;
 }
@@ -93,7 +92,6 @@ const filteredInvoices = computed(() => {
 const createForm = useForm({
   patient_id: null as number | null,
   treatment_id: null as number | null,
-  prescription_id: null as number | null,
   amount: '',
   due_date: '',
   notes: '',
@@ -102,7 +100,6 @@ const createForm = useForm({
 const editForm = useForm({
   patient_id: null as number | null,
   treatment_id: null as number | null,
-  prescription_id: null as number | null,
   amount: '',
   due_date: '',
   status: '',
@@ -260,7 +257,6 @@ onMounted(() => {
     selectedPatient.value = props.patients.find(p => p.id === props.prefill!.patient_id) || null;
     createForm.patient_id = props.prefill.patient_id;
     createForm.treatment_id = props.prefill.treatment_id;
-    createForm.prescription_id = props.prefill.prescription_id ?? null;
     createForm.amount = (props.prefill.amount ?? '').toString();
     createForm.due_date = props.prefill.due_date;
     isCreateOpen.value = true;

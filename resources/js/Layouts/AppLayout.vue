@@ -37,7 +37,7 @@ const navigationItems = [
   { value: 'staff', label: 'Staff', href: '/staff', icon: 'fas fa-user-md' },
   { value: 'inventory', label: 'Inventory', href: '/inventory', icon: 'fas fa-boxes' },
   { value: 'prescriptions', label: 'Prescriptions', href: '/prescriptions', icon: 'fas fa-pills' },
-  { value: 'reports', label: 'Reports', href: '/reports', icon: 'fas fa-chart-bar' },
+  { value: 'reports', label: 'Financial Reports', href: '/reports', icon: 'fas fa-chart-bar' },
 ];
 
 const activeTab = computed(() => {
@@ -62,8 +62,8 @@ const activeTab = computed(() => {
             <i class="fas fa-tooth text-xl text-white dark:text-slate-200"></i>
           </div>
           <div>
-            <Link href="/dashboard" class="text-xl font-bold hover:text-white/90 dark:hover:text-slate-200 transition-colors">
-              Dental Clinic
+            <Link href="/dashboard" class="text-2xl font-bold hover:text-white/90 dark:hover:text-slate-200 transition-colors">
+              DentalPro
             </Link>
             <p class="text-xs text-primary-foreground/70 dark:text-slate-300 hidden sm:block">Professional Dental Care</p>
           </div>
