@@ -11,7 +11,7 @@ class TreatmentController extends Controller
 {
     public function index()
     {
-        $treatments = Treatment::with(['patient:id,name,email', 'appointment'])->paginate(10);
+        $treatments = Treatment::with(['patient:id,name,email', 'appointment', 'invoice'])->paginate(10);
         $patients = Patient::select('id', 'name', 'email')->get();
         
         $appointmentTypes = [
@@ -73,6 +73,11 @@ class TreatmentController extends Controller
 
     public function update(Request $request, Treatment $treatment)
     {
+        // Prevent editing a treatment that already has an associated invoice
+        if ($treatment->invoice()->exists()) {
+            return redirect()->route('treatments.index')->with('error', 'This treatment has an invoice and cannot be edited.');
+        }
+
         $validated = $request->validate([
             'patient_id' => 'required|exists:patients,id',
             'appointment_id' => 'nullable|exists:appointments,id',

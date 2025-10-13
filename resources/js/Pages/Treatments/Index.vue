@@ -28,6 +28,7 @@ interface Treatment {
   notes?: string;
   file_path?: string;
   appointment?: { id: number };
+  invoice?: { id: number };
   created_at?: string;
 }
 
@@ -136,6 +137,10 @@ const openCreate = () => {
 };
 
 const openEdit = (treatment: Treatment) => {
+  if ((treatment as any).invoice) {
+    alert('This treatment has an invoice and cannot be edited.');
+    return;
+  }
   editingTreatment.value = treatment;
   editForm.patient_id = treatment.patient?.id || null;
   editForm.procedure = treatment.procedure;
@@ -236,6 +241,11 @@ const getTreatmentIcon = (procedure: string) => {
     return 'fas fa-x-ray';
   }
   return 'fas fa-stethoscope';
+};
+
+const formatUGX = (value: number) => {
+  const whole = Math.round(value);
+  return `UGX ${whole.toLocaleString('en-US')}`;
 };
 </script>
 
@@ -425,7 +435,7 @@ const getTreatmentIcon = (procedure: string) => {
                                 <i class="fas fa-eye mr-2"></i>
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem @click="openEdit(treatment)">
+                              <DropdownMenuItem v-if="!treatment.invoice" @click="openEdit(treatment)">
                                 <i class="fas fa-edit mr-2"></i>
                                 Edit Treatment
                               </DropdownMenuItem>
@@ -446,7 +456,7 @@ const getTreatmentIcon = (procedure: string) => {
                           </div>
                           <div class="flex items-center space-x-2">
                             <Receipt class="w-4 h-4 text-gray-400" />
-                            <span class="text-gray-600 dark:text-gray-400 font-medium">UGX{{ treatment.cost }}</span>
+                            <span class="text-gray-600 dark:text-gray-400 font-medium">{{ formatUGX(treatment.cost) }}</span>
                           </div>
                           <div v-if="treatment.notes" class="flex items-start space-x-2 col-span-2">
                             <FileText class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -463,7 +473,7 @@ const getTreatmentIcon = (procedure: string) => {
                             <i class="fas fa-eye mr-2"></i>
                             View Details
                           </Button>
-                          <Button size="sm" as-child>
+                          <Button v-if="!treatment.invoice" size="sm" as-child>
                             <Link :href="route('invoices.create', { treatment_id: treatment.id })">
                               <FileText class="w-4 h-4 mr-2" />
                               Create Invoice
@@ -591,7 +601,7 @@ const getTreatmentIcon = (procedure: string) => {
                                   <i class="fas fa-eye mr-2"></i>
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openEdit(treatment)">
+                                <DropdownMenuItem v-if="!treatment.invoice" @click.stop="openEdit(treatment)">
                                   <i class="fas fa-edit mr-2"></i>
                                   Edit Treatment
                                 </DropdownMenuItem>
@@ -904,7 +914,7 @@ const getTreatmentIcon = (procedure: string) => {
               <CardContent class="space-y-3">
                 <div>
                   <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Cost</Label>
-                  <p class="text-2xl font-bold text-green-600 dark:text-green-400">UGX{{ viewingTreatment.cost }}</p>
+                  <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ formatUGX(viewingTreatment.cost) }}</p>
                 </div>
               </CardContent>
             </Card>

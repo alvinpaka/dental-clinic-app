@@ -42,6 +42,11 @@ const props = defineProps<{
 
 const currentTime = ref(new Date());
 
+const formatUGX = (value: number) => {
+  const whole = Math.round(value);
+  return `UGX ${whole.toLocaleString('en-US')}`;
+};
+
 const greeting = computed(() => {
   const hour = currentTime.value.getHours();
   if (hour < 12) return 'Good morning';
@@ -128,7 +133,7 @@ const statCards = [
   },
   {
     title: 'Monthly Revenue',
-    value: `UGX${props.stats.monthly_revenue.toLocaleString()}`,
+    value: formatUGX(props.stats.monthly_revenue),
     description: 'This month',
     icon: 'fa-solid fa-money-bill-1',
     color: 'from-purple-500 to-purple-600',

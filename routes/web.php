@@ -10,6 +10,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PrescriptionController;
+use App\Http\Controllers\OdontogramController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +34,10 @@ Route::middleware('auth')->group(function () {
     Route::put('staff/{staff}/update-roles', [StaffController::class, 'updateRoles'])->name('staff.update-roles');
     Route::resource('inventory', InventoryController::class)->parameters(['inventory' => 'id'])->except(['create', 'edit', 'show']);
     Route::resource('prescriptions', PrescriptionController::class);
+
+    // Odontogram
+    Route::get('/patients/{patient}/odontogram', [OdontogramController::class, 'show'])->name('patients.odontogram.show');
+    Route::post('/patients/{patient}/odontogram', [OdontogramController::class, 'store'])->name('patients.odontogram.store');
 
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
