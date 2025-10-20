@@ -10,6 +10,11 @@ use Inertia\Inertia;
 
 class AppointmentController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Appointment::class, 'appointment');
+    }
+
     public function index()
     {
         $appointments = Appointment::with(['patient', 'dentist'])->get()->map(fn ($apt) => [
@@ -73,6 +78,11 @@ class AppointmentController extends Controller
             'patients' => $patients,
             'stats' => $stats,
             'appointmentTypes' => $appointmentTypes,
+            'can' => [
+                'createAppointment' => auth()->user()?->can('create', Appointment::class) ?? false,
+                'updateAppointment' => auth()->user()?->can('update', new Appointment()) ?? false,
+                'deleteAppointment' => auth()->user()?->can('delete', new Appointment()) ?? false,
+            ],
         ]);
     }
 
@@ -126,6 +136,8 @@ class AppointmentController extends Controller
 
     public function destroy(Appointment $appointment)
     {
+        $this->authorize('delete', $appointment);
+
         $appointment->delete();
 
         return redirect()->route('appointments.index')->with('success', 'Appointment deleted.');

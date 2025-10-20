@@ -9,7 +9,7 @@ class Invoice extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['patient_id', 'treatment_id', 'amount', 'status', 'due_date', 'pdf_path'];
+    protected $fillable = ['patient_id', 'treatment_id', 'prescription_id', 'amount', 'status', 'due_date', 'pdf_path', 'notes'];
 
     protected $casts = ['due_date' => 'date'];
 
@@ -21,5 +21,11 @@ class Invoice extends Model
     public function treatment()
     {
         return $this->belongsTo(Treatment::class);
+    }
+
+    public function prescription()
+    {
+        // Return prescription data from the associated treatment
+        return $this->treatment();
     }
 }

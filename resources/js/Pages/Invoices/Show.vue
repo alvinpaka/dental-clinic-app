@@ -4,13 +4,14 @@ import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { ArrowLeft, Download } from 'lucide-vue-next';
+import { ArrowLeft, Download, Printer } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
 
 interface Invoice {
   id: number;
   patient: { name: string; email: string };
   treatment?: { procedure: string; cost: number };
+  prescription?: { medication: string; dosage: string; frequency: string };
   amount: number;
   status: string;
   due_date: string;
@@ -26,8 +27,12 @@ const props = defineProps<Props>();
 
 const downloadPDF = () => {
   if (props.invoice.pdf_path) {
-    window.open(route('invoices.show', { id: 'download', pdf_path: props.invoice.pdf_path }), '_blank');
+    window.open(props.invoice.pdf_path, '_blank');
   }
+};
+
+const printInvoice = () => {
+  window.print();
 };
 
 const formatUGX = (value: number) => {
@@ -53,10 +58,16 @@ const formatUGX = (value: number) => {
             <p class="text-gray-600">Created on {{ new Date(props.invoice.created_at).toLocaleDateString() }}</p>
           </div>
         </div>
-        <Button v-if="props.invoice.pdf_path" @click="downloadPDF" variant="outline">
-          <Download class="mr-2 h-4 w-4" />
-          Download PDF
-        </Button>
+        <div class="flex space-x-2">
+          <Button v-if="props.invoice.pdf_path" @click="downloadPDF" variant="outline">
+            <Download class="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
+          <Button @click="printInvoice" variant="outline">
+            <Printer class="mr-2 h-4 w-4" />
+            Print
+          </Button>
+        </div>
       </div>
 
       <!-- Invoice Details -->
@@ -84,12 +95,49 @@ const formatUGX = (value: number) => {
               {{ props.invoice.status }}
             </Badge>
           </div>
+
+          <!-- Treatment Information -->
           <div v-if="props.invoice.treatment" class="col-span-2">
             <label class="text-sm font-medium text-gray-500">Treatment</label>
             <p class="text-sm">{{ props.invoice.treatment.procedure }} - {{ formatUGX(props.invoice.treatment.cost) }}</p>
+          </div>
+
+          <!-- Prescription Information -->
+          <div v-if="props.invoice.prescription && props.invoice.prescription.medication" class="col-span-2">
+            <label class="text-sm font-medium text-gray-500">Prescription</label>
+            <p class="text-sm">{{ props.invoice.prescription.medication }} - {{ props.invoice.prescription.frequency }}</p>
           </div>
         </CardContent>
       </Card>
     </div>
   </AppLayout>
 </template>
+
+<style>
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    font-size: 12px;
+  }
+
+  .container {
+    max-width: none;
+    margin: 0;
+    padding: 20px;
+  }
+
+  .bg-gradient-to-br,
+  .bg-blue-50,
+  .bg-white {
+    background: white !important;
+  }
+
+  .text-gray-600,
+  .text-gray-500 {
+    color: black !important;
+  }
+}
+</style>

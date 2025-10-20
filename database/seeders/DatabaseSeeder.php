@@ -13,20 +13,38 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->call(RoleSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
-
-        User::create([
+        $admin = User::factory()->create([
             'name' => 'Admin User',
             'email' => 'admin@example.com',
             'password' => Hash::make('password'),
-            'email_verified_at' => now(),
         ]);
+        $admin->assignRole('admin');
 
-        $this->call(RoleSeeder::class);
+        $receptionist = User::factory()->create([
+            'name' => 'Receptionist User',
+            'email' => 'receptionist@example.com',
+            'password' => Hash::make('password'),
+        ]);
+        $receptionist->assignRole('receptionist');
+
+        $dentist = User::factory()->create([
+            'name' => 'Dentist User',
+            'email' => 'dentist@example.com',
+            'password' => Hash::make('password'),
+        ]);
+        $dentist->assignRole('dentist');
+
+        $assistant = User::factory()->create([
+            'name' => 'Assistant User',
+            'email' => 'assistant@example.com',
+            'password' => Hash::make('password'),
+        ]);
+        $assistant->assignRole('assistant');
+
+        User::factory(5)->create()->each(function (User $user) {
+            $user->assignRole('assistant');
+        });
     }
 }

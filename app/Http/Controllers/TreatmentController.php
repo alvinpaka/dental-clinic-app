@@ -7,12 +7,19 @@ use App\Models\Patient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+
 class TreatmentController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Treatment::class, 'treatment');
+    }
+
     public function index()
     {
-        $treatments = Treatment::with(['patient:id,name,email', 'appointment', 'invoice'])->paginate(10);
+        $treatments = Treatment::with(['patient:id,name,email', 'appointment', 'invoice', 'medicine'])->paginate(10);
         $patients = Patient::select('id', 'name', 'email')->get();
+        $medicines = \App\Models\DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get();
         
         $appointmentTypes = [
             'Dental Cleaning',
@@ -37,13 +44,14 @@ class TreatmentController extends Controller
             ],
             'treatments' => $treatments, 
             'patients' => $patients,
+            'medicines' => $medicines,
             'appointmentTypes' => $appointmentTypes
         ]);
     }
 
     public function show(Treatment $treatment)
     {
-        $treatment->load(['patient', 'appointment']);
+        $treatment->load(['patient', 'appointment', 'medicine']);
         return Inertia::render('Treatments/Show', [
             'auth' => [
                 'user' => auth()->user(),
@@ -55,20 +63,37 @@ class TreatmentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'patient_id' => 'required|exists:patients,id',
             'appointment_id' => 'nullable|exists:appointments,id',
             'procedure' => 'required|string',
             'cost' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
-            'file' => 'nullable|image|mimes:jpeg,png|max:2048',
+            'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
+            // Prescription fields
+            'medicine_id' => 'nullable|exists:dental_medicines,medicine_id',
+            'medication' => 'nullable|string',
+            'dosage' => 'nullable|string',
+            'frequency' => 'nullable|string',
+            'duration' => 'nullable|string',
+            'prescription_amount' => 'nullable|numeric|min:0',
+            'prescription_issue_date' => 'nullable|date',
+            'prescription_expiry_date' => 'nullable|date',
+            'prescription_instructions' => 'nullable|string',
+            'max_refills' => 'nullable|integer|min:0',
         ]);
 
         if ($request->hasFile('file')) {
             $validated['file_path'] = $request->file('file')->store('treatments', 'public');
         }
 
+        // Set default prescription values
+        $validated['prescription_issue_date'] = $validated['prescription_issue_date'] ?? now()->toDateString();
+        $validated['prescription_status'] = 'active';
+        $validated['refill_count'] = 0;
+
         Treatment::create($validated);
 
-        return redirect()->route('patients.show', $validated['patient_id'])->with('success', 'Treatment recorded.');
+        return redirect()->route('treatments.index')->with('success', 'Treatment and prescription recorded.');
     }
 
     public function update(Request $request, Treatment $treatment)
@@ -84,7 +109,19 @@ class TreatmentController extends Controller
             'procedure' => 'required|string',
             'cost' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
-            'file' => 'nullable|image|mimes:jpeg,png|max:2048',
+            'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
+            // Prescription fields
+            'medicine_id' => 'nullable|exists:dental_medicines,medicine_id',
+            'medication' => 'nullable|string',
+            'dosage' => 'nullable|string',
+            'frequency' => 'nullable|string',
+            'duration' => 'nullable|string',
+            'prescription_amount' => 'nullable|numeric|min:0',
+            'prescription_issue_date' => 'nullable|date',
+            'prescription_expiry_date' => 'nullable|date',
+            'prescription_instructions' => 'nullable|string',
+            'max_refills' => 'nullable|integer|min:0',
+            'prescription_status' => 'nullable|in:active,completed,expired,cancelled',
         ]);
 
         if ($request->hasFile('file')) {
@@ -97,7 +134,7 @@ class TreatmentController extends Controller
 
         $treatment->update($validated);
 
-        return redirect()->route('treatments.index')->with('success', 'Treatment updated.');
+        return redirect()->route('treatments.index')->with('success', 'Treatment and prescription updated.');
     }
 
 }

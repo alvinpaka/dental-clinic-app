@@ -35,6 +35,7 @@ class Patient extends Model
 
     public function prescriptions()
     {
-        return $this->hasMany(Prescription::class);
+        // Return treatments that have prescription data
+        return $this->treatments()->whereNotNull('medication');
     }
 }

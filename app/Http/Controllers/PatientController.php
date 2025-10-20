@@ -4,10 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Patient;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class PatientController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Patient::class, 'patient');
+    }
+
     public function index()
     {
         $patients = Patient::select(['id', 'name', 'email', 'phone', 'dob'])
@@ -21,7 +27,12 @@ class PatientController extends Controller
             'auth' => [
                 'user' => auth()->user(),
             ],
-            'patients' => $patients
+            'patients' => $patients,
+            'can' => [
+                'createPatient' => auth()->user()?->can('create', Patient::class) ?? false,
+                'updatePatient' => auth()->user()?->can('update', new Patient()) ?? false,
+                'deletePatient' => auth()->user()?->can('delete', new Patient()) ?? false,
+            ],
         ]);
     }
 
@@ -78,7 +89,13 @@ class PatientController extends Controller
     public function update(Request $request, Patient $patient)
     {
         $validated = $request->validate([
-            // Same as store
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'email', Rule::unique('patients', 'email')->ignore($patient->id)],
+            'phone' => 'required|string|max:20',
+            'dob' => 'required|date',
+            'address' => 'nullable|string',
+            'medical_history' => 'nullable|string',
+            'allergies' => 'nullable|array',
         ]);
 
         $patient->update($validated);

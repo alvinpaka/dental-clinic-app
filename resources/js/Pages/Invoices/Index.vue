@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
@@ -18,12 +18,24 @@ interface Patient {
   name: string;
   email: string;
   treatments?: Treatment[];
+  prescriptions?: Prescription[];
+}
+
+interface Prescription {
+  id: number;
+  medication?: string | null;
+  dosage?: string | null;
+  frequency?: string | null;
+  amount?: number | null;
+  medicine?: { medicine_name?: string | null };
+  medicine_name?: string | null;
 }
 
 interface Treatment {
   id: number;
   procedure: string;
   cost: number;
+  prescription_amount?: number;
 }
 
 interface Invoice {
@@ -34,13 +46,24 @@ interface Invoice {
   status: 'paid' | 'pending' | 'overdue' | 'cancelled';
   pdf_path?: string;
   treatment?: { procedure: string; id: number };
+  prescription?: Prescription;
   created_at?: string;
   paid_at?: string;
+}
+
+interface InvoiceItemOption {
+  value: string;
+  type: 'treatment' | 'prescription';
+  title: string;
+  subtitle?: string;
+  treatmentCost?: number;
+  prescriptionCost?: number;
 }
 
 interface Prefill {
   patient_id: number;
   treatment_id: number | null;
+  prescription_id: number | null;
   amount: number;
   due_date: string;
 }
@@ -66,6 +89,8 @@ const searchQuery = ref('');
 const statusFilter = ref('all');
 const selectedPatient = ref<Patient | null>(null);
 const activeTab = ref('grid');
+const selectedPrescriptionId = ref<number | null>(null);
+const selectedInvoiceItem = ref<string | null>(null);
 
 // Filtered invoices
 const filteredInvoices = computed(() => {
@@ -76,7 +101,8 @@ const filteredInvoices = computed(() => {
     invoices = invoices.filter(invoice =>
       (invoice.patient?.name || '').toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       invoice.id.toString().includes(searchQuery.value) ||
-      (invoice.treatment?.procedure.toLowerCase().includes(searchQuery.value.toLowerCase()))
+      (invoice.treatment?.procedure.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
+      (invoice.prescription?.medication.toLowerCase().includes(searchQuery.value.toLowerCase()))
     );
   }
 
@@ -92,7 +118,8 @@ const filteredInvoices = computed(() => {
 const createForm = useForm({
   patient_id: null as number | null,
   treatment_id: null as number | null,
-  amount: '',
+  prescription_id: null as number | null,
+  amount: 0,
   due_date: '',
   notes: '',
 });
@@ -100,6 +127,7 @@ const createForm = useForm({
 const editForm = useForm({
   patient_id: null as number | null,
   treatment_id: null as number | null,
+  prescription_id: null as number | null,
   amount: '',
   due_date: '',
   status: '',
@@ -115,6 +143,95 @@ const editingInvoice = ref<Invoice | null>(null);
 // Computed properties
 const availableTreatments = computed(() => {
   return selectedPatient.value?.treatments || [];
+});
+
+const availablePrescriptions = computed(() => {
+  return selectedPatient.value?.prescriptions || [];
+});
+
+const invoiceItems = computed<InvoiceItemOption[]>(() => {
+  if (!selectedPatient.value) return [];
+
+  const items: InvoiceItemOption[] = [];
+
+  (selectedPatient.value.treatments || []).forEach((treatment) => {
+    items.push({
+      value: `treatment-${treatment.id}`,
+      type: 'treatment',
+      title: treatment.procedure,
+      treatmentCost: Number(treatment.cost) || 0,
+      prescriptionCost: Number(treatment.prescription_amount) || 0,
+    });
+  });
+
+  (selectedPatient.value.prescriptions || []).forEach((prescription) => {
+    const prescriptionTitle = prescription.medication
+      || prescription.medicine?.medicine_name
+      || prescription.medicine_name
+      || `Prescription #${prescription.id}`;
+
+    const subtitleParts = [prescription.dosage, prescription.frequency].filter((part): part is string => !!part);
+    items.push({
+      value: `prescription-${prescription.id}`,
+      type: 'prescription',
+      title: prescriptionTitle,
+      subtitle: subtitleParts.join(' • '),
+      prescriptionCost: Number(prescription.amount) || 0,
+    });
+  });
+
+  return items;
+});
+
+const selectedTreatmentOption = computed(() => {
+  if (!selectedInvoiceItem.value || !selectedPatient.value) return null;
+  if (!selectedInvoiceItem.value.startsWith('treatment-')) return null;
+  const id = Number(selectedInvoiceItem.value.split('-')[1]);
+  return selectedPatient.value.treatments?.find(t => t.id === id) || null;
+});
+
+const selectedPrescriptionOption = computed(() => {
+  if (!selectedInvoiceItem.value || !selectedPatient.value) return null;
+  if (!selectedInvoiceItem.value.startsWith('prescription-')) return null;
+  const id = Number(selectedInvoiceItem.value.split('-')[1]);
+  return selectedPatient.value.prescriptions?.find(p => p.id === id) || null;
+});
+
+// Get prescriptions that could be related to the selected treatment
+const suggestedPrescriptions = computed(() => {
+  if (!createForm.treatment_id || !selectedPatient.value) return [];
+
+  const selectedTreatment = selectedPatient.value.treatments?.find(t => t.id === createForm.treatment_id);
+  if (!selectedTreatment) return [];
+
+  // For now, return all prescriptions - in a real app, you might filter by treatment type
+  // or have a relationship between treatments and common prescriptions
+  return selectedPatient.value.prescriptions || [];
+});
+
+const calculatedAmount = computed(() => {
+  let total = 0;
+
+  if (createForm.treatment_id && selectedPatient.value) {
+    const treatment = selectedPatient.value.treatments?.find(t => t.id === createForm.treatment_id);
+    if (treatment) {
+      const treatmentCost = Number(treatment.cost) || 0;
+      const prescriptionCost = Number(treatment.prescription_amount) || 0;
+      total += treatmentCost + prescriptionCost;
+    }
+  } else if (selectedPrescriptionId.value && selectedPatient.value && !createForm.treatment_id) {
+    const prescription = selectedPatient.value.prescriptions?.find(p => p.id === selectedPrescriptionId.value);
+    if (prescription) {
+      total += Number(prescription.amount) || 0;
+    }
+  }
+
+  return Math.round(total);
+});
+
+const formattedAmountDisplay = computed(() => {
+  const amount = Number(createForm.amount) || 0;
+  return amount > 0 ? amount.toLocaleString('en-US', { minimumFractionDigits: 0 }) : '0';
 });
 
 const totalRevenue = computed(() => {
@@ -150,11 +267,6 @@ const getStatusBadgeVariant = (status: string) => {
   }
 };
 
-const formatCurrency = (amount: number) => {
-  const whole = Math.round(amount);
-  return `UGX ${whole.toLocaleString('en-US')}`;
-};
-
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -168,10 +280,19 @@ const isOverdue = (dueDate: string, status: string) => {
   return new Date(dueDate) < new Date();
 };
 
+const formatCurrency = (amount: number) => {
+  const whole = Math.round(amount);
+  return `UGX ${whole.toLocaleString('en-US')}`;
+};
+
 // Event handlers
 const openCreate = () => {
   createForm.reset();
   selectedPatient.value = null;
+  selectedPrescriptionId.value = null;
+  selectedInvoiceItem.value = null;
+  createForm.treatment_id = null;
+  (createForm as any).prescription_id = null;
   isCreateOpen.value = true;
 };
 
@@ -186,6 +307,7 @@ const openEdit = (invoice: Invoice) => {
 
   editForm.patient_id = invoice.patient?.id || null;
   editForm.treatment_id = invoice.treatment?.id || null;
+  editForm.prescription_id = (invoice as any).prescription?.id || null;
   editForm.amount = invoice.amount.toString();
   editForm.due_date = invoice.due_date.split('T')[0];
   editForm.status = invoice.status;
@@ -205,10 +327,25 @@ const submitCreate = () => {
     return;
   }
 
+  if (!selectedInvoiceItem.value) {
+    alert('Please select a treatment or prescription to invoice');
+    return;
+  }
+
+  const formData = {
+    ...createForm,
+    prescription_ids: selectedPrescriptionId.value ? [selectedPrescriptionId.value] : null,
+  };
+
   createForm.post(route('invoices.store'), {
+    data: formData,
     onSuccess: () => {
       createForm.reset();
+      selectedPrescriptionId.value = null;
+      selectedInvoiceItem.value = null;
+      selectedPatient.value = null;
       isCreateOpen.value = false;
+      router.visit(route('invoices.index'));
     },
   });
 };
@@ -248,20 +385,97 @@ const downloadPDF = (invoice: Invoice) => {
 };
 
 const markAsPaid = (invoice: Invoice) => {
-  router.put(`/invoices/${invoice.id}/mark-paid`);
+  router.put(route('invoices.update', invoice.id), {
+    data: {
+      status: 'paid',
+      patient_id: invoice.patient?.id,
+      amount: invoice.amount,
+      due_date: invoice.due_date.split('T')[0],
+    },
+    onSuccess: () => {
+      // Refresh the page or update the invoice status
+      window.location.reload();
+    },
+  });
 };
 
 onMounted(() => {
   if (props.prefill) {
-    // Preselect patient and treatment
+    // Preselect patient and treatment or prescription
     selectedPatient.value = props.patients.find(p => p.id === props.prefill!.patient_id) || null;
     createForm.patient_id = props.prefill.patient_id;
     createForm.treatment_id = props.prefill.treatment_id;
-    createForm.amount = (props.prefill.amount ?? '').toString();
+
+    // Handle prescription prefill - could be multiple prescriptions
+    const prescriptionPrefill = (props.prefill as any).prescription_id;
+    if (Array.isArray(prescriptionPrefill) && prescriptionPrefill.length > 0) {
+      selectedPrescriptionId.value = prescriptionPrefill[0];
+    } else if (prescriptionPrefill) {
+      selectedPrescriptionId.value = prescriptionPrefill;
+    }
+
     createForm.due_date = props.prefill.due_date;
+
+    // Set amount after selections are made so calculatedAmount works
+    nextTick(() => {
+      if (props.prefill?.treatment_id) {
+        selectedInvoiceItem.value = `treatment-${props.prefill.treatment_id}`;
+      } else if (selectedPrescriptionId.value) {
+        selectedInvoiceItem.value = `prescription-${selectedPrescriptionId.value}`;
+      }
+      createForm.amount = calculatedAmount.value;
+    });
+
     isCreateOpen.value = true;
   }
 });
+
+watch(() => createForm.treatment_id, (newValue) => {
+  if (newValue) {
+    selectedPrescriptionId.value = null;
+    (createForm as any).prescription_id = null;
+  }
+  createForm.amount = calculatedAmount.value;
+});
+
+watch(selectedPrescriptionId, (newValue) => {
+  if (newValue) {
+    createForm.treatment_id = null;
+    (createForm as any).prescription_id = newValue;
+  }
+  if (!newValue) {
+    (createForm as any).prescription_id = null;
+  }
+  createForm.amount = calculatedAmount.value;
+});
+
+watch(selectedInvoiceItem, (value) => {
+  if (!value) {
+    createForm.treatment_id = null;
+    selectedPrescriptionId.value = null;
+    (createForm as any).prescription_id = null;
+    createForm.amount = calculatedAmount.value;
+    return;
+  }
+
+  const [type, id] = value.split('-');
+  if (type === 'treatment') {
+    createForm.treatment_id = Number(id);
+  } else if (type === 'prescription') {
+    selectedPrescriptionId.value = Number(id);
+  }
+});
+
+watch(() => createForm.patient_id, () => {
+  createForm.treatment_id = null;
+  selectedPrescriptionId.value = null;
+  selectedInvoiceItem.value = null;
+  (createForm as any).prescription_id = null;
+  createForm.amount = calculatedAmount.value;
+});
+
+// Return all reactive variables and functions for template access
+// Note: In Vue 3 <script setup>, this is not needed as all top-level bindings are automatically exposed
 </script>
 
 <template>
@@ -488,6 +702,11 @@ onMounted(() => {
                           <span class="text-gray-600 dark:text-gray-400">{{ invoice.treatment.procedure }}</span>
                         </div>
 
+                        <div v-if="invoice.prescription && invoice.prescription.medication" class="flex items-start space-x-2 text-sm">
+                          <i class="fas fa-pills text-gray-400 mt-0.5"></i>
+                          <span class="text-gray-600 dark:text-gray-400">{{ invoice.prescription.medication }}</span>
+                        </div>
+
                         <div v-if="isOverdue(invoice.due_date, invoice.status) && invoice.status !== 'paid'" class="flex items-center space-x-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                           <i class="fas fa-exclamation-triangle text-red-600 text-sm"></i>
                           <span class="text-red-700 dark:text-red-300 text-sm font-medium">Overdue</span>
@@ -594,6 +813,7 @@ onMounted(() => {
                               <p class="text-sm text-gray-600 dark:text-gray-400">
                                 {{ formatCurrency(invoice.amount) }} • Due {{ formatDate(invoice.due_date) }}
                                 <span v-if="invoice.treatment"> • {{ invoice.treatment.procedure }}</span>
+                                <span v-if="invoice.prescription && invoice.prescription.medication"> • {{ invoice.prescription.medication }}</span>
                               </p>
                             </div>
                           </div>
@@ -653,7 +873,7 @@ onMounted(() => {
 
     <!-- Create Invoice Modal -->
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-3xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Create New Invoice
@@ -678,33 +898,59 @@ onMounted(() => {
             </Select>
           </div>
 
-          <div v-if="availableTreatments.length > 0" class="space-y-2">
-            <Label for="treatment" class="text-gray-700 dark:text-gray-300">Treatment (Optional)</Label>
-            <Select v-model="createForm.treatment_id">
+          <div class="space-y-2">
+            <Label for="invoice-item" class="text-gray-700 dark:text-gray-300">Invoice Item</Label>
+            <Select v-model="selectedInvoiceItem">
               <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                <SelectValue placeholder="Select a treatment" />
+                <SelectValue placeholder="Select a treatment or prescription" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="treatment in availableTreatments" :key="treatment.id" :value="treatment.id">
-                  {{ treatment.procedure }} - {{ formatCurrency(treatment.cost) }}
-                </SelectItem>
+                <template v-if="invoiceItems.length > 0">
+                  <SelectItem v-for="item in invoiceItems" :key="item.value" :value="item.value">
+                    <div class="flex flex-col text-left space-y-1">
+                      <span class="font-medium">{{ item.title }}</span>
+                      <span v-if="item.subtitle" class="text-xs text-gray-500 dark:text-gray-400">{{ item.subtitle }}</span>
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <template v-if="item.type === 'treatment'">
+                          <div>Procedure: {{ formatCurrency(item.treatmentCost || 0) }}</div>
+                          <div v-if="(item.prescriptionCost || 0) > 0">Prescription: {{ formatCurrency(item.prescriptionCost || 0) }}</div>
+                        </template>
+                        <template v-else>
+                          <div>Prescription: {{ formatCurrency(item.prescriptionCost || 0) }}</div>
+                        </template>
+                      </div>
+                    </div>
+                  </SelectItem>
+                </template>
+                <SelectItem v-else disabled value="none">No billable items found</SelectItem>
               </SelectContent>
             </Select>
+            <div v-if="!selectedPatient" class="text-sm text-gray-500 dark:text-gray-400 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              Select a patient to view treatments and prescriptions.
+            </div>
+            <div v-else-if="invoiceItems.length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              No treatments or prescriptions available for this patient.
+            </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
-              <Label for="amount" class="text-gray-700 dark:text-gray-300">Amount (UGX)</Label>
-              <Input
-                id="amount"
-                type="number"
-                v-model="createForm.amount"
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                required
-              />
+              <Label for="amount" class="text-gray-700 dark:text-gray-300">Amount (UGX) <span class="text-sm text-gray-500">(Auto-calculated)</span></Label>
+              <div class="flex items-center h-12 px-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-200">
+                UGX {{ formattedAmountDisplay }}
+              </div>
+              <input type="hidden" :value="createForm.amount" name="amount" />
+              <div v-if="parseFloat(createForm.amount) > 0" class="text-xs text-gray-500 mt-1 space-y-1">
+                <div v-if="selectedTreatmentOption">
+                  Treatment: {{ formatCurrency(selectedTreatmentOption.cost) }}
+                  <div v-if="(selectedTreatmentOption.prescription_amount || 0) > 0">
+                    + Prescription: {{ formatCurrency(selectedTreatmentOption.prescription_amount || 0) }}
+                  </div>
+                </div>
+                <div v-else-if="selectedPrescriptionOption">
+                  Prescription: {{ formatCurrency(selectedPrescriptionOption.amount || 0) }}
+                </div>
+              </div>
             </div>
 
             <div class="space-y-2">
@@ -749,7 +995,7 @@ onMounted(() => {
 
     <!-- Edit Invoice Modal -->
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-3xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Edit Invoice

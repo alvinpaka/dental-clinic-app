@@ -33,6 +33,11 @@ interface Props {
     new_this_month: number;
     active_appointments: number;
   };
+  can: {
+    createPatient: boolean;
+    updatePatient: boolean;
+    deletePatient: boolean;
+  };
 }
 
 const props = defineProps<Props>();
@@ -96,10 +101,12 @@ const filteredPatients = computed(() => {
 });
 
 const openCreate = () => {
+  if (!props.can.createPatient) return;
   isCreateOpen.value = true;
 };
 
 const openEdit = (patient: Patient) => {
+  if (!props.can.updatePatient) return;
   editingPatient.value = patient;
   editForm.name = patient.name;
   editForm.email = patient.email;
@@ -109,6 +116,7 @@ const openEdit = (patient: Patient) => {
 };
 
 const openDelete = (patient: Patient) => {
+  if (!props.can.deletePatient) return;
   editingPatient.value = patient;
   isDeleteOpen.value = true;
 };
@@ -119,6 +127,7 @@ const openView = (patient: Patient) => {
 };
 
 const submitCreate = () => {
+  if (!props.can.createPatient) return;
   createForm.post(route('patients.store'), {
     onSuccess: () => {
       createForm.reset();
@@ -128,26 +137,30 @@ const submitCreate = () => {
 };
 
 const submitEdit = () => {
-  if (editingPatient.value) {
-    editForm.put(route('patients.update', editingPatient.value.id), {
-      onSuccess: () => {
-        editForm.reset();
-        isEditOpen.value = false;
-        editingPatient.value = null;
-      },
-    });
+  if (!props.can.updatePatient || !editingPatient.value) {
+    return;
   }
+
+  editForm.put(route('patients.update', editingPatient.value.id), {
+    onSuccess: () => {
+      editForm.reset();
+      isEditOpen.value = false;
+      editingPatient.value = null;
+    },
+  });
 };
 
 const confirmDelete = () => {
-  if (editingPatient.value) {
-    router.delete(route('patients.destroy', editingPatient.value.id), {
-      onSuccess: () => {
-        isDeleteOpen.value = false;
-        editingPatient.value = null;
-      },
-    });
+  if (!props.can.deletePatient || !editingPatient.value) {
+    return;
   }
+
+  router.delete(route('patients.destroy', editingPatient.value.id), {
+    onSuccess: () => {
+      isDeleteOpen.value = false;
+      editingPatient.value = null;
+    },
+  });
 };
 
 // Calculate age from DOB
@@ -189,7 +202,11 @@ const calculateAge = (dob: string) => {
                 {{ props.patients.data.length }} Total Patients
               </Badge>
 
-              <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+              <Button
+                v-if="props.can.createPatient"
+                @click="openCreate"
+                class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+              >
                 <Plus class="w-4 h-4 mr-2" />
                 Add New Patient
               </Button>
@@ -336,11 +353,11 @@ const calculateAge = (dob: string) => {
                                 <i class="fas fa-eye mr-2"></i>
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem @click="openEdit(patient)">
+                              <DropdownMenuItem v-if="props.can.updatePatient" @click="openEdit(patient)">
                                 <i class="fas fa-edit mr-2"></i>
                                 Edit Patient
                               </DropdownMenuItem>
-                              <DropdownMenuItem @click="openDelete(patient)" class="text-red-600">
+                              <DropdownMenuItem v-if="props.can.deletePatient" @click="openDelete(patient)" class="text-red-600">
                                 <i class="fas fa-trash mr-2"></i>
                                 Delete Patient
                               </DropdownMenuItem>
@@ -397,7 +414,11 @@ const calculateAge = (dob: string) => {
                           <p class="text-gray-600 dark:text-gray-400 mb-6">
                             {{ searchQuery ? 'Try adjusting your search criteria' : 'Get started by adding your first patient' }}
                           </p>
-                          <Button v-if="!searchQuery" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                          <Button
+                            v-if="!searchQuery && props.can.createPatient"
+                            @click="openCreate"
+                            class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                          >
                             <Plus class="w-4 h-4 mr-2" />
                             Add First Patient
                           </Button>
@@ -411,102 +432,9 @@ const calculateAge = (dob: string) => {
                 </div>
               </TabsContent>
 
-              <!-- List View -->
               <TabsContent value="list" class="mt-0">
-                <div class="space-y-4">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search patients..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
-                      <Select v-model="sortBy">
-                        <SelectTrigger class="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="name">Name</SelectItem>
-                          <SelectItem value="email">Email</SelectItem>
-                          <SelectItem value="phone">Phone</SelectItem>
-                          <SelectItem value="dob">Age</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Button
-                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
-                        variant="outline"
-                        size="sm"
-                        class="px-3"
-                      >
-                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <!-- Patients List -->
-                  <div class="space-y-3 max-h-96 overflow-y-auto">
-                    <Card
-                      v-for="(patient, index) in filteredPatients"
-                      :key="patient.id"
-                      class="border hover:shadow-md transition-shadow cursor-pointer group"
-                      @click="openView(patient)"
-                    >
-                      <CardContent class="p-4">
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <span class="text-white font-bold text-sm">{{ patient.name.charAt(0).toUpperCase() }}</span>
-                            </div>
-                            <div>
-                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                                {{ patient.name }}
-                              </h4>
-                              <p class="text-sm text-gray-600 dark:text-gray-400">
-                                {{ patient.email }} • {{ patient.phone }} • {{ calculateAge(patient.dob) }} years old
-                              </p>
-                            </div>
-                          </div>
-
-                          <div class="flex items-center space-x-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger as-child @click.stop>
-                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
-                                  <MoreVertical class="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem @click.stop="openView(patient)">
-                                  <i class="fas fa-eye mr-2"></i>
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openEdit(patient)">
-                                  <i class="fas fa-edit mr-2"></i>
-                                  Edit Patient
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openDelete(patient)" class="text-red-600">
-                                  <i class="fas fa-trash mr-2"></i>
-                                  Delete Patient
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <div v-if="filteredPatients.length === 0" class="text-center py-8">
-                      <Users class="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No patients found</h3>
-                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or add a new patient.</p>
-                    </div>
-                  </div>
+                <div class="py-16 text-center text-gray-500 dark:text-gray-400">
+                  <p>List view is currently unavailable.</p>
                 </div>
               </TabsContent>
             </Tabs>
@@ -576,11 +504,7 @@ const calculateAge = (dob: string) => {
             <Button type="button" variant="outline" @click="isCreateOpen = false">
               Cancel
             </Button>
-            <Button
-              type="submit"
-              :disabled="createForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-            >
+            <Button type="submit" :disabled="createForm.processing" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
               <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-user-plus mr-2"></i>
               {{ createForm.processing ? 'Creating...' : 'Create Patient' }}
@@ -651,11 +575,7 @@ const calculateAge = (dob: string) => {
             <Button type="button" variant="outline" @click="isEditOpen = false">
               Cancel
             </Button>
-            <Button
-              type="submit"
-              :disabled="editForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-            >
+            <Button type="submit" :disabled="editForm.processing" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
               <i v-if="editForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-save mr-2"></i>
               {{ editForm.processing ? 'Saving...' : 'Save Changes' }}
