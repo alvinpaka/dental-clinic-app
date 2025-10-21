@@ -25,7 +25,6 @@ class Invoice extends Model
 
     public function prescription()
     {
-        // Return prescription data from the associated treatment
-        return $this->treatment();
+        return $this->belongsTo(Prescription::class);
     }
 }

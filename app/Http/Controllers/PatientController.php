@@ -17,7 +17,13 @@ class PatientController extends Controller
     public function index()
     {
         $patients = Patient::select(['id', 'name', 'email', 'phone', 'dob'])
-            ->with([]) // Add relations if needed
+            ->with(['treatments' => function($query) {
+                $query->select('id', 'patient_id', 'procedure', 'cost', 'created_at')
+                      ->with(['prescriptions' => function($q) {
+                          $q->select('id', 'treatment_id', 'medicine_id', 'medication', 'dosage', 'frequency', 'duration', 'prescription_amount')
+                            ->with('medicine:medicine_id,medicine_name');
+                      }]);
+            }])
             ->paginate(10);
         $patients->getCollection()->transform(function ($patient) {
             $patient->dob_formatted = $patient->dob ? \Carbon\Carbon::parse($patient->dob)->format('M d, Y') : null;
@@ -64,7 +70,13 @@ class PatientController extends Controller
 
     public function show(Patient $patient)
     {
-        $patient->load(['appointments', 'treatments', 'invoices', 'prescriptions']);
+        $patient->load(['appointments', 'treatments' => function($query) {
+            $query->select('id', 'patient_id', 'procedure', 'cost', 'created_at')
+                  ->with(['prescriptions' => function($q) {
+                      $q->select('id', 'treatment_id', 'medicine_id', 'medication', 'dosage', 'frequency', 'duration', 'prescription_amount')
+                        ->with('medicine:medicine_id,medicine_name');
+                  }]);
+        }, 'invoices', 'prescriptions']);
         $patients = Patient::select('id', 'name', 'email')->get();
         return Inertia::render('Patients/Show', [
             'auth' => [

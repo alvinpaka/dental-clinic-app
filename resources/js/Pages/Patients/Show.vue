@@ -30,6 +30,7 @@ interface Treatment {
   cost: number;
   notes: string;
   created_at: string;
+  prescriptions?: any[];
 }
 
 interface Props {
@@ -134,6 +135,25 @@ const formatUGX = (value: number | string) => {
   const n = Number(value || 0);
   return `UGX ${Math.round(n).toLocaleString('en-US')}`;
 };
+
+// Format currency values
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'UGX',
+    minimumFractionDigits: 0,
+  }).format(amount).replace('UGX', 'UGX');
+};
+
+// Calculate total cost for treatment (procedure + prescriptions)
+const calculateTotalCost = (treatment: Treatment) => {
+  const procedureCost = Number(treatment.cost) || 0;
+  const prescriptionCost = treatment.prescriptions?.reduce((total: number, prescription: any) => {
+    return total + (Number(prescription.prescription_amount) || 0);
+  }, 0) || 0;
+
+  return procedureCost + prescriptionCost;
+};
 </script>
 
 <template>
@@ -203,21 +223,49 @@ const formatUGX = (value: number | string) => {
             No treatments recorded yet.
           </div>
           <div v-else class="space-y-4">
-            <div
-              v-for="treatment in props.patient.treatments"
-              :key="treatment.id"
-              class="border rounded-lg p-4"
-            >
-              <div class="flex justify-between items-start">
-                <div>
-                  <h3 class="font-medium">{{ treatment.procedure }}</h3>
-                  <p class="text-sm text-gray-600 mt-1">{{ treatment.notes }}</p>
-                  <p class="text-xs text-gray-500 mt-2">
-                    {{ new Date(treatment.created_at).toLocaleDateString() }}
-                  </p>
-                </div>
-                <Badge variant="secondary">{{ formatUGX(treatment.cost) }}</Badge>
-              </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-200 dark:border-gray-700">
+                    <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Procedure</th>
+                    <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Prescriptions</th>
+                    <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Date</th>
+                    <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Total Cost</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                  <tr v-for="treatment in props.patient.treatments" :key="treatment.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td class="py-3 px-3">
+                      <div class="flex items-center space-x-2">
+                        <i class="fas fa-tooth text-blue-500"></i>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ treatment.procedure }}</span>
+                        <span class="text-green-600 dark:text-green-400">({{ formatCurrency(treatment.cost || 0) }})</span>
+                      </div>
+                    </td>
+                    <td class="py-3 px-3">
+                      <div v-if="treatment.prescriptions && treatment.prescriptions.length > 0" class="space-y-1">
+                        <div v-for="prescription in treatment.prescriptions" :key="prescription.id" class="text-xs">
+                          <span class="text-gray-600 dark:text-gray-400">
+                            {{ prescription.medicine?.medicine_name || prescription.medication }}
+                            <span v-if="prescription.prescription_amount" class="text-green-600 dark:text-green-400">
+                              ({{ formatCurrency(prescription.prescription_amount) }})
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                      <span v-else class="text-gray-500 dark:text-gray-500 italic">No prescriptions</span>
+                    </td>
+                    <td class="py-3 px-3 text-gray-600 dark:text-gray-400">
+                      {{ treatment.created_at ? new Date(treatment.created_at).toLocaleDateString() : 'Not specified' }}
+                    </td>
+                    <td class="py-3 px-3">
+                      <span class="font-medium text-red-600 dark:text-red-400">
+                        {{ formatCurrency(calculateTotalCost(treatment)) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </CardContent>

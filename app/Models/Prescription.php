@@ -2,22 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Invoice;
 
-class Treatment extends Model
+class Prescription extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'patient_id',
-        'appointment_id',
-        'procedure',
-        'cost',
-        'notes',
-        'file_path',
-        // Prescription fields
+        'treatment_id',
         'medicine_id',
         'medication',
         'dosage',
@@ -32,24 +22,22 @@ class Treatment extends Model
         'refill_count'
     ];
 
-    public function patient()
-    {
-        return $this->belongsTo(Patient::class);
-    }
+    protected $casts = [
+        'prescription_issue_date' => 'date',
+        'prescription_expiry_date' => 'date',
+        'prescription_amount' => 'decimal:2',
+        'max_refills' => 'integer',
+        'refill_count' => 'integer'
+    ];
 
-    public function appointment()
+    public function treatment()
     {
-        return $this->belongsTo(Appointment::class);
+        return $this->belongsTo(Treatment::class);
     }
 
     public function medicine()
     {
         return $this->belongsTo(DentalMedicine::class, 'medicine_id', 'medicine_id');
-    }
-
-    public function prescriptions()
-    {
-        return $this->hasMany(Prescription::class);
     }
 
     public function invoice()

@@ -21,18 +21,35 @@ class InvoiceController extends Controller
 
     public function index()
     {
-        $invoices = Invoice::with(['patient', 'treatment', 'prescription'])->paginate(10);
+        $invoices = Invoice::with(['patient', 'treatment.prescriptions.medicine'])->paginate(10);
         // Get patients who have treatments with costs or prescriptions
-        $patients = Patient::where(function($query) {
-            $query->whereHas('treatments', function($q) {
-                $q->where('cost', '>', 0);
-            })->orWhereHas('prescriptions');
+        $patients = Patient::where(function ($query) {
+            $query->whereHas('treatments', function ($q) {
+                $q->where('cost', '>', 0)
+                  ->whereDoesntHave('invoice'); // Exclude treatments that already have invoices
+            })->orWhereHas('prescriptions', function ($q) {
+                // Include prescriptions that belong to treatments that haven't been invoiced
+                $q->whereHas('treatment', function ($treatmentQuery) {
+                    $treatmentQuery->where('cost', '>', 0)
+                                   ->whereDoesntHave('invoice');
+                });
+            });
         })->with([
-            'treatments' => function($query) {
-                $query->select('id', 'patient_id', 'procedure', 'cost')->where('cost', '>', 0);
+            'treatments' => function ($query) {
+                $query->select('id', 'patient_id', 'procedure', 'cost')
+                      ->where('cost', '>', 0)
+                      ->whereDoesntHave('invoice') // Exclude treatments that already have invoices
+                      ->with(['prescriptions' => function ($q) {
+                          $q->select('prescriptions.id', 'prescriptions.treatment_id', 'prescriptions.medicine_id', 'prescriptions.medication', 'prescriptions.dosage', 'prescriptions.frequency', 'prescriptions.duration', 'prescriptions.prescription_amount as amount')->with('medicine');
+                      }]);
             },
-            'prescriptions' => function($query) {
-                $query->select('id', 'patient_id', 'medication', 'dosage', 'frequency', 'prescription_amount as amount');
+            'prescriptions' => function ($query) {
+                $query->select('prescriptions.id', 'prescriptions.treatment_id', 'prescriptions.medicine_id', 'prescriptions.medication', 'prescriptions.dosage', 'prescriptions.frequency', 'prescriptions.duration', 'prescriptions.prescription_amount as amount')
+                      ->whereHas('treatment', function ($treatmentQuery) {
+                          $treatmentQuery->where('cost', '>', 0)
+                                         ->whereDoesntHave('invoice');
+                      })
+                      ->with('medicine');
             }
         ])->select('id', 'name', 'email')->get();
         return Inertia::render('Invoices/Index', [
@@ -49,14 +66,27 @@ class InvoiceController extends Controller
         $invoices = Invoice::with(['patient', 'treatment', 'prescription'])->paginate(10);
         $patients = Patient::where(function($query) {
             $query->whereHas('treatments', function($q) {
-                $q->where('cost', '>', 0);
-            })->orWhereHas('prescriptions');
+                $q->where('cost', '>', 0)
+                  ->whereDoesntHave('invoice'); // Exclude treatments that already have invoices
+            })->orWhereHas('prescriptions', function($q) {
+                // Include prescriptions that belong to treatments that haven't been invoiced
+                $q->whereHas('treatment', function ($treatmentQuery) {
+                    $treatmentQuery->where('cost', '>', 0)
+                                   ->whereDoesntHave('invoice');
+                });
+            });
         })->with([
             'treatments' => function($query) {
-                $query->select('id', 'patient_id', 'procedure', 'cost', 'medication', 'prescription_amount')->where('cost', '>', 0);
+                $query->select('id', 'patient_id', 'procedure', 'cost', 'medication', 'prescription_amount')
+                      ->where('cost', '>', 0)
+                      ->whereDoesntHave('invoice'); // Exclude treatments that already have invoices
             },
             'prescriptions' => function($query) {
-                $query->select('id', 'patient_id', 'medication', 'dosage', 'frequency', 'prescription_amount as amount');
+                $query->select('id', 'patient_id', 'medication', 'dosage', 'frequency', 'prescription_amount as amount')
+                      ->whereHas('treatment', function ($treatmentQuery) {
+                          $treatmentQuery->where('cost', '>', 0)
+                                         ->whereDoesntHave('invoice');
+                      });
             }
         ])->select('id', 'name', 'email')->get();
 
@@ -113,12 +143,21 @@ class InvoiceController extends Controller
             return back()->withErrors(['error' => 'Please select either a treatment OR prescriptions, not both.']);
         }
 
+        // Check if treatment is already invoiced
+        if ($validated['treatment_id']) {
+            $existingInvoice = Invoice::where('treatment_id', $validated['treatment_id'])->first();
+            if ($existingInvoice) {
+                return back()->withErrors(['error' => 'This treatment has already been invoiced.']);
+            }
+        }
+
         // Calculate total amount based on treatment and prescription
         $totalAmount = 0;
         if ($validated['treatment_id']) {
-            $treatment = Treatment::find($validated['treatment_id']);
+            $treatment = Treatment::with('prescriptions')->find($validated['treatment_id']);
             if ($treatment) {
-                $totalAmount = $treatment->cost + ($treatment->prescription_amount ?: 0);
+                $prescriptionTotal = $treatment->prescriptions->sum('prescription_amount');
+                $totalAmount = $treatment->cost + $prescriptionTotal;
             }
         } elseif (isset($validated['prescription_ids']) && !empty($validated['prescription_ids'])) {
             // Handle prescription-only invoices
@@ -203,7 +242,15 @@ class InvoiceController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $invoice->update($validated);
+        // Check if treatment is already invoiced (but allow updating the same invoice's treatment)
+        if ($validated['treatment_id'] && $validated['treatment_id'] !== $invoice->treatment_id) {
+            $existingInvoice = Invoice::where('treatment_id', $validated['treatment_id'])
+                                    ->where('id', '!=', $invoice->id)
+                                    ->first();
+            if ($existingInvoice) {
+                return back()->withErrors(['error' => 'This treatment has already been invoiced in another invoice.']);
+            }
+        }
 
         // Reload relationships for PDF regeneration if needed
         $invoice->load(['patient', 'treatment', 'prescription']);
@@ -223,7 +270,7 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice)
     {
-        $invoice->load(['patient', 'treatment', 'prescription']);
+        $invoice->load(['patient', 'treatment.prescriptions.medicine', 'prescription']);
         return Inertia::render('Invoices/Show', [
             'auth' => [
                 'user' => auth()->user(),

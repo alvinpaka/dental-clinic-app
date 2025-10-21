@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Prescription;
 
 class Patient extends Model
 {
@@ -35,7 +36,11 @@ class Patient extends Model
 
     public function prescriptions()
     {
-        // Return treatments that have prescription data
-        return $this->treatments()->whereNotNull('medication');
+        return $this->hasManyThrough(
+            Prescription::class,
+            Treatment::class,
+            'patient_id', // Foreign key on treatments table...
+            'treatment_id' // Foreign key on prescriptions table...
+        );
     }
 }

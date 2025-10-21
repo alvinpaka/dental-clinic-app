@@ -11,7 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('treatments', function (Blueprint $table) {
+        Schema::create('prescriptions', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('treatment_id')->constrained()->onDelete('cascade');
             $table->foreignId('medicine_id')->nullable()->constrained('dental_medicines', 'medicine_id');
             $table->string('medication')->nullable();
             $table->string('dosage')->nullable();
@@ -24,6 +26,7 @@ return new class extends Migration
             $table->integer('max_refills')->nullable();
             $table->enum('prescription_status', ['active', 'completed', 'expired', 'cancelled'])->default('active');
             $table->integer('refill_count')->default(0);
+            $table->timestamps();
         });
     }
 
@@ -32,8 +35,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('treatments', function (Blueprint $table) {
-            // Columns were not added in the original empty up method
-        });
+        Schema::dropIfExists('prescriptions');
     }
 };

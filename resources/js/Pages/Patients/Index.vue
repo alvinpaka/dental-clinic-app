@@ -176,6 +176,25 @@ const calculateAge = (dob: string) => {
 
   return age;
 };
+
+// Format currency values
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'UGX',
+    minimumFractionDigits: 0,
+  }).format(amount).replace('UGX', 'UGX');
+};
+
+// Calculate total cost for treatment (procedure + prescriptions)
+const calculateTotalCost = (treatment: any) => {
+  const procedureCost = Number(treatment.cost) || 0;
+  const prescriptionCost = treatment.prescriptions?.reduce((total: number, prescription: any) => {
+    return total + (Number(prescription.prescription_amount) || 0);
+  }, 0) || 0;
+
+  return procedureCost + prescriptionCost;
+};
 </script>
 
 <template>
@@ -445,7 +464,7 @@ const calculateAge = (dob: string) => {
 
     <!-- Create Modal -->
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-2xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Add New Patient
@@ -623,8 +642,8 @@ const calculateAge = (dob: string) => {
 
     <!-- View Patient Modal -->
     <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
-      <DialogContent class="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent class="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader class="flex-shrink-0">
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Patient Profile: {{ viewingPatient?.name }}
           </DialogTitle>
@@ -633,95 +652,139 @@ const calculateAge = (dob: string) => {
           </DialogDescription>
         </DialogHeader>
 
-        <div v-if="viewingPatient" class="space-y-6">
-          <!-- Patient Avatar and Basic Info -->
-          <div class="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg">
-            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-              <span class="text-white font-bold text-2xl">{{ viewingPatient.name.charAt(0).toUpperCase() }}</span>
-            </div>
-            <div>
-              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ viewingPatient.name }}</h3>
-              <p class="text-gray-600 dark:text-gray-400">Patient ID: {{ viewingPatient.id }}</p>
-            </div>
-          </div>
-
-          <!-- Patient Details -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle class="text-lg">Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent class="space-y-4">
-                <div class="flex items-center space-x-3">
-                  <i class="fas fa-envelope text-blue-500 w-5"></i>
-                  <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Email</p>
-                    <p class="font-medium">{{ viewingPatient.email }}</p>
-                  </div>
-                </div>
-                <div class="flex items-center space-x-3">
-                  <Phone class="w-5 h-5 text-green-500" />
-                  <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Phone</p>
-                    <p class="font-medium">{{ viewingPatient.phone }}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle class="text-lg">Personal Information</CardTitle>
-              </CardHeader>
-              <CardContent class="space-y-4">
-                <div class="flex items-center space-x-3">
-                  <i class="fas fa-birthday-cake text-purple-500 w-5"></i>
-                  <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Date of Birth</p>
-                    <p class="font-medium">{{ viewingPatient.dob_formatted }}</p>
-                  </div>
-                </div>
-                <div class="flex items-center space-x-3">
-                  <i class="fas fa-user text-orange-500 w-5"></i>
-                  <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Age</p>
-                    <p class="font-medium">{{ calculateAge(viewingPatient.dob) }} years old</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <!-- Treatments Section -->
-          <Card>
-            <CardHeader>
-              <CardTitle class="text-lg">Treatment History</CardTitle>
-              <CardDescription>Medical procedures performed for this patient</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div class="text-center py-8 text-gray-500">
-                <i class="fas fa-tooth text-4xl mb-4 text-gray-300"></i>
-                <p>Treatment records are available in the detailed patient view.</p>
-                <p class="text-sm mt-2">Click "View Full Profile" to see complete treatment history.</p>
+        <div class="flex-1 overflow-y-auto py-4">
+          <div v-if="viewingPatient" class="space-y-6">
+            <!-- Patient Avatar and Basic Info -->
+            <div class="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg">
+              <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                <span class="text-white font-bold text-2xl">{{ viewingPatient.name.charAt(0).toUpperCase() }}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <!-- Actions -->
-          <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-            <Button variant="outline" @click="openEdit(viewingPatient)">
-              <i class="fas fa-edit mr-2"></i>
-              Edit Patient
-            </Button>
-            <div class="flex space-x-2">
-              <Button variant="outline" as-child>
-                <Link :href="route('patients.show', viewingPatient.id)">
-                  View Full Profile
-                </Link>
-              </Button>
-              <Button @click="isViewOpen = false">
-                Close
-              </Button>
+              <div>
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ viewingPatient.name }}</h3>
+                <p class="text-gray-600 dark:text-gray-400">Patient ID: {{ viewingPatient.id }}</p>
+              </div>
+            </div>
+  
+            <!-- Patient Details -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle class="text-lg">Contact Information</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                  <div class="flex items-center space-x-3">
+                    <i class="fas fa-envelope text-blue-500 w-5"></i>
+                    <div>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                      <p class="font-medium">{{ viewingPatient.email }}</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center space-x-3">
+                    <Phone class="w-5 h-5 text-green-500" />
+                    <div>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">Phone</p>
+                      <p class="font-medium">{{ viewingPatient.phone }}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+  
+              <Card>
+                <CardHeader>
+                  <CardTitle class="text-lg">Personal Information</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                  <div class="flex items-center space-x-3">
+                    <i class="fas fa-birthday-cake text-purple-500 w-5"></i>
+                    <div>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">Date of Birth</p>
+                      <p class="font-medium">{{ viewingPatient.dob_formatted }}</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center space-x-3">
+                    <i class="fas fa-user text-orange-500 w-5"></i>
+                    <div>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">Age</p>
+                      <p class="font-medium">{{ calculateAge(viewingPatient.dob) }} years old</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+  
+            <!-- Treatments Section -->
+            <Card>
+              <CardHeader>
+                <CardTitle class="text-lg">Treatment History</CardTitle>
+                <CardDescription>Medical procedures performed for this patient</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div v-if="viewingPatient.treatments && viewingPatient.treatments.length > 0" class="space-y-4">
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                      <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                          <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Procedure</th>
+                          <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Prescriptions</th>
+                          <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Date</th>
+                          <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Total Cost</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        <tr v-for="treatment in viewingPatient.treatments" :key="treatment.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                          <td class="py-3 px-3">
+                            <div class="flex items-center space-x-2">
+                              <i class="fas fa-tooth text-blue-500"></i>
+                              <span class="font-medium text-gray-900 dark:text-white">{{ treatment.procedure }}</span>
+                              <span class="text-green-600 dark:text-green-400">({{ formatCurrency(treatment.cost || 0) }})</span>
+                            </div>
+                          </td>
+                          <td class="py-3 px-3">
+                            <div v-if="treatment.prescriptions && treatment.prescriptions.length > 0" class="space-y-1">
+                              <div v-for="prescription in treatment.prescriptions" :key="prescription.id" class="text-xs">
+                                <span class="text-gray-600 dark:text-gray-400">
+                                  {{ prescription.medicine?.medicine_name || prescription.medication }}
+                                  <span v-if="prescription.prescription_amount" class="text-green-600 dark:text-green-400">
+                                    ({{ formatCurrency(prescription.prescription_amount) }})
+                                  </span>
+                                </span>
+                              </div>
+                            </div>
+                            <span v-else class="text-gray-500 dark:text-gray-500 italic">No prescriptions</span>
+                          </td>
+                          <td class="py-3 px-3 text-gray-600 dark:text-gray-400">
+                            {{ treatment.created_at ? new Date(treatment.created_at).toLocaleDateString() : 'Not specified' }}
+                          </td>
+                          <td class="py-3 px-3">
+                            <span class="font-medium text-red-600 dark:text-red-400">
+                              {{ formatCurrency(calculateTotalCost(treatment)) }}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div v-else class="text-center py-8 text-gray-500">
+                  <i class="fas fa-tooth text-4xl mb-4 text-gray-300"></i>
+                  <p>No treatment records found for this patient.</p>
+                  <p class="text-sm mt-2">Treatments will appear here once procedures are performed.</p>
+                </div>
+              </CardContent>
+            </Card>
+  
+            <!-- Actions -->
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div class="flex space-x-2">
+                <Button variant="outline" as-child>
+                  <Link :href="route('patients.show', viewingPatient.id)">
+                    View Full Profile
+                  </Link>
+                </Button>
+                <Button @click="isViewOpen = false">
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>

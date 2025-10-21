@@ -83,17 +83,26 @@ const formatUGX = (value: number) => {
           </div>
           <div>
             <label class="text-sm font-medium text-gray-500">Amount</label>
-            <p class="text-sm">{{ formatUGX(props.invoice.amount) }}</p>
+            <p class="text-sm text-red-600">{{ formatUGX(props.invoice.amount) }}</p>
           </div>
           <div>
             <label class="text-sm font-medium text-gray-500">Due Date</label>
             <p class="text-sm">{{ new Date(props.invoice.due_date).toLocaleDateString() }}</p>
           </div>
           <div>
-            <label class="text-sm font-medium text-gray-500">Status</label>
-            <Badge :variant="props.invoice.status === 'paid' ? 'default' : props.invoice.status === 'overdue' ? 'destructive' : 'secondary'">
-              {{ props.invoice.status }}
-            </Badge>
+            <label class="text-sm font-medium text-gray-500 block">Status</label>
+            <div class="mt-1">
+              <Badge
+                :class="{
+                  'bg-green-100 text-green-800 border-green-200': props.invoice.status === 'paid',
+                  'bg-red-100 text-red-800 border-red-200': props.invoice.status === 'overdue',
+                  'bg-yellow-100 text-yellow-800 border-yellow-200': props.invoice.status === 'pending'
+                }"
+                class="px-3 py-1 text-xs font-medium uppercase tracking-wide border"
+              >
+                {{ props.invoice.status }}
+              </Badge>
+            </div>
           </div>
 
           <!-- Treatment Information -->
@@ -103,9 +112,11 @@ const formatUGX = (value: number) => {
           </div>
 
           <!-- Prescription Information -->
-          <div v-if="props.invoice.prescription && props.invoice.prescription.medication" class="col-span-2">
-            <label class="text-sm font-medium text-gray-500">Prescription</label>
-            <p class="text-sm">{{ props.invoice.prescription.medication }} - {{ props.invoice.prescription.frequency }}</p>
+          <div v-if="props.invoice.treatment && props.invoice.treatment.prescriptions && props.invoice.treatment.prescriptions.length > 0" class="col-span-2">
+            <label class="text-sm font-medium text-gray-500">Prescriptions</label>
+            <div v-for="prescription in props.invoice.treatment.prescriptions" :key="prescription.id" class="text-sm">
+              <p>{{ prescription.medicine ? prescription.medicine.medicine_name : (prescription.medication || 'N/A') }} - {{ prescription.prescription_amount ? formatUGX(prescription.prescription_amount) : 'N/A' }}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -138,6 +149,85 @@ const formatUGX = (value: number) => {
   .text-gray-600,
   .text-gray-500 {
     color: black !important;
+  }
+
+  /* Hide the sidebar and header when printing */
+  nav,
+  aside {
+    display: none !important;
+  }
+
+  /* Remove left margin from main content when printing */
+  main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Invoice print styling */
+  .space-y-6 {
+    margin: 0 !important;
+  }
+
+  .flex {
+    display: flex !important;
+  }
+
+  .items-center {
+    align-items: center !important;
+  }
+
+  .justify-between {
+    justify-content: space-between !important;
+  }
+
+  /* Hide buttons and actions when printing */
+  button {
+    display: none !important;
+  }
+
+  /* Make the invoice card fill the page properly */
+  .min-h-screen {
+    min-height: auto !important;
+  }
+
+  /* Ensure proper spacing for printed invoice */
+  .p-6 {
+    padding: 20px !important;
+  }
+
+  /* Make the card look like a proper invoice */
+  .border {
+    border: 1px solid #000 !important;
+  }
+
+  .shadow-xl {
+    box-shadow: none !important;
+  }
+
+  /* Badge styling for print */
+  .badge {
+    border: 1px solid currentColor !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Ensure badge colors are preserved in print where possible */
+  .bg-green-100 {
+    background-color: #f0fdf4 !important;
+    color: #166534 !important;
+    border-color: #bbf7d0 !important;
+  }
+
+  .bg-red-100 {
+    background-color: #fef2f2 !important;
+    color: #991b1b !important;
+    border-color: #fecaca !important;
+  }
+
+  .bg-yellow-100 {
+    background-color: #fffbeb !important;
+    color: #92400e !important;
+    border-color: #fef3c7 !important;
   }
 }
 </style>
