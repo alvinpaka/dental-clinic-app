@@ -253,8 +253,8 @@ const getTotalValue = (item: InventoryItem) => {
             </div>
 
             <div class="flex items-center gap-3">
-              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                <Package class="w-4 h-4 mr-1" />
+              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 font-medium rounded-md shadow-sm">
+                <Package class="w-4 h-4 mr-2" />
                 {{ props.stats?.total_items || 0 }} Total Items
               </Badge>
 

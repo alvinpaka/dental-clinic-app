@@ -216,8 +216,8 @@ const calculateTotalCost = (treatment: any) => {
             </div>
 
             <div class="flex items-center gap-3">
-              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                <Users class="w-4 h-4 mr-1" />
+              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 font-medium rounded-md shadow-sm">
+                <Users class="w-4 h-4 mr-2" />
                 {{ props.patients.data.length }} Total Patients
               </Badge>
 
@@ -406,11 +406,11 @@ const calculateTotalCost = (treatment: any) => {
                         </div>
 
                         <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                          <Button variant="outline" size="sm" @click="openView(patient)">
+                          <Button variant="outline" size="sm" @click="openView(patient)" class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200">
                             <i class="fas fa-eye mr-2"></i>
                             View Profile
                           </Button>
-                          <Button size="sm" as-child>
+                          <Button size="sm" as-child class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                             <Link :href="route('appointments.index', { patient_id: patient.id })">
                               <Calendar class="w-4 h-4 mr-2" />
                               Book Appointment
@@ -451,9 +451,110 @@ const calculateTotalCost = (treatment: any) => {
                 </div>
               </TabsContent>
 
+              <!-- List View -->
               <TabsContent value="list" class="mt-0">
-                <div class="py-16 text-center text-gray-500 dark:text-gray-400">
-                  <p>List view is currently unavailable.</p>
+                <div class="space-y-4">
+                  <!-- Search and Filters -->
+                  <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="relative flex-1">
+                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        v-model="searchQuery"
+                        placeholder="Search patients by name, email, or phone..."
+                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      />
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
+                      <Select v-model="sortBy">
+                        <SelectTrigger class="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="name">Name</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="created_at">Date Added</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
+                        variant="outline"
+                        size="sm"
+                        class="px-3"
+                      >
+                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <!-- Patients List -->
+                  <div class="space-y-3 max-h-96 overflow-y-auto">
+                    <Card
+                      v-for="(patient, index) in filteredPatients"
+                      :key="patient.id"
+                      class="border hover:shadow-md transition-shadow cursor-pointer group"
+                      @click="openView(patient)"
+                    >
+                      <CardContent class="p-4">
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center space-x-3 flex-1">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <span class="text-white font-bold text-sm">{{ patient.name.charAt(0).toUpperCase() }}</span>
+                            </div>
+                            <div class="flex-1">
+                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                                {{ patient.name }}
+                              </h4>
+                              <p class="text-sm text-gray-600 dark:text-gray-400">
+                                <i class="fas fa-envelope mr-1"></i>{{ patient.email }}
+                                <span class="mx-2">•</span>
+                                <i class="fas fa-phone mr-1"></i>{{ patient.phone }}
+                              </p>
+                              <p class="text-sm text-gray-600 dark:text-gray-400">
+                                <i class="fas fa-birthday-cake mr-1"></i>{{ patient.dob_formatted }}
+                                <span class="mx-2">•</span>
+                                <i class="fas fa-user mr-1"></i>{{ calculateAge(patient.dob) }} years old
+                              </p>
+                            </div>
+                          </div>
+
+                          <div class="flex items-center space-x-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger as-child @click.stop>
+                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
+                                  <MoreVertical class="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem @click.stop="openView(patient)">
+                                  <i class="fas fa-eye mr-2"></i>
+                                  View Profile
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="openEdit(patient)">
+                                  <i class="fas fa-edit mr-2"></i>
+                                  Edit Patient
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="openDelete(patient)" class="text-red-600">
+                                  <i class="fas fa-trash mr-2"></i>
+                                  Delete Patient
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div v-if="filteredPatients.length === 0" class="text-center py-8">
+                      <i class="fas fa-users text-4xl mx-auto mb-4 text-gray-300"></i>
+                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        No patients found
+                      </h3>
+                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or add a new patient.</p>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>

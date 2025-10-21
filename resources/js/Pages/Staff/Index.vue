@@ -273,8 +273,8 @@ const formatDate = (dateString: string) => {
             </div>
 
             <div class="flex items-center gap-3">
-              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                <Users class="w-4 h-4 mr-1" />
+              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 font-medium rounded-md shadow-sm">
+                <Users class="w-4 h-4 mr-2" />
                 {{ props.staff.total }} Team Members
               </Badge>
 
@@ -399,7 +399,7 @@ const formatDate = (dateString: string) => {
                             :key="role.id"
                             :class="getRoleColor(role.name)"
                             variant="secondary"
-                            class="text-xs"
+                            class="text-xs px-3 py-1 font-medium rounded-md shadow-sm"
                           >
                             {{ role.name }}
                           </Badge>
@@ -467,14 +467,14 @@ const formatDate = (dateString: string) => {
                                 :key="role.id"
                                 :class="getRoleColor(role.name)"
                                 variant="secondary"
-                                class="text-xs"
+                                class="text-xs px-3 py-1 font-medium rounded-md shadow-sm"
                               >
                                 {{ role.name }}
                               </Badge>
                               <Badge
                                 v-if="member.roles.length > 2"
                                 variant="outline"
-                                class="text-xs"
+                                class="text-xs px-3 py-1 font-medium rounded-md shadow-sm border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400"
                               >
                                 +{{ member.roles.length - 2 }}
                               </Badge>

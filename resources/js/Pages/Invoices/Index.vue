@@ -573,8 +573,8 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
             </div>
 
             <div class="flex items-center gap-3">
-              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                <Receipt class="w-4 h-4 mr-1" />
+              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 py-2 px-4 font-medium rounded-md shadow-sm">
+                <Receipt class="w-4 h-4 mr-2" />
                 {{ (props.invoices?.data || []).length }} Total Invoices
               </Badge>
 
@@ -722,7 +722,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                           </div>
 
                           <div class="flex items-center space-x-2">
-                            <Badge :variant="getStatusBadgeVariant(invoice.status)" class="text-xs px-3 py-1 min-w-0 whitespace-nowrap">
+                            <Badge :variant="getStatusBadgeVariant(invoice.status)" class="text-xs px-3 py-1 font-medium rounded-md shadow-sm min-w-0 whitespace-nowrap">
                               {{ invoice.status }}
                             </Badge>
 
@@ -884,7 +884,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                       v-for="(invoice, index) in filteredInvoices"
                       :key="invoice.id"
                       class="border hover:shadow-md transition-shadow cursor-pointer group"
-                      @click="openEdit(invoice)"
+                      @click="$inertia.visit(route('invoices.show', invoice.id))"
                     >
                       <CardContent class="p-4">
                         <div class="flex items-center justify-between">
@@ -906,7 +906,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                           </div>
 
                           <div class="flex items-center space-x-2">
-                            <Badge :variant="getStatusBadgeVariant(invoice.status)" class="text-xs px-3 py-1 min-w-0 whitespace-nowrap">
+                            <Badge :variant="getStatusBadgeVariant(invoice.status)" class="text-xs px-3 py-1 font-medium rounded-md shadow-sm min-w-0 whitespace-nowrap">
                               {{ invoice.status }}
                             </Badge>
 
