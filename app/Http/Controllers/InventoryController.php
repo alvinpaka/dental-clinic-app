@@ -44,6 +44,8 @@ class InventoryController extends Controller
 
     public function index()
     {
+        $this->authorize('viewAny', InventoryItem::class);
+
         $items = InventoryItem::paginate(10);
         
         // Compute stats
@@ -69,6 +71,8 @@ class InventoryController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', InventoryItem::class);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -89,6 +93,8 @@ class InventoryController extends Controller
     {
         $inventoryItem = InventoryItem::findOrFail($id);
 
+        $this->authorize('update', $inventoryItem);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -108,6 +114,8 @@ class InventoryController extends Controller
     public function destroy($id)
     {
         $inventoryItem = InventoryItem::findOrFail($id);
+
+        $this->authorize('delete', $inventoryItem);
         $inventoryItem->delete();
 
         return redirect()->route('inventory.index')->with('success', 'Item deleted.')->setStatusCode(303);

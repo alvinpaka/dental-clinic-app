@@ -36,7 +36,7 @@ const navigationItems = [
   { value: 'invoices', label: 'Billing', href: '/invoices', icon: 'fas fa-file-invoice-dollar' },
   { value: 'staff', label: 'Staff', href: '/staff', icon: 'fas fa-user-md' },
   { value: 'inventory', label: 'Inventory', href: '/inventory', icon: 'fas fa-boxes' },
-  { value: 'prescriptions', label: 'Prescriptions', href: '/prescriptions', icon: 'fas fa-pills' },
+  { value: 'expenses', label: 'Expenses', href: '/expenses', icon: 'fas fa-receipt' },
   { value: 'reports', label: 'Financial Reports', href: '/reports', icon: 'fas fa-chart-bar' },
 ];
 

@@ -52,6 +52,8 @@ interface TreatmentTrend {
 
 interface Stats {
   totalRevenue: number;
+  totalInventoryCosts: number;
+  totalOperationalExpenses: number;
   totalExpenses: number;
   netProfit: number;
   profitMargin: number;
@@ -61,7 +63,8 @@ interface Stats {
 
 interface Props {
   revenueData: FinancialData[];
-  expenseData: FinancialData[];
+  inventoryCosts: FinancialData[];
+  operationalExpenses: FinancialData[];
   treatmentTrends: TreatmentTrend[];
   stats: Stats;
   currentPeriod: string;
@@ -92,12 +95,20 @@ const financialChartData = computed(() => ({
       fill: true,
     },
     {
-      label: 'Expenses',
-      data: props.expenseData.map(d => d.total),
+      label: 'Inventory Costs',
+      data: props.inventoryCosts.map(d => d.total),
+      borderColor: '#F59E0B',
+      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+      tension: 0.4,
+      fill: false,
+    },
+    {
+      label: 'Operational Expenses',
+      data: props.operationalExpenses.map(d => d.total),
       borderColor: '#EF4444',
       backgroundColor: 'rgba(239, 68, 68, 0.1)',
       tension: 0.4,
-      fill: true,
+      fill: false,
     },
   ],
 }));
@@ -196,7 +207,7 @@ const formatCurrency = (amount: number) => {
       </div>
 
       <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Total Revenue -->
         <Card>
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -211,7 +222,35 @@ const formatCurrency = (amount: number) => {
           </CardContent>
         </Card>
 
-        <!-- Total Expenses -->
+        <!-- Total Inventory Costs -->
+        <Card>
+          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle class="text-sm font-medium">Inventory Costs</CardTitle>
+            <TrendingDown class="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div class="text-2xl font-bold text-amber-600">{{ formatCurrency(stats.totalInventoryCosts) }}</div>
+            <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              Cost of dental supplies & equipment
+            </p>
+          </CardContent>
+        </Card>
+
+        <!-- Total Operational Expenses -->
+        <Card>
+          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle class="text-sm font-medium">Operational Expenses</CardTitle>
+            <TrendingDown class="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div class="text-2xl font-bold text-red-600">{{ formatCurrency(stats.totalOperationalExpenses) }}</div>
+            <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              Business overhead costs
+            </p>
+          </CardContent>
+        </Card>
+
+        <!-- Total Expenses (Combined) -->
         <Card>
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle class="text-sm font-medium">Total Expenses</CardTitle>
@@ -220,7 +259,7 @@ const formatCurrency = (amount: number) => {
           <CardContent>
             <div class="text-2xl font-bold text-red-600">{{ formatCurrency(stats.totalExpenses) }}</div>
             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              Inventory and operational costs
+              Inventory + operational costs
             </p>
           </CardContent>
         </Card>
@@ -236,7 +275,7 @@ const formatCurrency = (amount: number) => {
               {{ formatCurrency(stats.netProfit) }}
             </div>
             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              Revenue minus expenses
+              Revenue minus total expenses
             </p>
           </CardContent>
         </Card>
@@ -289,8 +328,8 @@ const formatCurrency = (amount: number) => {
         <!-- Revenue vs Expenses Trend -->
         <Card class="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Revenue vs Expenses Trend</CardTitle>
-            <CardDescription>Financial performance over time</CardDescription>
+            <CardTitle>Revenue vs Inventory Costs vs Operational Expenses</CardTitle>
+            <CardDescription>Financial breakdown showing revenue, inventory costs, and operational expenses over time</CardDescription>
           </CardHeader>
           <CardContent>
             <div class="h-[400px]">

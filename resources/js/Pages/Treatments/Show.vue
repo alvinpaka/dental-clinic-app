@@ -98,6 +98,50 @@ const props = defineProps<Props>();
           </CardContent>
         </Card>
       </div>
+
+      <!-- Prescription Information -->
+      <Card v-if="props.treatment?.prescriptions && props.treatment.prescriptions.length > 0" class="border-0 shadow-lg">
+        <CardHeader class="pb-3">
+          <CardTitle class="text-lg flex items-center">
+            <i class="fas fa-pills mr-2 text-blue-600"></i>
+            Prescriptions
+          </CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-3">
+          <div v-for="prescription in props.treatment.prescriptions" :key="prescription.id" class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Medicine</Label>
+                <p class="text-gray-900 dark:text-white font-medium">{{ prescription.medicine ? prescription.medicine.medicine_name : (prescription.medication || 'N/A') }}</p>
+              </div>
+              <div>
+                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Dosage</Label>
+                <p class="text-gray-900 dark:text-white">{{ prescription.dosage || 'N/A' }}</p>
+              </div>
+              <div>
+                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Frequency</Label>
+                <p class="text-gray-900 dark:text-white">{{ prescription.frequency || 'N/A' }}</p>
+              </div>
+              <div>
+                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Duration</Label>
+                <p class="text-gray-900 dark:text-white">{{ prescription.duration || 'N/A' }}</p>
+              </div>
+              <div>
+                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Amount</Label>
+                <p class="text-gray-900 dark:text-white font-medium">{{ prescription.prescription_amount > 0 ? formatUGX(prescription.prescription_amount) : 'N/A' }}</p>
+              </div>
+              <div>
+                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Issue Date</Label>
+                <p class="text-gray-900 dark:text-white">{{ prescription.prescription_issue_date ? new Date(prescription.prescription_issue_date).toLocaleDateString() : 'N/A' }}</p>
+              </div>
+            </div>
+            <div v-if="prescription.prescription_instructions" class="mt-4">
+              <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Instructions</Label>
+              <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ prescription.prescription_instructions }}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   </AppLayout>
 </template>

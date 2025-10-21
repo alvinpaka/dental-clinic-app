@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Treatment;
 use App\Models\Invoice;
 use App\Models\InventoryItem;
+use App\Models\Expense;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -20,7 +21,8 @@ class ReportController extends Controller
         
         return Inertia::render('Reports/Index', [
             'revenueData' => $data['revenue'],
-            'expenseData' => $data['expenses'],
+            'inventoryCosts' => $data['inventoryCosts'],
+            'operationalExpenses' => $data['operationalExpenses'],
             'treatmentTrends' => $data['treatmentTrends'],
             'stats' => $data['stats'],
             'currentPeriod' => $period,
@@ -70,8 +72,8 @@ class ReportController extends Controller
                 ];
             });
 
-        // Get expense data (from inventory purchases - assuming cost field exists)
-        $expenses = InventoryItem::where('created_at', '>=', $startDate)
+        // Get inventory costs (cost of purchasing stock/supplies)
+        $inventoryCosts = InventoryItem::where('created_at', '>=', $startDate)
             ->selectRaw("{$groupBy} as period, SUM(quantity * unit_price) as total")
             ->groupBy('period')
             ->orderBy('period')
@@ -80,6 +82,21 @@ class ReportController extends Controller
                 return [
                     'period' => $this->formatPeriodLabel($item->period, $period, $labelFormat),
                     'total' => (float) $item->total,
+                    'type' => 'inventory'
+                ];
+            });
+
+        // Get operational expenses (business overhead costs)
+        $operationalExpenses = Expense::where('date', '>=', $startDate)
+            ->selectRaw("{$groupBy} as period, SUM(amount) as total")
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get()
+            ->map(function ($item) use ($period, $labelFormat) {
+                return [
+                    'period' => $this->formatPeriodLabel($item->period, $period, $labelFormat),
+                    'total' => (float) $item->total,
+                    'type' => 'operational'
                 ];
             });
 
@@ -96,15 +113,21 @@ class ReportController extends Controller
             ->where('created_at', '>=', $startDate)
             ->sum('amount');
             
-        $totalExpenses = InventoryItem::where('created_at', '>=', $startDate)
+        $totalInventoryCosts = InventoryItem::where('created_at', '>=', $startDate)
             ->selectRaw('SUM(quantity * unit_price) as total')
             ->value('total') ?? 0;
             
+        $totalOperationalExpenses = Expense::where('date', '>=', $startDate)
+            ->sum('amount');
+            
+        $totalExpenses = $totalInventoryCosts + $totalOperationalExpenses;
         $netProfit = $totalRevenue - $totalExpenses;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0;
 
         $stats = [
             'totalRevenue' => (float) $totalRevenue,
+            'totalInventoryCosts' => (float) $totalInventoryCosts,
+            'totalOperationalExpenses' => (float) $totalOperationalExpenses,
             'totalExpenses' => (float) $totalExpenses,
             'netProfit' => (float) $netProfit,
             'profitMargin' => round($profitMargin, 2),
@@ -116,7 +139,8 @@ class ReportController extends Controller
 
         return [
             'revenue' => $revenue,
-            'expenses' => $expenses,
+            'inventoryCosts' => $inventoryCosts,
+            'operationalExpenses' => $operationalExpenses,
             'treatmentTrends' => $treatmentTrends,
             'stats' => $stats,
         ];

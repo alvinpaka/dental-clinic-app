@@ -10,6 +10,11 @@ use Spatie\Permission\Models\Role;
 
 class StaffController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(User::class, 'staff');
+    }
+
     public function index()
     {
         $staff = User::with('roles')->paginate(12);
@@ -66,6 +71,8 @@ class StaffController extends Controller
 
     public function updateRoles(Request $request, User $staff)
     {
+        $this->authorize('update', $staff);
+
         $validated = $request->validate([
             'role_ids' => 'required|array|min:1',
             'role_ids.*' => 'exists:roles,id',

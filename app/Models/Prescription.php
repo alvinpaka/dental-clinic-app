@@ -2,48 +2,46 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Prescription extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'patient_id', 
-        'dentist_id', 
+        'treatment_id',
         'medicine_id',
-        'medication', 
-        'dosage', 
+        'medication',
+        'dosage',
         'frequency',
         'duration',
-        'issue_date', 
-        'expiry_date',
-        'instructions',
+        'prescription_amount',
+        'prescription_issue_date',
+        'prescription_expiry_date',
+        'prescription_instructions',
         'max_refills',
-        'status',
+        'prescription_status',
         'refill_count'
     ];
 
     protected $casts = [
-        'issue_date' => 'date',
-        'expiry_date' => 'date',
+        'prescription_issue_date' => 'date',
+        'prescription_expiry_date' => 'date',
+        'prescription_amount' => 'decimal:2',
         'max_refills' => 'integer',
         'refill_count' => 'integer'
     ];
 
-    public function patient()
+    public function treatment()
     {
-        return $this->belongsTo(Patient::class);
-    }
-
-    public function dentist()
-    {
-        return $this->belongsTo(User::class, 'dentist_id');
+        return $this->belongsTo(Treatment::class);
     }
 
     public function medicine()
     {
         return $this->belongsTo(DentalMedicine::class, 'medicine_id', 'medicine_id');
+    }
+
+    public function invoice()
+    {
+        return $this->hasOne(Invoice::class);
     }
 }
