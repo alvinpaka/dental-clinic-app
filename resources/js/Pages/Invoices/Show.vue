@@ -98,7 +98,7 @@ const formatUGX = (value: number) => {
                   'bg-red-100 text-red-800 border-red-200': props.invoice.status === 'overdue',
                   'bg-yellow-100 text-yellow-800 border-yellow-200': props.invoice.status === 'pending'
                 }"
-                class="px-3 py-1 text-xs font-medium uppercase tracking-wide border"
+                class="px-3 py-1 text-xs font-medium uppercase tracking-wide border shadow-sm rounded-md"
               >
                 {{ props.invoice.status }}
               </Badge>
@@ -209,6 +209,8 @@ const formatUGX = (value: number) => {
     border: 1px solid currentColor !important;
     background: white !important;
     color: black !important;
+    border-radius: 0.375rem !important;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
   }
 
   /* Ensure badge colors are preserved in print where possible */

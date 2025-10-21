@@ -174,7 +174,7 @@ const quickActions = [
               </p>
             </div>
             <div class="hidden md:block">
-              <Badge class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0 px-4 py-2">
+              <Badge class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 font-medium rounded-md shadow-sm">
                 <i class="fas fa-circle text-green-500 mr-2"></i>
                 All Systems Operational
               </Badge>

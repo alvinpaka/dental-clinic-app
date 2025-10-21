@@ -549,8 +549,8 @@ const formatUGX = (value: number) => {
 
                           <!-- Invoice Created Badge -->
                           <div v-else class="flex items-center justify-center col-span-2 mt-3">
-                            <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                              <FileText class="w-4 h-4 mr-1" />
+                            <Badge class="bg-green-600 text-white border-green-700 shadow-lg px-3 py-1 text-sm font-medium rounded-sm">
+                              <FileText class="w-4 h-4 mr-2" />
                               Invoice Created
                             </Badge>
                           </div>
@@ -694,8 +694,8 @@ const formatUGX = (value: number) => {
 
                             <!-- Invoice Created Badge -->
                             <div v-else class="flex-shrink-0">
-                              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                <FileText class="w-4 h-4 mr-1" />
+                              <Badge class="bg-green-600 text-white border-green-700 shadow-lg px-3 py-1 text-sm font-medium rounded-sm">
+                                <FileText class="w-4 h-4 mr-2" />
                                 Invoice Created
                               </Badge>
                             </div>
