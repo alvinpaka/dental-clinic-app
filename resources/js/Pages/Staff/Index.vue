@@ -520,7 +520,7 @@ const formatDate = (dateString: string) => {
 
     <!-- Create Staff Modal -->
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-4xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Add New Staff Member
@@ -619,7 +619,7 @@ const formatDate = (dateString: string) => {
 
     <!-- Edit Staff Modal -->
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-4xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Edit Staff Member
@@ -692,7 +692,7 @@ const formatDate = (dateString: string) => {
 
     <!-- Edit Roles Modal -->
     <Dialog :open="isEditRolesOpen" @update:open="(value) => isEditRolesOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-4xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Manage Roles
@@ -742,7 +742,7 @@ const formatDate = (dateString: string) => {
 
     <!-- Delete Modal -->
     <Dialog :open="isDeleteOpen" @update:open="(value) => isDeleteOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-4xl">
         <DialogHeader>
           <DialogTitle class="text-xl font-bold text-red-600">Remove Staff Member</DialogTitle>
           <DialogDescription class="text-gray-600 dark:text-gray-400">

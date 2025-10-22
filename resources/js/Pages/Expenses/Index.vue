@@ -504,7 +504,7 @@ const getCategoryIcon = (category: string) => {
 
     <!-- Create Modal -->
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-4xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Add Operational Expense
@@ -590,7 +590,7 @@ const getCategoryIcon = (category: string) => {
 
     <!-- Edit Modal -->
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-4xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Edit Operational Expense
@@ -676,7 +676,7 @@ const getCategoryIcon = (category: string) => {
 
     <!-- Delete Modal -->
     <Dialog :open="isDeleteOpen" @update:open="(value) => isDeleteOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-4xl">
         <DialogHeader>
           <DialogTitle class="text-xl font-bold text-red-600">Delete Operational Expense</DialogTitle>
           <DialogDescription class="text-gray-600 dark:text-gray-400">
