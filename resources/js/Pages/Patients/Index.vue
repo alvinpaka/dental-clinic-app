@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -21,6 +21,7 @@ interface Patient {
   phone: string;
   dob: string;
   dob_formatted: string;
+  dob_formatted_edit: string;
 }
 
 interface Props {
@@ -53,6 +54,7 @@ const createForm = useForm({
   email: '',
   phone: '',
   dob: '',
+  age: '',
 });
 
 const editForm = useForm({
@@ -60,6 +62,7 @@ const editForm = useForm({
   email: '',
   phone: '',
   dob: '',
+  age: '',
 });
 
 const isCreateOpen = ref(false);
@@ -111,7 +114,8 @@ const openEdit = (patient: Patient) => {
   editForm.name = patient.name;
   editForm.email = patient.email;
   editForm.phone = patient.phone;
-  editForm.dob = patient.dob;
+  editForm.dob = patient.dob_formatted_edit || patient.dob;
+  editForm.age = calculateAgeFromDOB(editForm.dob);
   isEditOpen.value = true;
 };
 
@@ -128,10 +132,26 @@ const openView = (patient: Patient) => {
 
 const submitCreate = () => {
   if (!props.can.createPatient) return;
+
+  // Validate that either age or DOB is provided
+  if (!createForm.age && !createForm.dob) {
+    alert('Please provide either age or date of birth');
+    return;
+  }
+
+  // If age is provided but DOB is empty, calculate DOB from age
+  if (createForm.age && !createForm.dob) {
+    createForm.dob = calculateDOBFromAge(parseInt(createForm.age));
+  }
+
   createForm.post(route('patients.store'), {
     onSuccess: () => {
       createForm.reset();
       isCreateOpen.value = false;
+    },
+    onError: () => {
+      // Validation errors are automatically handled by useForm
+      console.log('Validation errors:', createForm.errors);
     },
   });
 };
@@ -141,11 +161,26 @@ const submitEdit = () => {
     return;
   }
 
+  // Validate that either age or DOB is provided
+  if (!editForm.age && !editForm.dob) {
+    alert('Please provide either age or date of birth');
+    return;
+  }
+
+  // If age is provided but DOB is empty, calculate DOB from age
+  if (editForm.age && !editForm.dob) {
+    editForm.dob = calculateDOBFromAge(parseInt(editForm.age));
+  }
+
   editForm.put(route('patients.update', editingPatient.value.id), {
     onSuccess: () => {
       editForm.reset();
       isEditOpen.value = false;
       editingPatient.value = null;
+    },
+    onError: () => {
+      // Validation errors are automatically handled by useForm
+      console.log('Validation errors:', editForm.errors);
     },
   });
 };
@@ -192,9 +227,66 @@ const calculateTotalCost = (treatment: any) => {
   const prescriptionCost = treatment.prescriptions?.reduce((total: number, prescription: any) => {
     return total + (Number(prescription.prescription_amount) || 0);
   }, 0) || 0;
-
   return procedureCost + prescriptionCost;
 };
+
+
+// Calculate DOB from age (assuming birth on January 1st of that year)
+const calculateDOBFromAge = (age: number) => {
+  const today = new Date();
+  const birthYear = today.getFullYear() - age;
+  return new Date(birthYear, 0, 1).toISOString().split('T')[0]; // YYYY-MM-DD format
+};
+
+// Calculate age from DOB
+const calculateAgeFromDOB = (dob: string) => {
+  if (!dob) return '';
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+
+  return age.toString();
+};
+
+// Watch for age changes and update DOB
+watch(() => createForm.age, (newAge) => {
+  if (newAge && !createForm.dob) {
+    createForm.dob = calculateDOBFromAge(parseInt(newAge));
+  } else if (!newAge) {
+    createForm.dob = '';
+  }
+});
+
+// Watch for DOB changes and update age
+watch(() => createForm.dob, (newDOB) => {
+  if (newDOB && !createForm.age) {
+    createForm.age = calculateAgeFromDOB(newDOB);
+  } else if (!newDOB) {
+    createForm.age = '';
+  }
+});
+// Watch for age changes in edit form and update DOB
+watch(() => editForm.age, (newAge) => {
+  if (newAge && !editForm.dob) {
+    editForm.dob = calculateDOBFromAge(parseInt(newAge));
+  } else if (!newAge) {
+    editForm.dob = '';
+  }
+});
+
+// Watch for DOB changes in edit form and update age
+watch(() => editForm.dob, (newDOB) => {
+  if (newDOB && !editForm.age) {
+    editForm.age = calculateAgeFromDOB(newDOB);
+  } else if (!newDOB) {
+    editForm.age = '';
+  }
+});
 </script>
 
 <template>
@@ -592,10 +684,12 @@ const calculateTotalCost = (treatment: any) => {
               id="email"
               type="email"
               v-model="createForm.email"
-              placeholder="patient@example.com"
+              placeholder="email@email.com"
               class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
             />
+            <div v-if="createForm.errors.email" class="text-sm text-red-600 dark:text-red-400">
+              {{ Array.isArray(createForm.errors.email) ? createForm.errors.email[0] : createForm.errors.email }}
+            </div>
           </div>
 
           <div class="space-y-2">
@@ -603,9 +697,8 @@ const calculateTotalCost = (treatment: any) => {
             <Input
               id="phone"
               v-model="createForm.phone"
-              placeholder="(555) 123-4567"
+              placeholder="07XXXXXXXX"
               class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
             />
           </div>
 
@@ -616,8 +709,27 @@ const calculateTotalCost = (treatment: any) => {
               type="date"
               v-model="createForm.dob"
               class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
+              :required="!createForm.age"
             />
+            <div v-if="createForm.errors.dob" class="text-sm text-red-600 dark:text-red-400">
+              {{ Array.isArray(createForm.errors.dob) ? createForm.errors.dob[0] : createForm.errors.dob }}
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Or enter age below</p>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="age" class="text-gray-700 dark:text-gray-300">Age</Label>
+            <Input
+              id="age"
+              type="number"
+              min="0"
+              max="150"
+              v-model="createForm.age"
+              placeholder="e.g., 25"
+              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+              :required="!createForm.dob"
+            />
+            <p class="text-xs text-gray-500 dark:text-gray-400">Or enter date of birth above</p>
           </div>
 
           <DialogFooter class="gap-2">
@@ -636,7 +748,7 @@ const calculateTotalCost = (treatment: any) => {
 
     <!-- Edit Modal -->
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-2xl">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Edit Patient
@@ -663,10 +775,12 @@ const calculateTotalCost = (treatment: any) => {
               id="edit-email"
               type="email"
               v-model="editForm.email"
-              placeholder="patient@example.com"
+              placeholder="email@email.com"
               class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
             />
+            <div v-if="editForm.errors.email" class="text-sm text-red-600 dark:text-red-400">
+              {{ Array.isArray(editForm.errors.email) ? editForm.errors.email[0] : editForm.errors.email }}
+            </div>
           </div>
 
           <div class="space-y-2">
@@ -674,7 +788,7 @@ const calculateTotalCost = (treatment: any) => {
             <Input
               id="edit-phone"
               v-model="editForm.phone"
-              placeholder="(555) 123-4567"
+              placeholder="07XXXXXXXX"
               class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
               required
             />
@@ -687,8 +801,27 @@ const calculateTotalCost = (treatment: any) => {
               type="date"
               v-model="editForm.dob"
               class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
+              :required="!editForm.age"
             />
+            <div v-if="editForm.errors.dob" class="text-sm text-red-600 dark:text-red-400">
+              {{ Array.isArray(editForm.errors.dob) ? editForm.errors.dob[0] : editForm.errors.dob }}
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Or enter age below</p>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="edit-age" class="text-gray-700 dark:text-gray-300">Age</Label>
+            <Input
+              id="edit-age"
+              type="number"
+              min="0"
+              max="150"
+              v-model="editForm.age"
+              placeholder="e.g., 25"
+              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+              :required="!editForm.dob"
+            />
+            <p class="text-xs text-gray-500 dark:text-gray-400">Or enter date of birth above</p>
           </div>
 
           <DialogFooter class="gap-2">

@@ -5,6 +5,7 @@ import { ZiggyVue } from 'ziggy-js';
 import { route } from 'ziggy-js';
 import { createPinia } from 'pinia';
 import './bootstrap';
+import { setupGlobalErrorHandler } from '@/lib/globalErrorHandler';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -26,3 +27,6 @@ createInertiaApp({
         color: '#4B5563',
     },
 });
+
+// Setup global error handling after app initialization
+setupGlobalErrorHandler();

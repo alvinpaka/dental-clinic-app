@@ -13,6 +13,11 @@ const props = defineProps<{
     name: string;
     email: string;
     email_verified_at?: string;
+    roles?: Array<{
+      id: number;
+      name: string;
+      display_name?: string;
+    }>;
   };
 }>();
 
@@ -33,8 +38,40 @@ const submit = () => {
   });
 };
 
-// Computed property to check if form has changes
-const hasChanges = computed(() => form.isDirty);
+// Helper function to format role names
+const formatRoleName = (roleName: string): string => {
+  const roleMap: Record<string, string> = {
+    'admin': 'Administrator',
+    'receptionist': 'Receptionist',
+    'dentist': 'Dentist',
+    'assistant': 'Assistant',
+  };
+
+  return roleMap[roleName] || roleName.charAt(0).toUpperCase() + roleName.slice(1);
+};
+
+// Computed property for account type display
+const accountType = computed(() => {
+  if (!props.user.roles || props.user.roles.length === 0) {
+    return 'User';
+  }
+
+  const sortedRoles = [...props.user.roles].sort((a, b) => a.name.localeCompare(b.name));
+
+  if (sortedRoles.length === 1) {
+    return props.user.roles[0].display_name || formatRoleName(props.user.roles[0].name);
+  }
+
+  if (sortedRoles.length === 2) {
+    const role1 = sortedRoles[0].display_name || formatRoleName(sortedRoles[0].name);
+    const role2 = sortedRoles[1].display_name || formatRoleName(sortedRoles[1].name);
+    return `${role1} & ${role2}`;
+  }
+
+  // For 3 or more roles, show primary role + count
+  const primaryRole = sortedRoles[0].display_name || formatRoleName(sortedRoles[0].name);
+  return `${primaryRole} & ${sortedRoles.length - 1} more`;
+});
 </script>
 
 <template>
@@ -201,7 +238,7 @@ const hasChanges = computed(() => form.isDirty);
 
               <div class="space-y-2">
                 <Label class="text-sm font-medium">Account Type</Label>
-                <p class="text-sm text-muted-foreground">Administrator</p>
+                <p class="text-sm text-muted-foreground">{{ accountType }}</p>
               </div>
 
               <div class="space-y-2">

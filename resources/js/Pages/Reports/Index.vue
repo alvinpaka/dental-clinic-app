@@ -133,7 +133,7 @@ const financialChartOptions = ref({
       beginAtZero: true,
       ticks: {
         callback: function(value: number) {
-          return '$' + value.toLocaleString();
+          return 'UGX' + value.toLocaleString();
         }
       }
     },

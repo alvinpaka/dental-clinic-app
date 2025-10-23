@@ -351,9 +351,9 @@ const quickActions = [
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div v-if="recentActivity.length > 0" class="space-y-4">
-                  <div 
-                    v-for="(activity, index) in recentActivity" 
+                <div v-if="recentActivity.length > 0" class="space-y-4 max-h-96 overflow-y-auto">
+                  <div
+                    v-for="(activity, index) in recentActivity"
                     :key="index"
                     class="flex items-start space-x-3"
                   >
