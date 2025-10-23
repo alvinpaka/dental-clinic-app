@@ -743,7 +743,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                                   <Download class="w-4 h-4 mr-2" />
                                   Download PDF
                                 </DropdownMenuItem>
-                                <DropdownMenuItem @click="openEdit(invoice)">
+                                <DropdownMenuItem @click="openEdit(invoice)" v-if="invoice.status !== 'paid'">
                                   <i class="fas fa-edit mr-2"></i>
                                   Edit Invoice
                                 </DropdownMenuItem>
@@ -751,7 +751,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                                   <CreditCard class="w-4 h-4 mr-2" />
                                   Mark as Paid
                                 </DropdownMenuItem>
-                                <DropdownMenuItem @click="openDelete(invoice)" class="text-red-600">
+                                <DropdownMenuItem @click="openDelete(invoice)" class="text-red-600" v-if="invoice.status !== 'paid'">
                                   <i class="fas fa-trash mr-2"></i>
                                   Delete Invoice
                                 </DropdownMenuItem>
@@ -925,7 +925,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                                   <Download class="w-4 h-4 mr-2" />
                                   Download PDF
                                 </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openEdit(invoice)">
+                                <DropdownMenuItem @click.stop="openEdit(invoice)" v-if="invoice.status !== 'paid'">
                                   <i class="fas fa-edit mr-2"></i>
                                   Edit
                                 </DropdownMenuItem>

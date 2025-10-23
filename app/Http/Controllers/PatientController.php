@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Patient;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class PatientController extends Controller
@@ -27,6 +26,7 @@ class PatientController extends Controller
             ->paginate(10);
         $patients->getCollection()->transform(function ($patient) {
             $patient->dob_formatted = $patient->dob ? \Carbon\Carbon::parse($patient->dob)->format('M d, Y') : null;
+            $patient->dob_formatted_edit = $patient->dob ? \Carbon\Carbon::parse($patient->dob)->format('Y-m-d') : null;
             return $patient;
         });
         return Inertia::render('Patients/Index', [
@@ -55,13 +55,35 @@ class PatientController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:patients,email',
+            'email' => 'nullable|email',
             'phone' => 'required|string|max:20',
-            'dob' => 'required|date',
+            'dob' => 'nullable|date',
+            'age' => 'nullable|integer|min:0|max:150',
             'address' => 'nullable|string',
             'medical_history' => 'nullable|string',
             'allergies' => 'nullable|array',
         ]);
+
+        // Manual email uniqueness check
+        if ($request->email) {
+            $existingPatient = Patient::where('email', $request->email)->first();
+            if ($existingPatient) {
+                return redirect()->back()->withErrors(['email' => 'The email address is already in use.'])->withInput();
+            }
+        }
+
+        // If age is provided but DOB is not, calculate DOB from age
+        if ($validated['age'] && !$validated['dob']) {
+            $validated['dob'] = now()->subYears($validated['age'])->format('Y-m-d');
+        }
+
+        // Ensure DOB is required for database
+        if (!$validated['dob']) {
+            return redirect()->back()->withErrors(['dob' => 'Either date of birth or age is required'])->withInput();
+        }
+
+        // Remove age from validated data before creating patient
+        unset($validated['age']);
 
         Patient::create($validated);
 
@@ -78,6 +100,10 @@ class PatientController extends Controller
                   }]);
         }, 'invoices', 'prescriptions']);
         $patients = Patient::select('id', 'name', 'email')->get();
+
+        // Format the date of birth for display
+        $patient->dob_formatted = $patient->dob ? \Carbon\Carbon::parse($patient->dob)->format('M d, Y') : null;
+
         return Inertia::render('Patients/Show', [
             'auth' => [
                 'user' => auth()->user(),
@@ -90,25 +116,42 @@ class PatientController extends Controller
     // Update and destroy similar...
     public function edit(Patient $patient)
     {
-        return Inertia::render('Patients/Edit', [
-            'auth' => [
-                'user' => auth()->user(),
-            ],
-            'patient' => $patient
-        ]);
+        return redirect()->route('patients.index');
     }
 
     public function update(Request $request, Patient $patient)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => ['required', 'email', Rule::unique('patients', 'email')->ignore($patient->id)],
+            'email' => 'nullable|email',
             'phone' => 'required|string|max:20',
-            'dob' => 'required|date',
+            'dob' => 'nullable|date',
+            'age' => 'nullable|integer|min:0|max:150',
             'address' => 'nullable|string',
             'medical_history' => 'nullable|string',
             'allergies' => 'nullable|array',
         ]);
+
+        // Manual email uniqueness check (excluding current patient)
+        if ($request->email) {
+            $existingPatient = Patient::where('email', $request->email)->where('id', '!=', $patient->id)->first();
+            if ($existingPatient) {
+                return redirect()->back()->withErrors(['email' => 'The email address is already in use.'])->withInput();
+            }
+        }
+
+        // If age is provided but DOB is not, calculate DOB from age
+        if ($validated['age'] && !$validated['dob']) {
+            $validated['dob'] = now()->subYears($validated['age'])->format('Y-m-d');
+        }
+
+        // Ensure DOB is provided
+        if (!$validated['dob']) {
+            return redirect()->back()->withErrors(['dob' => 'Either date of birth or age is required'])->withInput();
+        }
+
+        // Remove age from validated data before updating patient
+        unset($validated['age']);
 
         $patient->update($validated);
 

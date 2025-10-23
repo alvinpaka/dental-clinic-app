@@ -13,8 +13,19 @@ class ExpensePolicy
      */
     public function before(User $user, string $ability): bool|null
     {
+        // Admin has all permissions
         if ($user->hasRole('admin')) {
             return true;
+        }
+
+        // Dentists can only view expenses
+        if ($ability === 'viewAny' || $ability === 'view') {
+            return null; // Let the specific methods handle these
+        }
+
+        // All other actions require admin or receptionist
+        if (!in_array($ability, ['viewAny', 'view']) && !$user->hasRole('receptionist')) {
+            return false;
         }
 
         return null;
@@ -33,7 +44,12 @@ class ExpensePolicy
      */
     public function view(User $user, Expense $expense): bool
     {
-        return $user->hasAnyRole(['admin', 'receptionist', 'dentist']);
+        // Dentists can only view their own expenses or clinic-wide expenses
+        if ($user->hasRole('dentist')) {
+            return $expense->created_by === $user->id || $expense->is_clinic_expense;
+        }
+        
+        return $user->hasAnyRole(['admin', 'receptionist']);
     }
 
     /**
@@ -49,7 +65,8 @@ class ExpensePolicy
      */
     public function update(User $user, Expense $expense): bool
     {
-        return $user->hasAnyRole(['admin', 'receptionist']);
+        // Only the creator or admin can update
+        return $expense->created_by === $user->id || $user->hasRole('admin');
     }
 
     /**
@@ -57,6 +74,7 @@ class ExpensePolicy
      */
     public function delete(User $user, Expense $expense): bool
     {
+        // Only admin can delete expenses
         return $user->hasRole('admin');
     }
 

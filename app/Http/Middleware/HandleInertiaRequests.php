@@ -46,6 +46,7 @@ class HandleInertiaRequests extends Middleware
             'errors' => fn () => $request->session()->get('errors')
                 ? $request->session()->get('errors')->getBag('default')->getMessages()
                 : (object) [],
+            'unauthorized' => fn () => $request->session()->get('unauthorized'),
         ]);
     }
 }

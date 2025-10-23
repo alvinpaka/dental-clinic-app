@@ -12,8 +12,11 @@ import {
 } from '@/Components/ui/dropdown-menu';
 import { computed, ref, onMounted } from 'vue';
 import { useThemeStore } from '@/Stores/theme';
+import UnauthorizedModal from '@/Components/UnauthorizedModal.vue';
+import { useUnauthorizedModal } from '@/Composables/useUnauthorizedModal';
 
 const themeStore = useThemeStore();
+const unauthorizedModal = useUnauthorizedModal();
 
 const props = defineProps<{
   title: string;
@@ -115,13 +118,6 @@ const activeTab = computed(() => {
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem as-child>
-                  <Link href="/settings" class="cursor-pointer">
-                    <i class="fas fa-cog mr-2 h-4 w-4"></i>
-                    <span>Settings</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   @click="router.post(route('logout'))"
                   class="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
@@ -171,5 +167,15 @@ const activeTab = computed(() => {
         <slot />
       </main>
     </div>
+
+    <!-- Global Unauthorized Modal -->
+    <UnauthorizedModal
+      :show="unauthorizedModal.isModalOpen.value"
+      :title="unauthorizedModal.errorDetails.value.title"
+      :message="unauthorizedModal.errorDetails.value.message"
+      :required-role="unauthorizedModal.errorDetails.value.requiredRole"
+      :resource="unauthorizedModal.errorDetails.value.resource"
+      @close="unauthorizedModal.hideUnauthorizedModal"
+    />
   </div>
 </template>

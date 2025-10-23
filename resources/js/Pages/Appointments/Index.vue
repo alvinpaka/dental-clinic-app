@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
-import { Plus, Calendar, Clock, Users, Search, Filter, MoreVertical } from 'lucide-vue-next';
+import { Plus, Calendar, Clock, Users, Search, Filter, MoreVertical, Eye, Edit, Trash2, AlertTriangle } from 'lucide-vue-next';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -28,6 +28,8 @@ interface Appointment {
   status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
   type: string;
   notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Patient {
@@ -71,14 +73,6 @@ const getStatusBadgeVariant = (status: string) => {
   }
 };
 
-const formatTime = (dateString: string) => {
-  return new Date(dateString).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-};
-
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -87,10 +81,29 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const formatTime = (dateString: string) => {
+  return new Date(dateString).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+const formatDateTime = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 const activeTab = ref('calendar');
 const selectedDate = ref(new Date().toISOString().split('T')[0]);
 const searchQuery = ref('');
-const statusFilter = ref('');
+const statusFilter = ref('all');
 
 // Convert appointments to FullCalendar events
 const calendarEvents = computed(() => {
@@ -132,6 +145,9 @@ const calendarOptions = ref({
   selectMirror: true,
   dayMaxEvents: 3,
   weekends: true,
+  validRange: {
+    start: new Date().toISOString().split('T')[0]
+  },
   headerToolbar: {
     left: 'prev,next today',
     center: 'title',
@@ -142,10 +158,8 @@ const calendarOptions = ref({
     openCreate();
   },
   eventClick: (info: any) => {
-    console.log('Calendar event clicked:', info.event);
-    console.log('Extended props:', info.event.extendedProps);
     const appointment = info.event.extendedProps;
-    openEdit(appointment);
+    openView(appointment);
   },
   height: '600px',
   eventDisplay: 'block',
@@ -157,7 +171,9 @@ const calendarOptions = ref({
 });
 
 watch(calendarEvents, (newEvents) => {
-  calendarOptions.value.events = newEvents;
+  if (calendarOptions.value) {
+    calendarOptions.value.events = newEvents;
+  }
 });
 
 // Check for patient_id query parameter and auto-open create modal
@@ -195,19 +211,55 @@ const editForm = useForm({
   notes: '',
 });
 
+// Watch for start time changes in create form and update end time
+watch(() => createForm.start_time, (newStartTime) => {
+  if (newStartTime && !createForm.end_time) {
+    // Calculate end time as 1 hour after start time
+    const [hours, minutes] = newStartTime.split(':');
+    const startDate = new Date();
+    startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
+    const endTime = endDate.toTimeString().slice(0, 5); // Format as HH:MM
+
+    createForm.end_time = endTime;
+  }
+});
+
+// Watch for start time changes in edit form and update end time
+watch(() => editForm.start_time, (newStartTime) => {
+  if (newStartTime && !editForm.end_time) {
+    // Calculate end time as 1 hour after start time
+    const [hours, minutes] = newStartTime.split(':');
+    const startDate = new Date();
+    startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
+    const endTime = endDate.toTimeString().slice(0, 5); // Format as HH:MM
+
+    editForm.end_time = endTime;
+  }
+});
+
 // Modal states
 const isCreateOpen = ref(false);
 const isEditOpen = ref(false);
+const isViewOpen = ref(false);
 const isDeleteOpen = ref(false);
 const editingAppointment = ref<Appointment | null>(null);
+const viewingAppointment = ref<Appointment | null>(null);
 
 const openCreate = () => {
   createForm.date = selectedDate.value;
   isCreateOpen.value = true;
 };
 
+const openView = (appointment: Appointment) => {
+  viewingAppointment.value = appointment;
+  isViewOpen.value = true;
+};
+
 const openEdit = (appointment: Appointment) => {
-  console.log('Opening edit for appointment:', appointment);
   editingAppointment.value = appointment;
   editForm.patient_id = appointment.patient.id;
   editForm.date = new Date(appointment.start).toISOString().split('T')[0];
@@ -216,6 +268,7 @@ const openEdit = (appointment: Appointment) => {
   editForm.type = appointment.type;
   editForm.status = appointment.status;
   editForm.notes = appointment.notes || '';
+  isViewOpen.value = false;
   isEditOpen.value = true;
 };
 
@@ -226,7 +279,26 @@ const openDelete = (appointment: Appointment) => {
 
 const submitCreate = () => {
   if (!createForm.patient_id || !createForm.date || !createForm.start_time || !createForm.end_time) {
-    alert('Please fill in all required fields');
+    createForm.setError('patient_id', 'Please fill in all required fields');
+    return;
+  }
+
+  // Validate that end time is after start time
+  const startTime = new Date(`2000-01-01T${createForm.start_time}`);
+  const endTime = new Date(`2000-01-01T${createForm.end_time}`);
+
+  if (endTime <= startTime) {
+    createForm.setError('end_time', 'End time must be after start time');
+    return;
+  }
+
+  // Validate that date is not in the past
+  const selectedDate = new Date(createForm.date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+
+  if (selectedDate < today) {
+    createForm.setError('date', 'Please select a current or future date for the appointment');
     return;
   }
 
@@ -240,37 +312,44 @@ const submitCreate = () => {
 
 const submitEdit = () => {
   if (!editForm.patient_id || !editForm.date || !editForm.start_time || !editForm.end_time) {
-    alert('Please fill in all required fields');
+    editForm.setError('patient_id', 'Please fill in all required fields');
+    return;
+  }
+
+  // Validate that end time is after start time
+  const startTime = new Date(`2000-01-01T${editForm.start_time}`);
+  const endTime = new Date(`2000-01-01T${editForm.end_time}`);
+
+  if (endTime <= startTime) {
+    editForm.setError('end_time', 'End time must be after start time');
+    return;
+  }
+
+  // Validate that date is not in the past
+  const selectedDate = new Date(editForm.date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+
+  if (selectedDate < today) {
+    editForm.setError('date', 'Please select a current or future date for the appointment');
     return;
   }
 
   if (editingAppointment.value && editingAppointment.value.id) {
-    console.log('Editing appointment:', editingAppointment.value);
-    console.log('Appointment ID:', editingAppointment.value.id);
     const routeUrl = `/appointments/${editingAppointment.value.id}`;
-    console.log('Route URL:', routeUrl);
     editForm.put(routeUrl, {
       onSuccess: () => {
         editForm.reset();
         isEditOpen.value = false;
         editingAppointment.value = null;
       },
-      onError: (errors) => {
-        console.error('Update errors:', errors);
-      },
     });
-  } else {
-    console.error('No editing appointment found or invalid ID');
-    console.error('editingAppointment:', editingAppointment.value);
   }
 };
 
 const confirmDelete = () => {
   if (editingAppointment.value) {
-    console.log('Deleting appointment:', editingAppointment.value);
-    console.log('Appointment ID:', editingAppointment.value.id);
     const deleteUrl = `/appointments/${editingAppointment.value.id}`;
-    console.log('Delete URL:', deleteUrl);
     router.delete(deleteUrl, {
       onSuccess: () => {
         isDeleteOpen.value = false;
@@ -435,7 +514,7 @@ const confirmDelete = () => {
                       v-for="(appointment, index) in filteredAppointments"
                       :key="appointment.id"
                       class="border hover:shadow-md transition-shadow cursor-pointer group"
-                      @click="openEdit(appointment)"
+                      @click="openView(appointment)"
                     >
                       <CardContent class="p-4">
                         <div class="flex items-center justify-between">
@@ -445,7 +524,7 @@ const confirmDelete = () => {
                               :style="{ backgroundColor: getStatusColor(appointment.status) }"
                             ></div>
                             <div>
-                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                              <h4 class="font-medium text-gray-900 dark:text-white">
                                 {{ appointment.patient.name }}
                               </h4>
                               <p class="text-sm text-gray-600 dark:text-gray-400">
@@ -455,7 +534,7 @@ const confirmDelete = () => {
                           </div>
 
                           <div class="flex items-center space-x-2">
-                            <Badge :variant="getStatusBadgeVariant(appointment.status)" class="text-xs">
+                            <Badge :variant="getStatusBadgeVariant(appointment.status)" class="text-xs px-3 py-1 font-medium rounded-md shadow-sm min-w-0 whitespace-nowrap">
                               {{ appointment.status }}
                             </Badge>
 
@@ -466,12 +545,16 @@ const confirmDelete = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem @click.stop="openView(appointment)">
+                                  <Eye class="w-4 h-4 mr-2" />
+                                  View
+                                </DropdownMenuItem>
                                 <DropdownMenuItem @click.stop="openEdit(appointment)">
-                                  <i class="fas fa-edit mr-2"></i>
+                                  <Edit class="w-4 h-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuItem @click.stop="openDelete(appointment)" class="text-red-600">
-                                  <i class="fas fa-trash mr-2"></i>
+                                  <Trash2 class="w-4 h-4 mr-2" />
                                   Delete
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -530,6 +613,7 @@ const confirmDelete = () => {
                 type="date"
                 v-model="createForm.date"
                 class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                :min="new Date().toISOString().split('T')[0]"
                 required
               />
             </div>
@@ -570,6 +654,7 @@ const confirmDelete = () => {
                 class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                 required
               />
+              <p class="text-xs text-gray-500 dark:text-gray-400">Automatically set 1 hour after start time</p>
             </div>
           </div>
 
@@ -592,8 +677,8 @@ const confirmDelete = () => {
               :disabled="createForm.processing"
               class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
             >
-              <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
-              <i v-else class="fas fa-calendar-plus mr-2"></i>
+              <span v-if="createForm.processing" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+              <span v-else class="mr-2">+</span>
               {{ createForm.processing ? 'Scheduling...' : 'Schedule Appointment' }}
             </Button>
           </DialogFooter>
@@ -636,6 +721,7 @@ const confirmDelete = () => {
                 type="date"
                 v-model="editForm.date"
                 class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                :min="new Date().toISOString().split('T')[0]"
                 required
               />
             </div>
@@ -677,6 +763,7 @@ const confirmDelete = () => {
                 class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                 required
               />
+              <p class="text-xs text-gray-500 dark:text-gray-400">Automatically set 1 hour after start time</p>
             </div>
           </div>
 
@@ -704,14 +791,6 @@ const confirmDelete = () => {
             />
           </div>
 
-          <!-- Debug information -->
-          <div v-if="editingAppointment" class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-            <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">Debug Info:</p>
-            <p class="text-xs text-yellow-700 dark:text-yellow-300">Appointment ID: {{ editingAppointment.id }}</p>
-            <p class="text-xs text-yellow-700 dark:text-yellow-300">Patient: {{ editingAppointment.patient?.name }}</p>
-            <p class="text-xs text-yellow-700 dark:text-yellow-300">Status: {{ editingAppointment.status }}</p>
-          </div>
-
           <DialogFooter class="gap-2">
             <Button type="button" variant="outline" @click="isEditOpen = false">
               Cancel
@@ -721,8 +800,8 @@ const confirmDelete = () => {
               :disabled="editForm.processing"
               class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
             >
-              <i v-if="editForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
-              <i v-else class="fas fa-save mr-2"></i>
+              <span v-if="editForm.processing" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+              <span v-else class="mr-2">💾</span>
               {{ editForm.processing ? 'Saving...' : 'Save Changes' }}
             </Button>
           </DialogFooter>
@@ -732,7 +811,7 @@ const confirmDelete = () => {
 
     <!-- Delete Modal -->
     <Dialog :open="isDeleteOpen" @update:open="(value) => isDeleteOpen = value">
-      <DialogContent class="max-w-4xl">
+      <DialogContent class="max-w-md">
         <DialogHeader>
           <DialogTitle class="text-xl font-bold text-red-600">Delete Appointment</DialogTitle>
           <DialogDescription class="text-gray-600 dark:text-gray-400">
@@ -742,7 +821,7 @@ const confirmDelete = () => {
 
         <div class="py-4">
           <div class="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+            <AlertTriangle class="w-5 h-5 text-red-600 flex-shrink-0" />
             <div>
               <p class="font-medium text-red-800 dark:text-red-200">Delete appointment for {{ editingAppointment?.patient.name }}?</p>
               <p class="text-sm text-red-600 dark:text-red-400">This will remove the appointment permanently.</p>
@@ -759,8 +838,83 @@ const confirmDelete = () => {
             variant="destructive"
             class="bg-red-600 hover:bg-red-700"
           >
-            <i class="fas fa-trash mr-2"></i>
+            <Trash2 class="w-4 h-4 mr-2" />
             Delete Appointment
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- View Appointment Modal -->
+    <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
+      <DialogContent class="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            View Appointment
+          </DialogTitle>
+          <DialogDescription class="text-gray-600 dark:text-gray-400">
+            Appointment details for {{ viewingAppointment?.patient.name }}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div v-if="viewingAppointment" class="space-y-6">
+          <!-- Patient Information -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <div>
+                <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Patient</Label>
+                <div class="mt-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+                  <p class="font-medium text-gray-900 dark:text-white">{{ viewingAppointment.patient.name }}</p>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">{{ viewingAppointment.patient.email }}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Appointment Type</Label>
+                <div class="mt-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+                  <p class="font-medium text-gray-900 dark:text-white">{{ viewingAppointment.type }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Date & Time</Label>
+                <div class="mt-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+                  <p class="font-medium text-gray-900 dark:text-white">{{ formatDate(viewingAppointment.start) }}</p>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">
+                    {{ formatTime(viewingAppointment.start) }} - {{ formatTime(viewingAppointment.end) }}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
+                <div class="mt-1">
+                  <Badge :variant="getStatusBadgeVariant(viewingAppointment.status)" class="px-3 py-1 font-medium">
+                    {{ viewingAppointment.status }}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div v-if="viewingAppointment.notes">
+            <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Notes</Label>
+            <div class="mt-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+              <p class="text-gray-900 dark:text-white whitespace-pre-wrap">{{ viewingAppointment.notes }}</p>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter class="gap-2">
+          <Button type="button" variant="outline" @click="isViewOpen = false">
+            Close
+          </Button>
+          <Button @click="openEdit(viewingAppointment!)" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+            <Edit class="w-4 h-4 mr-2" />
+            Edit Appointment
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -805,12 +959,26 @@ const confirmDelete = () => {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
 }
 
-.calendar-container :deep(.fc-daygrid-day) {
-  transition: all 0.2s ease;
+.calendar-container :deep(.fc-day-past) {
+  background-color: #f3f4f6 !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
 }
 
-.calendar-container :deep(.fc-daygrid-day:hover) {
-  background-color: rgba(59, 130, 246, 0.1) !important;
+.calendar-container :deep(.fc-day-past:hover) {
+  background-color: #f3f4f6 !important;
+  cursor: not-allowed !important;
+}
+
+.calendar-container :deep(.fc-day-today) {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  font-weight: 600 !important;
+}
+
+.calendar-container :deep(.fc-day-future) {
+  cursor: pointer !important;
 }
 
 .calendar-container :deep(.fc-event) {
@@ -836,5 +1004,15 @@ const confirmDelete = () => {
 .dark .calendar-container :deep(.fc-col-header-cell) {
   color: rgb(209, 213, 219) !important;
   background: rgb(31, 41, 55) !important;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 </style>
