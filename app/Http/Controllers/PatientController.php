@@ -13,31 +13,83 @@ class PatientController extends Controller
         $this->authorizeResource(Patient::class, 'patient');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $patients = Patient::select(['id', 'name', 'email', 'phone', 'dob'])
-            ->with(['treatments' => function($query) {
-                $query->select('id', 'patient_id', 'procedure', 'cost', 'created_at')
-                      ->with(['prescriptions' => function($q) {
-                          $q->select('id', 'treatment_id', 'medicine_id', 'medication', 'dosage', 'frequency', 'duration', 'prescription_amount')
-                            ->with('medicine:medicine_id,medicine_name');
-                      }]);
-            }])
-            ->paginate(10);
+        $perPage = (int) $request->input('per_page', 10);
+        if ($perPage <= 0) {
+            $perPage = 10;
+        }
+
+        $page = (int) $request->input('page', 1);
+        if ($page <= 0) {
+            $page = 1;
+        }
+
+        // Build query with filters and sorting
+        $query = Patient::with(['appointments', 'treatments']);
+
+        // Apply search filter
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        // Apply sorting
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortOrder = $request->input('sort_order', 'desc');
+        if (in_array($sortBy, ['name', 'email', 'phone', 'dob', 'created_at'])) {
+            $query->orderBy($sortBy, $sortOrder);
+        } else {
+            $query->latest('created_at');
+        }
+
+        // Paginate results
+        $patients = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // Transform the paginated collection
         $patients->getCollection()->transform(function ($patient) {
-            $patient->dob_formatted = $patient->dob ? \Carbon\Carbon::parse($patient->dob)->format('M d, Y') : null;
-            $patient->dob_formatted_edit = $patient->dob ? \Carbon\Carbon::parse($patient->dob)->format('Y-m-d') : null;
-            return $patient;
+            return [
+                'id' => $patient->id,
+                'name' => $patient->name,
+                'email' => $patient->email,
+                'phone' => $patient->phone,
+                'dob' => $patient->dob,
+                'dob_formatted' => $patient->dob ? now()->parse($patient->dob)->format('F j, Y') : 'N/A',
+                'dob_formatted_edit' => $patient->dob ? now()->parse($patient->dob)->format('Y-m-d') : '',
+                'appointments' => $patient->appointments,
+                'treatments' => $patient->treatments,
+            ];
         });
+
         return Inertia::render('Patients/Index', [
             'auth' => [
                 'user' => auth()->user(),
             ],
-            'patients' => $patients,
+            'patients' => [
+                'data' => $patients->items(),
+                'meta' => [
+                    'current_page' => $patients->currentPage(),
+                    'last_page' => $patients->lastPage(),
+                    'per_page' => $patients->perPage(),
+                    'total' => $patients->total(),
+                    'from' => $patients->firstItem(),
+                    'to' => $patients->lastItem(),
+                ]
+            ],
+            'stats' => [
+                'total_patients' => Patient::count(),
+                'new_this_month' => Patient::whereMonth('created_at', now()->month)
+                    ->whereYear('created_at', now()->year)
+                    ->count(),
+                'active_appointments' => \App\Models\Appointment::where('status', 'scheduled')->count(),
+            ],
             'can' => [
                 'createPatient' => auth()->user()?->can('create', Patient::class) ?? false,
-                'updatePatient' => auth()->user()?->can('update', new Patient()) ?? false,
-                'deletePatient' => auth()->user()?->can('delete', new Patient()) ?? false,
+                'updatePatient' => auth()->user()?->can('update', Patient::class) ?? false,
+                'deletePatient' => auth()->user()?->can('delete', Patient::class) ?? false,
             ],
         ]);
     }

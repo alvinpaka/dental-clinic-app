@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { Plus, Search, MoreVertical, Package, AlertTriangle, CheckCircle, ShoppingCart, TrendingUp, TrendingDown, Receipt  } from 'lucide-vue-next';
+import Pagination from '@/Components/ui/Pagination.vue';
+import { Plus, Search, MoreVertical, Package, TrendingUp, TrendingDown, Layers, Filter, Receipt, Calendar, AlertTriangle, Clock } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 interface InventoryItem {
@@ -27,10 +27,39 @@ interface InventoryItem {
   created_at?: string;
 }
 
+interface PaginationLink {
+  url: string | null;
+  label: string;
+  active: boolean;
+}
+
+interface PaginationMeta {
+  current_page?: number;
+  last_page?: number;
+  per_page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
+interface Filters {
+  search?: string;
+  category?: string;
+  stock_status?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  per_page?: number;
+  page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
 interface Props {
   items: {
     data: InventoryItem[];
-    links: any[];
+    links: PaginationLink[];
+    meta?: PaginationMeta;
   };
   categories: Array<{
     id: number;
@@ -38,67 +67,143 @@ interface Props {
     description: string;
     examples: string[];
   }>;
+  filters?: Filters;
   stats?: {
     total_items: number;
     low_stock_items: number;
-    total_value: number;
     out_of_stock: number;
+    total_value: number;
   };
+  appointmentStatuses?: any;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  filters: () => ({
+    search: '',
+    category: '',
+    stock_status: '',
+    sort_by: 'name',
+    sort_order: 'asc',
+    per_page: 10,
+  }),
+  appointmentStatuses: () => ({}),
+  page: 1,
+  total: 0,
+  from: 0,
+  to: 0
+});
 
-const searchQuery = ref('');
-const categoryFilter = ref('');
-const statusFilter = ref('');
-const activeTab = ref('grid');
+// Reactive filter states
+const searchQuery = ref(props.filters?.search || '');
+const categoryFilter = ref(props.filters?.category || null);
+const stockStatusFilter = ref(props.filters?.stock_status || null);
+const sortBy = ref(props.filters?.sort_by || 'name');
+const sortOrder = ref<'asc' | 'desc'>(props.filters?.sort_order || 'asc');
+const currentPage = ref(props.filters?.page || 1);
+const listViewPerPage = ref((props.filters?.per_page || 10).toString());
 
-// Filtered items
-const filteredItems = computed(() => {
-  let items = [...props.items.data];
-
-  // Search filter
-  if (searchQuery.value) {
-    items = items.filter(item =>
-      item.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      (item.description && item.description.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
-      (item.category && item.category.toLowerCase().includes(searchQuery.value.toLowerCase()))
-    );
+// Sync props → refs
+watch(() => props.filters, (newFilters) => {
+  if (newFilters) {
+    searchQuery.value = newFilters.search || '';
+    categoryFilter.value = newFilters.category || '';
+    stockStatusFilter.value = newFilters.stock_status || '';
+    sortBy.value = newFilters.sort_by || 'name';
+    sortOrder.value = newFilters.sort_order || 'asc';
+    currentPage.value = newFilters.page || 1;
+    listViewPerPage.value = (newFilters.per_page || 10).toString();
   }
+}, { deep: true, immediate: true });
 
-  // Category filter
-  if (categoryFilter.value) {
-    items = items.filter(item => item.category === categoryFilter.value);
-  }
+// Fetch data with filters
+function fetchInventory(overrides = {}) {
+  const params = {
+    search: searchQuery.value || undefined,
+    category: categoryFilter.value || undefined,
+    stock_status: stockStatusFilter.value || undefined,
+    sort_by: 'created_at',  // Sort by created_at by default
+    sort_order: 'desc',     // Sort in descending order (newest first)
+    per_page: listViewPerPage.value,
+    page: currentPage.value,
+    ...overrides
+  };
 
-  // Status filter
-  if (statusFilter.value) {
-    switch (statusFilter.value) {
-      case 'low_stock':
-        items = items.filter(item => item.quantity <= item.low_stock_threshold && item.quantity > 0);
-        break;
-      case 'out_of_stock':
-        items = items.filter(item => item.quantity === 0);
-        break;
-      case 'in_stock':
-        items = items.filter(item => item.quantity > item.low_stock_threshold);
-        break;
+  // Clean up undefined/empty values
+  Object.keys(params).forEach(key => {
+    if (params[key] === undefined || params[key] === '') {
+      delete params[key];
     }
+  });
+
+  router.get(route('inventory.index'), params, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
+}
+
+// Reset page on filter change
+watch([searchQuery, categoryFilter, stockStatusFilter, sortBy, sortOrder, listViewPerPage], () => {
+  currentPage.value = 1;
+  fetchInventory();
+});
+
+// Toggle sort
+function toggleSort(column: string) {
+  if (sortBy.value === column) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortBy.value = column;
+    sortOrder.value = 'asc';
   }
+  fetchInventory();
+}
 
-  return items.sort((a, b) => a.name.localeCompare(b.name));
-});
+// Pagination
+const paginationLinks = computed(() => props.items?.links || []);
+const paginationSummary = computed(() => ({
+  from: props.filters?.from ?? props.items?.meta?.from ?? 0,
+  to: props.filters?.to ?? props.items?.meta?.to ?? 0,
+  total: props.filters?.total ?? props.items?.meta?.total ?? 0,
+}));
 
-// Unique categories from existing items
-const categories = computed(() => {
-  const cats = new Set(props.items.data.map(item => item.category).filter(Boolean));
-  return Array.from(cats);
-});
+const goToPage = (link: PaginationLink) => {
+  if (!link.url || link.active) return;
+  try {
+    const url = new URL(link.url, window.location.origin);
+    const page = url.searchParams.get('page');
+    if (page) {
+      currentPage.value = parseInt(page, 10);
+      fetchInventory({ page: currentPage.value });
+    }
+  } catch (e) {
+    console.error('Pagination error:', e);
+  }
+};
 
-// All available categories for forms
-const availableCategories = computed(() => {
-  return (props.categories || []).map(cat => cat.name);
-});
+// Use server-side data directly
+const items = computed(() => props.items?.data || []);
+
+// Helper functions
+const getStockStatus = (item: InventoryItem) => {
+  if ((item.quantity ?? 0) === 0) return { status: 'out_of_stock', label: 'Out of Stock', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
+  if ((item.quantity ?? 0) <= item.low_stock_threshold) return { status: 'low_stock', label: 'Low Stock', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' };
+  return { status: 'in_stock', label: 'In Stock', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' };
+};
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'UGX' }).format(amount);
+};
+
+const isExpiringSoon = (expiryDate: string) => {
+  if (!expiryDate) return false;
+  const expiry = new Date(expiryDate);
+  const now = new Date();
+  const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return diffDays <= 30 && diffDays > 0;
+};
+
+const getTotalValue = (item: InventoryItem) => item.quantity * item.unit_price;
 
 // Forms
 const createForm = useForm({
@@ -181,8 +286,7 @@ const submitEdit = () => {
   }
 
   if (editingItem.value) {
-    const updateUrl = `/inventory/${editingItem.value.id}`;
-    editForm.put(updateUrl, {
+    editForm.put(`/inventory/${editingItem.value.id}`, {
       onSuccess: () => {
         editForm.reset();
         isEditOpen.value = false;
@@ -193,44 +297,14 @@ const submitEdit = () => {
 };
 
 const confirmDelete = () => {
-  if (editingItem.value && editingItem.value.id) {
-    const deleteUrl = `/inventory/${editingItem.value.id}`;
-    router.delete(deleteUrl, {
+  if (editingItem.value?.id) {
+    router.delete(`/inventory/${editingItem.value.id}`, {
       onSuccess: () => {
         isDeleteOpen.value = false;
         editingItem.value = null;
       },
     });
-  } else {
-    alert('Invalid item selected for deletion.');
   }
-};
-
-// Helper functions
-const getStockStatus = (item: InventoryItem) => {
-  if ((item.quantity ?? 0) === 0) return { status: 'out_of_stock', label: 'Out of Stock', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
-  if ((item.quantity ?? 0) <= item.low_stock_threshold) return { status: 'low_stock', label: 'Low Stock', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' };
-  return { status: 'in_stock', label: 'In Stock', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' };
-};
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'UGX',
-  }).format(amount);
-};
-
-const isExpiringSoon = (expiryDate: string) => {
-  if (!expiryDate) return false;
-  const expiry = new Date(expiryDate);
-  const now = new Date();
-  const diffTime = expiry.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays <= 30 && diffDays > 0;
-};
-
-const getTotalValue = (item: InventoryItem) => {
-  return item.quantity * item.unit_price;
 };
 </script>
 
@@ -240,7 +314,7 @@ const getTotalValue = (item: InventoryItem) => {
 
     <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
       <div class="container mx-auto px-4 py-8">
-        <!-- Header Section -->
+        <!-- Header -->
         <div class="mb-8">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -251,13 +325,11 @@ const getTotalValue = (item: InventoryItem) => {
                 Track and manage your dental supplies and equipment
               </p>
             </div>
-
             <div class="flex items-center gap-3">
               <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 font-medium rounded-md shadow-sm">
                 <Package class="w-4 h-4 mr-2" />
                 {{ props.stats?.total_items || 0 }} Total Items
               </Badge>
-
               <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                 <Plus class="w-4 h-4 mr-2" />
                 Add Item
@@ -266,7 +338,7 @@ const getTotalValue = (item: InventoryItem) => {
           </div>
         </div>
 
-        <!-- Stats Overview -->
+        <!-- Stats -->
         <div v-if="props.stats" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
             <CardContent class="p-6">
@@ -329,7 +401,7 @@ const getTotalValue = (item: InventoryItem) => {
           </Card>
         </div>
 
-        <!-- Main Content -->
+        <!-- Main Table -->
         <Card class="border-0 shadow-xl bg-white dark:bg-gray-900 mb-8">
           <CardHeader class="pb-4">
             <div>
@@ -341,289 +413,229 @@ const getTotalValue = (item: InventoryItem) => {
           </CardHeader>
 
           <CardContent>
-            <Tabs v-model="activeTab" class="w-full">
-              <TabsList class="grid w-full grid-cols-2">
-                <TabsTrigger value="grid">Grid View</TabsTrigger>
-                <TabsTrigger value="list">List View</TabsTrigger>
-              </TabsList>
+            <div class="space-y-6">
+              <!-- Filters -->
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                <div class="relative">
+                  <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    v-model="searchQuery"
+                    @input="fetchInventory"
+                    placeholder="Search inventory..."
+                    class="pl-10 w-full"
+                  />
+                </div>
 
-              <!-- Grid View -->
-              <TabsContent value="grid" class="mt-0">
-                <div class="space-y-6">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search inventory by name, description, or category..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
+                <Select v-model="categoryFilter" @update:model-value="fetchInventory">
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem :value="null">All Categories</SelectItem>
+                    <SelectItem v-for="cat in props.categories" :key="cat.id" :value="cat.name">
+                      {{ cat.name }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
 
-                    <div class="flex items-center gap-2">
-                      <Select v-model="categoryFilter">
-                        <SelectTrigger class="w-40 h-12">
-                          <SelectValue placeholder="All Categories" />
-                        </SelectTrigger>
-                        <SelectContent v-if="props.categories && props.categories.length > 0">
-                          <SelectItem v-for="category in props.categories" :key="category.id" :value="category.name">
-                            <div class="flex flex-col">
-                              <span class="font-medium">{{ category.name }}</span>
-                              <span class="text-xs text-gray-500">{{ category.description }}</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                <Select v-model="stockStatusFilter" @update:model-value="fetchInventory">
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Stock Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem :value="null">All Items</SelectItem>
+                    <SelectItem value="in_stock">In Stock</SelectItem>
+                    <SelectItem value="low">Low Stock</SelectItem>
+                    <SelectItem value="out">Out of Stock</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                      <Select v-model="statusFilter">
-                        <SelectTrigger class="w-36 h-12">
-                          <SelectValue placeholder="All Items" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="in_stock">In Stock</SelectItem>
-                          <SelectItem value="low_stock">Low Stock</SelectItem>
-                          <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                <div class="flex items-center gap-2">
+                  <Label class="whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">Per page:</Label>
+                  <Select v-model="listViewPerPage" @update:model-value="fetchInventory">
+                    <SelectTrigger class="h-8 w-20">
+                      <SelectValue :placeholder="listViewPerPage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="n in [10, 20, 30, 50]" :key="n" :value="n.toString()">
+                        {{ n }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-                  <!-- Inventory Grid -->
-                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card
-                      v-for="(item, index) in filteredItems"
-                      :key="item.id"
-                      :class="[
-                        'border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group',
-                        getStockStatus(item).status === 'out_of_stock' ? 'ring-2 ring-red-200 dark:ring-red-800' : '',
-                        getStockStatus(item).status === 'low_stock' ? 'ring-2 ring-amber-200 dark:ring-amber-800' : ''
-                      ]"
-                    >
-                      <CardHeader class="pb-4">
-                        <div class="flex items-start justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <Package class="w-6 h-6 text-white" />
-                            </div>
-                            <div>
-                              <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors line-clamp-2">
-                                {{ item.name }}
-                              </CardTitle>
-                              <CardDescription class="text-gray-600 dark:text-gray-400">
-                                ID: {{ item.id }}
-                              </CardDescription>
-                            </div>
+              <!-- Table -->
+              <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                  <thead class="bg-gray-50 dark:bg-gray-800/70">
+                    <tr>
+                      <th @click="toggleSort('name')" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer">
+                        <div class="flex items-center gap-1">
+                          <span>Item</span>
+                          <span v-if="sortBy === 'name'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th @click="toggleSort('quantity')" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer">
+                        <div class="flex items-center gap-1">
+                          <span>Stock</span>
+                          <span v-if="sortBy === 'quantity'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th @click="toggleSort('unit_price')" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer">
+                        <div class="flex items-center gap-1">
+                          <span>Price</span>
+                          <span v-if="sortBy === 'unit_price'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th @click="toggleSort('category')" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer">
+                        <div class="flex items-center gap-1">
+                          <span>Category</span>
+                          <span v-if="sortBy === 'category'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Status</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                    <tr v-for="item in items" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer" @click="openView(item)">
+                      <td class="px-4 py-4 align-top">
+                        <div class="flex items-start gap-3">
+                          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                            <Package class="w-5 h-5 text-white" />
                           </div>
-
+                          <div>
+                            <p class="font-semibold text-gray-900 dark:text-white">{{ item.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">ID: {{ item.id }}</p>
+                            <p v-if="item.description" class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{{ item.description }}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <div class="space-y-1">
+                          <span class="flex items-center gap-2">
+                            <Layers class="w-4 h-4 text-gray-400" />
+                            Quantity: {{ item.quantity }}
+                          </span>
+                          <span class="flex items-center gap-2">
+                            <AlertTriangle class="w-4 h-4 text-gray-400" />
+                            Threshold: {{ item.low_stock_threshold }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <div class="space-y-1">
+                          <span class="flex items-center gap-2">
+                            <Receipt class="w-4 h-4 text-gray-400" />
+                            Unit: {{ formatCurrency(item.unit_price) }}
+                          </span>
+                          <span class="flex items-center gap-2">
+                            <TrendingUp class="w-4 h-4 text-gray-400" />
+                            Total: {{ formatCurrency(getTotalValue(item)) }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top">
+                        <Badge :class="getStockStatus(item).color" variant="secondary">
+                          {{ getStockStatus(item).label }}
+                        </Badge>
+                        <p v-if="item.category" class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{ item.category }}</p>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <div v-if="item.expiry_date" class="flex items-center gap-2">
+                          <Calendar class="w-4 h-4 text-gray-400" />
+                          {{ new Date(item.expiry_date).toLocaleDateString() }}
+                        </div>
+                        <span v-else class="text-xs text-gray-500">—</span>
+                      </td>
+                      <td class="px-4 py-4 align-top" @click.stop>
+                        <div class="flex items-center justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger as-child>
-                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
                                 <MoreVertical class="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                      
+                            <DropdownMenuContent align="end" class="w-36">
                               <DropdownMenuItem @click="openView(item)">
-                                <i class="fas fa-eye mr-2"></i>
-                                View Details
+                                View
                               </DropdownMenuItem>
+                      
                               <DropdownMenuItem @click="openEdit(item)">
-                                <i class="fas fa-edit mr-2"></i>
-                                Edit Item
+                                Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem @click="openDelete(item)" class="text-red-600">
-                                <i class="fas fa-trash mr-2"></i>
+                      
+                              <DropdownMenuSeparator />
+                      
+                              <DropdownMenuItem @click="openDelete(item)" class="text-red-600 focus:text-red-700">
                                 Delete Item
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                      </CardHeader>
+                      </td>
+                    </tr>
 
-                      <CardContent class="space-y-4">
-                        <div v-if="item.description" class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                          {{ item.description }}
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                          <div class="flex items-center space-x-2">
-                            <i class="fas fa-hashtag text-gray-400 w-4"></i>
-                            <span class="text-gray-600 dark:text-gray-400">{{ item.quantity }} in stock</span>
+                    <tr v-if="items.length === 0">
+                      <td colspan="6" class="px-6 py-12 text-center">
+                        <div class="flex flex-col items-center gap-4 text-gray-600 dark:text-gray-400">
+                          <Package class="w-10 h-10 text-gray-400" />
+                          <div>
+                            <p class="text-xl font-semibold text-gray-900 dark:text-white">
+                              {{ searchQuery || categoryFilter || stockStatusFilter ? 'No items found' : 'No inventory items yet' }}
+                            </p>
+                            <p class="text-sm">
+                              {{ searchQuery || categoryFilter || stockStatusFilter ? 'Try adjusting your filters' : 'Start by adding your first item' }}
+                            </p>
                           </div>
-                          <div class="flex items-center space-x-2">
-                            <Receipt class="w-4 h-4 text-gray-400" />
-                            <span class="text-gray-600 dark:text-gray-400">{{ formatCurrency(item.unit_price) }}</span>
-                          </div>
-                          <div class="flex items-center space-x-2">
-                            <i class="fas fa-chart-line text-gray-400 w-4"></i>
-                            <span class="text-gray-600 dark:text-gray-400">Total: {{ formatCurrency(getTotalValue(item)) }}</span>
-                          </div>
-                          <div v-if="item.expiry_date" class="flex items-center space-x-2">
-                            <i :class="['fas w-4', isExpiringSoon(item.expiry_date) ? 'fa-exclamation-triangle text-amber-500' : 'fa-calendar text-gray-400']"></i>
-                            <span :class="['text-sm', isExpiringSoon(item.expiry_date) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-600 dark:text-gray-400']">
-                              Expires {{ new Date(item.expiry_date).toLocaleDateString() }}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div class="flex items-center justify-between">
-                          <Badge :class="getStockStatus(item).color" variant="secondary">
-                            <i :class="['fas mr-1', getStockStatus(item).status === 'out_of_stock' ? 'fa-times-circle' : getStockStatus(item).status === 'low_stock' ? 'fa-exclamation-triangle' : 'fa-check-circle']"></i>
-                            {{ getStockStatus(item).label }}
-                          </Badge>
-
-                          <span class="text-xs text-gray-500 dark:text-gray-400">
-                            Low: {{ item.low_stock_threshold }}
-                          </span>
-                        </div>
-
-                        <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                          <Button variant="outline" size="sm" @click="openView(item)">
-                            View Details
-                          </Button>
-                          <Button size="sm" @click="openEdit(item)">
-                            <i class="fas fa-edit mr-2"></i>
-                            Edit
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <!-- Empty State -->
-                    <div v-if="filteredItems.length === 0" class="col-span-full">
-                      <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
-                        <CardContent class="p-12 text-center">
-                          <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
-                            <Package class="w-12 h-12 text-gray-400" />
-                          </div>
-                          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            {{ searchQuery || categoryFilter || statusFilter ? 'No items found' : 'No inventory items yet' }}
-                          </h3>
-                          <p class="text-gray-600 dark:text-gray-400 mb-6">
-                            {{ searchQuery || categoryFilter || statusFilter ? 'Try adjusting your search criteria' : 'Get started by adding your first inventory item' }}
-                          </p>
-                          <Button v-if="!searchQuery && !categoryFilter && !statusFilter" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                          <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
                             <Plus class="w-4 h-4 mr-2" />
                             Add First Item
                           </Button>
-                          <Button v-else @click="searchQuery = ''; categoryFilter = ''; statusFilter = ''" variant="outline">
-                            Clear Filters
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <!-- List View -->
-              <TabsContent value="list" class="mt-0">
-                <div class="space-y-4">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search inventory..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Select v-model="categoryFilter">
-                        <SelectTrigger class="w-40 h-12">
-                          <SelectValue placeholder="All Categories" />
-                        </SelectTrigger>
-                        <SelectContent v-if="props.categories && props.categories.length > 0">
-                          <SelectItem v-for="category in props.categories" :key="category.id" :value="category.name">
-                            <div class="flex flex-col">
-                              <span class="font-medium">{{ category.name }}</span>
-                              <span class="text-xs text-gray-500">{{ category.description }}</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Select v-model="statusFilter">
-                        <SelectTrigger class="w-36 h-12">
-                          <SelectValue placeholder="All Items" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="in_stock">In Stock</SelectItem>
-                          <SelectItem value="low_stock">Low Stock</SelectItem>
-                          <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <!-- Inventory List -->
-                  <div class="space-y-3 max-h-96 overflow-y-auto">
-                    <Card
-                      v-for="(item, index) in filteredItems"
-                      :key="item.id"
-                      class="border hover:shadow-md transition-shadow cursor-pointer group"
-                      @click="openView(item)"
-                    >
-                      <CardContent class="p-4">
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <Package class="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                                {{ item.name }}
-                              </h4>
-                              <p class="text-sm text-gray-600 dark:text-gray-400">
-                                {{ item.quantity }} in stock • {{ formatCurrency(item.unit_price) }} each • {{ formatCurrency(getTotalValue(item)) }} total
-                                <span v-if="item.category"> • {{ item.category }}</span>
-                              </p>
-                            </div>
-                          </div>
-
-                          <div class="flex items-center space-x-2">
-                            <Badge :class="getStockStatus(item).color" variant="secondary">
-                              <i :class="['fas mr-1', getStockStatus(item).status === 'out_of_stock' ? 'fa-times-circle' : getStockStatus(item).status === 'low_stock' ? 'fa-exclamation-triangle' : 'fa-check-circle']"></i>
-                              {{ getStockStatus(item).label }}
-                            </Badge>
-
-                            <DropdownMenu>
-                              <DropdownMenuTrigger as-child @click.stop>
-                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
-                                  <MoreVertical class="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem @click.stop="openView(item)">
-                                  <i class="fas fa-eye mr-2"></i>
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openEdit(item)">
-                                  <i class="fas fa-edit mr-2"></i>
-                                  Edit Item
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openDelete(item)" class="text-red-600">
-                                  <i class="fas fa-trash mr-2"></i>
-                                  Delete Item
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-                    <div v-if="filteredItems.length === 0" class="text-center py-8">
-                      <Package class="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No items found</h3>
-                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or add a new inventory item.</p>
-                    </div>
-                  </div>
+              <!-- Pagination -->
+              <div v-if="paginationLinks.length > 0" class="flex flex-col md:flex-row md:items-center md:justify-between items-start gap-4">
+                <div class="flex-1">
+                  <Pagination
+                    :links="paginationLinks"
+                    :from="paginationSummary.from"
+                    :to="paginationSummary.to"
+                    :total="paginationSummary.total"
+                    item-name="items"
+                    @page-change="goToPage"
+                  />
                 </div>
-              </TabsContent>
-            </Tabs>
+                <div class="flex items-center gap-2">
+                  <Label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Per page:</Label>
+                  <Select v-model="listViewPerPage" @update:model-value="fetchInventory">
+                    <SelectTrigger class="h-8 w-20">
+                      <SelectValue :placeholder="listViewPerPage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="n in [10, 20, 30, 50]" :key="n" :value="n.toString()">
+                        {{ n }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

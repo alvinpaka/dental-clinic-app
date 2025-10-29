@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
+import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
-import { Plus, Search, MoreVertical, Receipt, DollarSign, TrendingUp, Calendar, Filter } from 'lucide-vue-next';
+import Pagination from '@/Components/ui/Pagination.vue';
+import { Plus, Search, MoreVertical, Receipt, DollarSign, TrendingUp, Calendar, Filter, ArrowUpDown, RefreshCw } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 interface Expense {
@@ -25,18 +25,57 @@ interface Expense {
   created_at: string;
 }
 
+interface PaginationLink {
+  url: string | null;
+  label: string;
+  active: boolean;
+}
+
+interface PaginationMeta {
+  current_page?: number;
+  last_page?: number;
+  per_page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
+interface Filters {
+  search?: string;
+  category?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  min_amount?: number;
+  max_amount?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  per_page?: number;
+  page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
 interface Props {
   expenses: {
     data: Expense[];
-    links: any[];
+    links: PaginationLink[];
+    meta?: PaginationMeta;
   };
+  filters?: Filters;
   stats?: {
     total_expenses: number;
     total_amount: number;
     this_month_expenses: number;
     this_month_amount: number;
   };
-  categories: string[];
+  categories: Array<{
+    id: number;
+    name: string;
+    description: string;
+    examples: string[];
+  }>;
   can: {
     createExpense: boolean;
     updateExpense: boolean;
@@ -44,150 +83,169 @@ interface Props {
   };
 }
 
-const props = defineProps<Props>();
-
-const searchQuery = ref('');
-const filterCategory = ref('all');
-const sortBy = ref('date');
-const sortOrder = ref('desc');
-const activeTab = ref('grid');
-
-// Define forms with useForm
-const createForm = useForm({
-  title: '',
-  amount: 0,
-  description: '',
-  category: '',
-  date: new Date().toISOString().split('T')[0],
+const props = withDefaults(defineProps<Props>(), {
+  filters: () => ({
+    search: '',
+    category: 'all',
+    status: 'all',
+    start_date: '',
+    end_date: '',
+    min_amount: undefined,
+    max_amount: undefined,
+    sort_by: 'date',
+    sort_order: 'desc',
+    per_page: 10,
+    page: 1,
+    total: 0,
+    from: 0,
+    to: 0
+  })
 });
 
-const editForm = useForm({
-  title: '',
-  amount: 0,
-  description: '',
-  category: '',
-  date: '',
-});
+// Categories computed - filter out invalid entries
+const categories = computed(() => props.categories.filter(cat => cat && cat.id && cat.name && cat.name.trim() !== '') || []);
 
+// Initialize filters from props
+const searchQuery = ref(props.filters?.search || '');
+const filterCategory = ref(props.filters?.category || 'all');
+const statusFilter = ref(props.filters?.status || 'all');
+const startDate = ref(props.filters?.start_date || '');
+const endDate = ref(props.filters?.end_date || '');
+const minAmount = ref(props.filters?.min_amount || '');
+const maxAmount = ref(props.filters?.max_amount || '');
+const sortBy = ref(props.filters?.sort_by || 'date');
+const sortOrder = ref<'asc' | 'desc'>(props.filters?.sort_order || 'desc');
+const currentPage = ref(props.filters?.page || 1);
+const listViewPerPage = ref((props.filters?.per_page || 10).toString());
+
+// Modal states
 const isCreateOpen = ref(false);
 const isEditOpen = ref(false);
 const isDeleteOpen = ref(false);
 const isViewOpen = ref(false);
-const editingExpense = ref<Expense | null>(null);
 const viewingExpense = ref<Expense | null>(null);
+const editingExpense = ref<Expense | null>(null);
 
-// Filtered and sorted expenses
-const filteredExpenses = computed(() => {
-  let expenses = [...props.expenses.data];
-
-  // Search filter
-  if (searchQuery.value) {
-    expenses = expenses.filter(expense =>
-      expense.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      expense.description?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      expense.category.toLowerCase().includes(searchQuery.value.toLowerCase())
-    );
-  }
-
-  // Category filter
-  if (filterCategory.value !== 'all') {
-    expenses = expenses.filter(expense => expense.category === filterCategory.value);
-  }
-
-  // Sort
-  expenses.sort((a, b) => {
-    let aValue: any, bValue: any;
-
-    switch (sortBy.value) {
-      case 'title':
-        aValue = a.title.toLowerCase();
-        bValue = b.title.toLowerCase();
-        break;
-      case 'amount':
-        aValue = a.amount;
-        bValue = b.amount;
-        break;
-      case 'category':
-        aValue = a.category.toLowerCase();
-        bValue = b.category.toLowerCase();
-        break;
-      case 'date':
-      default:
-        aValue = new Date(a.date).getTime();
-        bValue = new Date(b.date).getTime();
-        break;
-    }
-
-    if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  return expenses;
+// Forms
+const createForm = useForm({
+  title: '',
+  amount: 0,
+  category: '',
+  date: '',
+  description: '',
 });
 
-const openCreate = () => {
-  if (!props.can.createExpense) return;
-  isCreateOpen.value = true;
-};
+const editForm = useForm({
+  id: 0,
+  title: '',
+  amount: 0,
+  category: '',
+  date: '',
+  description: '',
+});
 
-const openEdit = (expense: Expense) => {
-  if (!props.can.updateExpense) return;
-  editingExpense.value = expense;
-  editForm.title = expense.title;
-  editForm.amount = expense.amount;
-  editForm.description = expense.description || '';
-  editForm.category = expense.category;
-  editForm.date = expense.date;
-  isEditOpen.value = true;
-};
+const deleteForm = useForm({ id: 0 });
 
-const openDelete = (expense: Expense) => {
-  if (!props.can.deleteExpense) return;
-  editingExpense.value = expense;
-  isDeleteOpen.value = true;
-};
+// Watch for filter changes
+watch([searchQuery, filterCategory, statusFilter, startDate, endDate, minAmount, maxAmount, sortBy, sortOrder, listViewPerPage], () => {
+  currentPage.value = 1;
+  fetchExpenses();
+});
 
-const openView = (expense: Expense) => {
-  viewingExpense.value = expense;
-  isViewOpen.value = true;
-};
-
-const submitCreate = () => {
-  if (!props.can.createExpense) return;
-  createForm.post(route('expenses.store'), {
-    onSuccess: () => {
-      createForm.reset();
-      isCreateOpen.value = false;
-    },
-  });
-};
-
-const submitEdit = () => {
-  if (!props.can.updateExpense || !editingExpense.value) {
-    return;
+// Watch for route changes to update filters
+watch(() => props.filters, (newFilters) => {
+  if (newFilters) {
+    searchQuery.value = newFilters.search || '';
+    filterCategory.value = newFilters.category || 'all';
+    statusFilter.value = newFilters.status || 'all';
+    startDate.value = newFilters.start_date || '';
+    endDate.value = newFilters.end_date || '';
+    minAmount.value = newFilters.min_amount || '';
+    maxAmount.value = newFilters.max_amount || '';
+    sortBy.value = newFilters.sort_by || 'date';
+    sortOrder.value = newFilters.sort_order || 'desc';
+    currentPage.value = newFilters.page || 1;
+    
+    if (newFilters.per_page && newFilters.per_page.toString() !== listViewPerPage.value) {
+      listViewPerPage.value = newFilters.per_page.toString();
+    }
   }
+}, { deep: true, immediate: true });
 
-  editForm.put(route('expenses.update', editingExpense.value.id), {
-    onSuccess: () => {
-      editForm.reset();
-      isEditOpen.value = false;
-      editingExpense.value = null;
-    },
+// Fetch expenses with current filters
+function fetchExpenses(overrides = {}) {
+  const params = {
+    search: searchQuery.value,
+    category: filterCategory.value !== 'all' ? filterCategory.value : undefined,
+    status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+    start_date: startDate.value || undefined,
+    end_date: endDate.value || undefined,
+    min_amount: minAmount.value ? parseFloat(minAmount.value) : undefined,
+    max_amount: maxAmount.value ? parseFloat(maxAmount.value) : undefined,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+    per_page: Number(listViewPerPage.value),
+    page: currentPage.value,
+    ...overrides
+  };
+
+  router.get(route('expenses.index'), params, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
   });
-};
+}
 
-const confirmDelete = () => {
-  if (!props.can.deleteExpense || !editingExpense.value) {
-    return;
+// Toggle sort order
+function toggleSort(column: string) {
+  if (sortBy.value === column) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortBy.value = column;
+    sortOrder.value = 'asc';
   }
+  fetchExpenses();
+}
 
-  router.delete(route('expenses.destroy', editingExpense.value.id), {
-    onSuccess: () => {
-      isDeleteOpen.value = false;
-      editingExpense.value = null;
-    },
-  });
+// Reset all filters
+function resetFilters() {
+  searchQuery.value = '';
+  filterCategory.value = 'all';
+  statusFilter.value = 'all';
+  startDate.value = '';
+  endDate.value = '';
+  minAmount.value = '';
+  maxAmount.value = '';
+  sortBy.value = 'date';
+  sortOrder.value = 'desc';
+  currentPage.value = 1;
+  listViewPerPage.value = '10';
+  fetchExpenses();
+}
+
+// Pagination
+const paginationLinks = computed(() => props.expenses?.links || []);
+const totalItems = computed(() => props.filters?.total ?? props.expenses?.meta?.total ?? 0);
+
+const paginationSummary = computed(() => ({
+  from: props.filters?.from ?? props.expenses?.meta?.from ?? 0,
+  to: props.filters?.to ?? props.expenses?.meta?.to ?? 0,
+  total: totalItems.value,
+}));
+
+const goToPage = (link: PaginationLink) => {
+  if (!link.url || link.active) return;
+  
+  try {
+    const url = new URL(link.url, window.location.origin);
+    const page = url.searchParams.get('page');
+    if (page) {
+      currentPage.value = parseInt(page, 10);
+      fetchExpenses({ page: currentPage.value });
+    }
+  } catch (e) {
+    console.error('Error parsing pagination URL:', e);
+  }
 };
 
 // Format currency
@@ -210,6 +268,66 @@ const getCategoryIcon = (category: string) => {
   if (lowerCategory.includes('travel') || lowerCategory.includes('transportation')) return 'fas fa-car';
   if (lowerCategory.includes('cleaning') || lowerCategory.includes('sanitation')) return 'fas fa-spray-can';
   return 'fas fa-receipt';
+};
+
+// Modal functions
+const openCreate = () => {
+  if (!props.can.createExpense) return;
+  createForm.reset();
+  createForm.date = new Date().toISOString().split('T')[0];
+  isCreateOpen.value = true;
+};
+
+const openView = (expense: Expense) => {
+  viewingExpense.value = expense;
+  isViewOpen.value = true;
+};
+
+const openEdit = (expense: Expense) => {
+  if (!props.can.updateExpense) return;
+  editingExpense.value = expense;
+  editForm.id = expense.id;
+  editForm.title = expense.title;
+  editForm.amount = expense.amount;
+  editForm.category = expense.category;
+  editForm.date = expense.date.split('T')[0];
+  editForm.description = expense.description || '';
+  isEditOpen.value = true;
+};
+
+const openDelete = (expense: Expense) => {
+  if (!props.can.deleteExpense) return;
+  editingExpense.value = expense;
+  deleteForm.id = expense.id;
+  isDeleteOpen.value = true;
+};
+
+const submitCreate = () => {
+  createForm.post(route('expenses.store'), {
+    onSuccess: () => { 
+      isCreateOpen.value = false; 
+      createForm.reset();
+    }
+  });
+};
+
+const submitEdit = () => {
+  if (!editingExpense.value) return;
+  editForm.put(route('expenses.update', editingExpense.value.id), {
+    onSuccess: () => { 
+      isEditOpen.value = false; 
+      editForm.reset();
+    }
+  });
+};
+
+const confirmDelete = () => {
+  if (!editingExpense.value) return;
+  deleteForm.delete(route('expenses.destroy', editingExpense.value.id), {
+    onSuccess: () => { 
+      isDeleteOpen.value = false; 
+    }
+  });
 };
 </script>
 
@@ -324,179 +442,293 @@ const getCategoryIcon = (category: string) => {
           </CardHeader>
 
           <CardContent>
-            <Tabs v-model="activeTab" class="w-full">
-              <TabsList class="grid w-full grid-cols-2">
-                <TabsTrigger value="grid">Grid View</TabsTrigger>
-                <TabsTrigger value="list">List View</TabsTrigger>
-              </TabsList>
+            <div class="space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                <!-- Search -->
+                <div class="relative">
+                  <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    v-model="searchQuery"
+                    @update:model-value="() => fetchExpenses()"
+                    placeholder="Search expenses..."
+                    class="pl-10 w-full"
+                  />
+                </div>
+                
+                <!-- Category Filter -->
+                <Select v-model="filterCategory" @update:model-value="() => fetchExpenses()">
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem v-for="cat in categories" :key="cat.id" :value="cat.name">
+                      {{ cat.name }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <!-- Status Filter -->
+                <!-- <Select v-model="statusFilter" @update:model-value="() => fetchExpenses()">
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select> -->
+                
+                <!-- Date Range -->
+                <div class="flex items-center gap-2">
+                  <Input
+                    v-model="startDate"
+                    @update:model-value="() => fetchExpenses()"
+                    type="date"
+                    placeholder="Start Date"
+                    class="w-full"
+                  />
+                  <span class="text-gray-500">to</span>
+                  <Input
+                    v-model="endDate"
+                    @update:model-value="() => fetchExpenses()"
+                    type="date"
+                    placeholder="End Date"
+                    class="w-full"
+                  />
+                </div>
+              </div>
 
-              <!-- Grid View -->
-              <TabsContent value="grid" class="mt-0">
-                <div class="space-y-6">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search operational expenses by title, description, or category..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <!-- Amount Range -->
+                <div class="flex items-center gap-2">
+                  <Input
+                    v-model="minAmount"
+                    @update:model-value="() => fetchExpenses()"
+                    type="number"
+                    placeholder="Min Amount"
+                    min="0"
+                    step="0.01"
+                    class="w-full"
+                  />
+                  <span class="text-gray-500">to</span>
+                  <Input
+                    v-model="maxAmount"
+                    @update:model-value="() => fetchExpenses()"
+                    type="number"
+                    placeholder="Max Amount"
+                    min="0"
+                    step="0.01"
+                    class="w-full"
+                  />
+                </div>
+                
+                <!-- Sort By -->
+                <div class="flex items-center gap-2">
+                  <Label class="whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">Sort by:</Label>
+                  <Select v-model="sortBy" @update:model-value="() => fetchExpenses()">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="amount">Amount</SelectItem>
+                      <SelectItem value="created_at">Created At</SelectItem>
+                      <SelectItem value="category">Category</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    @click="() => { sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'; fetchExpenses(); }"
+                  >
+                    <ArrowUpDown class="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <!-- Items Per Page -->
+                <div class="flex items-center gap-2">
+                  <Label for="per-page" class="whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">Items per page:</Label>
+                  <Select v-model="listViewPerPage" @update:model-value="() => fetchExpenses()">
+                    <SelectTrigger class="h-10 w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="option in [10, 20, 30, 50]" :key="option" :value="option.toString()">
+                        {{ option }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <!-- Reset Filters -->
+                <Button
+                  variant="outline"
+                  @click="resetFilters"
+                  class="justify-center"
+                >
+                  <RefreshCw class="h-4 w-4 mr-2" />
+                  Reset Filters
+                </Button>
+              </div>
 
-                    <div class="flex items-center gap-2">
-                      <Filter class="w-4 h-4 text-gray-400" />
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Category:</Label>
-                      <Select v-model="filterCategory">
-                        <SelectTrigger class="w-48">
-                          <SelectValue placeholder="All categories" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All categories</SelectItem>
-                          <SelectItem v-for="category in props.categories" :key="category" :value="category">
-                            {{ category }}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
-                      <Select v-model="sortBy">
-                        <SelectTrigger class="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="date">Date</SelectItem>
-                          <SelectItem value="title">Title</SelectItem>
-                          <SelectItem value="amount">Amount</SelectItem>
-                          <SelectItem value="category">Category</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Button
-                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
-                        variant="outline"
-                        size="sm"
-                        class="px-3"
-                      >
-                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <!-- Expenses Grid -->
-                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card
-                      v-for="(expense, index) in filteredExpenses"
+              <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                  <thead class="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer" @click="toggleSort('title')">
+                        <div class="flex items-center gap-1">
+                          <span>Expense</span>
+                          <span v-if="sortBy === 'title'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer" @click="toggleSort('category')">
+                        <div class="flex items-center gap-1">
+                          <span>Category</span>
+                          <span v-if="sortBy === 'category'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer" @click="toggleSort('amount')">
+                        <div class="flex items-center gap-1">
+                          <span>Amount</span>
+                          <span v-if="sortBy === 'amount'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer" @click="toggleSort('date')">
+                        <div class="flex items-center gap-1">
+                          <span>Date</span>
+                          <span v-if="sortBy === 'date'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Description</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                    <tr
+                      v-for="expense in props.expenses.data"
                       :key="expense.id"
-                      class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group"
+                      class="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer"
+                      @click="openView(expense)"
                     >
-                      <CardHeader class="pb-4">
-                        <div class="flex items-start justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <i :class="[getCategoryIcon(expense.category), 'text-white text-lg']"></i>
-                            </div>
-                            <div>
-                              <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
-                                {{ expense.title }}
-                              </CardTitle>
-                              <CardDescription class="text-gray-600 dark:text-gray-400">
-                                ID: {{ expense.id }}
-                              </CardDescription>
-                            </div>
-                          </div>
-
+                      <td class="px-4 py-4 align-top">
+                        <div class="flex flex-col">
+                          <span class="font-semibold text-gray-900 dark:text-white">{{ expense.title }}</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">ID: {{ expense.id }}</span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <Badge variant="secondary" class="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          <Filter class="w-3 h-3 mr-1" />
+                          {{ expense.category.charAt(0).toUpperCase() + expense.category.slice(1) }}
+                        </Badge>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <span class="font-semibold text-blue-600 dark:text-blue-400">{{ formatUGX(expense.amount) }}</span>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex items-center gap-2">
+                          <Calendar class="w-4 h-4 text-gray-400" />
+                          {{ expense.date_formatted }}
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        {{ expense.description || 'No description provided' }}
+                      </td>
+                      <td class="px-4 py-4 align-top" @click.stop>
+                        <div class="flex items-center justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger as-child>
-                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
                                 <MoreVertical class="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" class="w-40">
                               <DropdownMenuItem @click="openView(expense)">
-                                <i class="fas fa-eye mr-2"></i>
-                                View Details
+                                <Receipt class="w-4 h-4 mr-2" />
+                                View
                               </DropdownMenuItem>
                               <DropdownMenuItem v-if="props.can.updateExpense" @click="openEdit(expense)">
                                 <i class="fas fa-edit mr-2"></i>
-                                Edit Expense
+                                Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem v-if="props.can.deleteExpense" @click="openDelete(expense)" class="text-red-600">
+                              <DropdownMenuItem 
+                                v-if="props.can.deleteExpense" 
+                                @click="openDelete(expense)" 
+                                class="text-red-600"
+                              >
                                 <i class="fas fa-trash mr-2"></i>
-                                Delete Expense
+                                Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                      </CardHeader>
-
-                      <CardContent class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                          <div class="flex items-center space-x-2">
-                            <i class="fas fa-tag text-gray-400 w-4"></i>
-                            <span class="text-gray-600 dark:text-gray-400 truncate">{{ expense.category }}</span>
+                      </td>
+                    </tr>
+                    <tr v-if="props.expenses.data.length === 0">
+                      <td colspan="6" class="px-6 py-12 text-center">
+                        <div class="flex flex-col items-center gap-4 text-gray-600 dark:text-gray-400">
+                          <DollarSign class="w-10 h-10 text-gray-400" />
+                          <div>
+                            <p class="text-xl font-semibold text-gray-900 dark:text-white">
+                              {{ searchQuery || filterCategory !== 'all' || statusFilter !== 'all' ? 'No expenses found' : 'No expenses yet' }}
+                            </p>
+                            <p class="text-sm">
+                              {{ searchQuery || filterCategory !== 'all' || statusFilter !== 'all' ? 'Try adjusting your search criteria' : 'Start by recording your first expense.' }}
+                            </p>
                           </div>
-                          <div class="flex items-center space-x-2">
-                            <DollarSign class="w-4 h-4 text-gray-400" />
-                            <span class="text-gray-600 dark:text-gray-400 font-medium">{{ formatUGX(expense.amount) }}</span>
-                          </div>
-                          <div class="flex items-center space-x-2 col-span-2">
-                            <Calendar class="w-4 h-4 text-gray-400" />
-                            <span class="text-gray-600 dark:text-gray-400">{{ expense.date_formatted }}</span>
-                          </div>
-                          <div v-if="expense.description" class="flex items-start space-x-2 col-span-2">
-                            <i class="fas fa-align-left text-gray-400 w-4 mt-0.5 flex-shrink-0" />
-                            <span class="text-gray-600 dark:text-gray-400 line-clamp-2">{{ expense.description }}</span>
+                          <div class="flex gap-2">
+                            <Button v-if="props.can.createExpense && !searchQuery && filterCategory === 'all' && statusFilter === 'all'" @click.stop="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                              <Plus class="w-4 h-4 mr-2" />
+                              Add Expense
+                            </Button>
+                            <Button v-else @click.stop="resetFilters" variant="outline">
+                              Clear Filters
+                            </Button>
                           </div>
                         </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-                        <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                          <Button variant="outline" size="sm" @click="openView(expense)">
-                            <i class="fas fa-eye mr-2"></i>
-                            View Details
-                          </Button>
-                          <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                            {{ formatUGX(expense.amount) }}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <!-- Empty State -->
-                    <div v-if="filteredExpenses.length === 0" class="col-span-full">
-                      <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
-                        <CardContent class="p-12 text-center">
-                          <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
-                            <Receipt class="w-12 h-12 text-gray-400" />
-                          </div>
-                          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            {{ searchQuery || filterCategory !== 'all' ? 'No operational expenses found' : 'No operational expenses yet' }}
-                          </h3>
-                          <p class="text-gray-600 dark:text-gray-400 mb-6">
-                            {{ searchQuery || filterCategory !== 'all' ? 'Try adjusting your search criteria' : 'Get started by adding your first operational expense' }}
-                          </p>
-                          <Button v-if="!searchQuery && filterCategory === 'all' && props.can.createExpense" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-                            <Plus class="w-4 h-4 mr-2" />
-                            Add First Operational Expense
-                          </Button>
-                          <Button v-else @click="searchQuery = ''; filterCategory = 'all'" variant="outline">
-                            Clear Filters
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
+              <div v-if="paginationLinks.length > 0" class="flex flex-col md:flex-row md:items-center md:justify-between items-start gap-4">
+                <div class="flex-1">
+                  <Pagination
+                    :links="paginationLinks"
+                    :from="paginationSummary.from"
+                    :to="paginationSummary.to"
+                    :total="paginationSummary.total"
+                    :item-name="paginationSummary.total === 1 ? 'expense' : 'expenses'"
+                    @page-change="goToPage"
+                  />
                 </div>
-              </TabsContent>
-
-              <TabsContent value="list" class="mt-0">
-                <div class="py-16 text-center text-gray-500 dark:text-gray-400">
-                  <p>List view is currently unavailable.</p>
+                <div class="flex items-center gap-2">
+                  <Label for="per-page" class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Per page:</Label>
+                  <Select v-model="listViewPerPage" @update:model-value="() => fetchExpenses()">
+                    <SelectTrigger class="h-8 w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="option in [10, 20, 30, 50]" :key="option" :value="option.toString()">
+                        {{ option }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </TabsContent>
-            </Tabs>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -546,8 +778,8 @@ const getCategoryIcon = (category: string) => {
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="category in props.categories" :key="category" :value="category">
-                  {{ category }}
+                <SelectItem v-for="cat in categories" :key="cat.id" :value="cat.name">
+                  {{ cat.name }}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -632,8 +864,8 @@ const getCategoryIcon = (category: string) => {
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="category in props.categories" :key="category" :value="category">
-                  {{ category }}
+                <SelectItem v-for="cat in categories" :key="cat.id" :value="cat.name">
+                  {{ cat.name }}
                 </SelectItem>
               </SelectContent>
             </Select>

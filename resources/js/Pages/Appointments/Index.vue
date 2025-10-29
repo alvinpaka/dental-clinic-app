@@ -16,6 +16,7 @@ import { Label } from '@/Components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Plus, Calendar, Clock, Users, Search, Filter, MoreVertical, Eye, Edit, Trash2, AlertTriangle } from 'lucide-vue-next';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
+import Pagination from '@/Components/ui/Pagination.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 interface Appointment {
@@ -38,19 +39,77 @@ interface Patient {
   email: string;
 }
 
-interface Props {
-  appointments: Appointment[];
-  patients: Patient[];
-  stats?: {
-    total_today: number;
-    total_week: number;
-    total_month: number;
-    upcoming: number;
-  };
-  appointmentTypes?: string[];
+interface PaginationLink {
+  url: string | null;
+  label: string;
+  active: boolean;
 }
 
-const props = defineProps<Props>();
+interface PaginationMeta {
+  current_page?: number;
+  last_page?: number;
+  per_page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
+interface Filters {
+  search?: string;
+  status?: string;
+  type?: string;
+  dentist_id?: string | number;
+  start_date?: string;
+  end_date?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  per_page?: number;
+  page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
+interface Props {
+  appointments: {
+    data: Appointment[];
+    links?: PaginationLink[];
+    meta?: PaginationMeta;
+  };
+  calendarAppointments: any[];
+  patients: Patient[];
+  dentists: any[];
+  filters?: Filters;
+  appointmentTypes?: string[];
+  // Changed from array to any type since it's being passed as an object
+  appointmentStatuses?: any;
+  stats?: {
+    total: number;
+    today: number;
+    upcoming: number;
+  };
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  filters: () => ({
+    search: '',
+    status: 'all',
+    type: 'all',
+    dentist_id: 'all',
+    start_date: '',
+    end_date: '',
+    sort_by: 'start_time',
+    sort_order: 'asc',
+    per_page: 10,
+    page: 1,
+    total: 0,
+    from: 0,
+    to: 0
+  }),
+  appointmentTypes: () => [],
+  // Changed default value to an empty object to match the expected type
+  appointmentStatuses: () => ({})
+});
 
 // Helper functions
 const getStatusColor = (status: string) => {
@@ -102,12 +161,47 @@ const formatDateTime = (dateString: string) => {
 
 const activeTab = ref('calendar');
 const selectedDate = ref(new Date().toISOString().split('T')[0]);
-const searchQuery = ref('');
-const statusFilter = ref('all');
+
+// Initialize filters from props
+const searchQuery = ref(props.filters?.search || '');
+const statusFilter = ref(props.filters?.status || 'all');
+const typeFilter = ref(props.filters?.type || 'all');
+const dentistFilter = ref(props.filters?.dentist_id || 'all');
+const startDateFilter = ref(props.filters?.start_date || '');
+const endDateFilter = ref(props.filters?.end_date || '');
+const sortBy = ref(props.filters?.sort_by || 'start_time');
+const sortOrder = ref<'asc' | 'desc'>(props.filters?.sort_order || 'asc');
+const currentPage = ref(props.filters?.page || 1);
+const listViewPerPage = ref((props.filters?.per_page || 10).toString());
+
+// Watch for filter changes
+watch([searchQuery, statusFilter, typeFilter, dentistFilter, startDateFilter, endDateFilter, sortBy, sortOrder, listViewPerPage], () => {
+  currentPage.value = 1;
+  fetchAppointments();
+});
+
+// Watch for route changes to update filters
+watch(() => props.filters, (newFilters) => {
+  if (newFilters) {
+    searchQuery.value = newFilters.search || '';
+    statusFilter.value = newFilters.status || 'all';
+    typeFilter.value = newFilters.type || 'all';
+    dentistFilter.value = newFilters.dentist_id || 'all';
+    startDateFilter.value = newFilters.start_date || '';
+    endDateFilter.value = newFilters.end_date || '';
+    sortBy.value = newFilters.sort_by || 'start_time';
+    sortOrder.value = newFilters.sort_order || 'asc';
+    currentPage.value = newFilters.page || 1;
+    
+    if (newFilters.per_page && newFilters.per_page.toString() !== listViewPerPage.value) {
+      listViewPerPage.value = newFilters.per_page.toString();
+    }
+  }
+}, { deep: true, immediate: true });
 
 // Convert appointments to FullCalendar events
 const calendarEvents = computed(() => {
-  return props.appointments.map(apt => ({
+  return props.calendarAppointments.map(apt => ({
     id: apt.id,
     title: `${apt.patient.name} - ${apt.type}`,
     start: apt.start,
@@ -118,8 +212,34 @@ const calendarEvents = computed(() => {
   }));
 });
 
+const paginationLinks = computed(() => props.appointments?.links || []);
+const totalAppointments = computed(() => props.appointments?.meta?.total ?? props.appointments?.data.length ?? 0);
+
+const listPerPageOptions = [10, 20, 30, 50];
+
+// Watch for changes to listViewPerPage
+watch(listViewPerPage, (value, oldValue) => {
+  if (value === oldValue) return;
+  const perPage = Number(value);
+  if (!Number.isFinite(perPage) || perPage <= 0) return;
+
+  router.get(route('appointments.index'), { per_page: perPage }, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
+});
+
+watch(() => props.appointments?.meta?.per_page, (value) => {
+  if (!value) return;
+  const stringValue = value.toString();
+  if (stringValue !== listViewPerPage.value) {
+    listViewPerPage.value = stringValue;
+  }
+});
+
 const filteredAppointments = computed(() => {
-  let appointments = [...props.appointments];
+  let appointments = [...(props.appointments?.data || [])];
 
   if (searchQuery.value) {
     appointments = appointments.filter(apt =>
@@ -134,6 +254,24 @@ const filteredAppointments = computed(() => {
   }
 
   return appointments.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+});
+
+const paginationSummary = computed(() => {
+  const meta = props.appointments?.meta;
+  if (meta) {
+    return {
+      from: meta.from ?? 0,
+      to: meta.to ?? 0,
+      total: meta.total ?? totalAppointments.value,
+    };
+  }
+
+  const count = filteredAppointments.value.length;
+  return {
+    from: count ? 1 : 0,
+    to: count,
+    total: totalAppointments.value,
+  };
 });
 
 const calendarOptions = ref({
@@ -358,6 +496,55 @@ const confirmDelete = () => {
     });
   }
 };
+
+// Fetch appointments with current filters
+function fetchAppointments(overrides = {}) {
+  const params = {
+    search: searchQuery.value,
+    status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+    type: typeFilter.value !== 'all' ? typeFilter.value : undefined,
+    dentist_id: dentistFilter.value !== 'all' ? dentistFilter.value : undefined,
+    start_date: startDateFilter.value || undefined,
+    end_date: endDateFilter.value || undefined,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+    per_page: Number(listViewPerPage.value),
+    page: currentPage.value,
+    ...overrides
+  };
+
+  router.get(route('appointments.index'), params, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
+}
+
+// Toggle sort order
+function toggleSort(column: string) {
+  if (sortBy.value === column) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortBy.value = column;
+    sortOrder.value = 'asc';
+  }
+}
+
+// Handle pagination
+function goToPage(link: PaginationLink) {
+  if (!link.url || link.active) return;
+  
+  try {
+    const url = new URL(link.url, window.location.origin);
+    const page = url.searchParams.get('page');
+    if (page) {
+      currentPage.value = parseInt(page, 10);
+      fetchAppointments({ page: currentPage.value });
+    }
+  } catch (e) {
+    console.error('Error parsing pagination URL:', e);
+  }
+}
 </script>
 
 <template>
@@ -381,7 +568,7 @@ const confirmDelete = () => {
             <div class="flex items-center gap-3">
               <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 font-medium rounded-md shadow-sm">
                 <Calendar class="w-4 h-4 mr-2" />
-                {{ props.appointments.length }} Total Appointments
+                {{ totalAppointments }} Total Appointments
               </Badge>
 
               <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
@@ -399,7 +586,7 @@ const confirmDelete = () => {
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Today</p>
-                  <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">{{ props.stats.total_today }}</p>
+                  <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">{{ props.stats.today }}</p>
                   <p class="text-xs text-blue-600 dark:text-blue-400">Appointments scheduled</p>
                 </div>
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
@@ -414,7 +601,7 @@ const confirmDelete = () => {
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-sm font-medium text-green-700 dark:text-green-300 mb-1">This Week</p>
-                  <p class="text-3xl font-bold text-green-900 dark:text-green-100 mb-1">{{ props.stats.total_week }}</p>
+                  <p class="text-3xl font-bold text-green-900 dark:text-green-100 mb-1">{{ props.stats.upcoming }}</p>
                   <p class="text-xs text-green-600 dark:text-green-400">Upcoming appointments</p>
                 </div>
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
@@ -429,7 +616,7 @@ const confirmDelete = () => {
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">This Month</p>
-                  <p class="text-3xl font-bold text-purple-900 dark:text-purple-100 mb-1">{{ props.stats.total_month }}</p>
+                  <p class="text-3xl font-bold text-purple-900 dark:text-purple-100 mb-1">{{ props.stats.total }}</p>
                   <p class="text-xs text-purple-600 dark:text-purple-400">Total appointments</p>
                 </div>
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
@@ -483,83 +670,99 @@ const confirmDelete = () => {
               <!-- List View -->
               <TabsContent value="list" class="mt-0">
                 <div class="space-y-4">
-                  <!-- Search and Filters -->
                   <div class="flex flex-col md:flex-row gap-4 items-center">
                     <div class="relative flex-1">
                       <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <Input
                         v-model="searchQuery"
+                        @update:model-value="() => fetchAppointments()"
                         placeholder="Search appointments..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                        class="pl-10 w-full"
                       />
                     </div>
 
-                    <Select v-model="statusFilter">
-                      <SelectTrigger class="w-48 h-12">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="scheduled">Scheduled</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div class="flex items-center gap-2">
+                      <Filter class="w-4 h-4 text-gray-400" />
+                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</Label>
+                      <Select v-model="statusFilter" @update:model-value="() => fetchAppointments()">
+                        <SelectTrigger class="w-40 h-12">
+                          <SelectValue placeholder="All statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All statuses</SelectItem>
+                          <SelectItem value="scheduled">Scheduled</SelectItem>
+                          <SelectItem value="confirmed">Confirmed</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Per page:</Label>
+                      <Select v-model="listViewPerPage" @update:model-value="() => fetchAppointments()">
+                        <SelectTrigger class="w-24 h-12">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="option in [10, 20, 30, 50]" :key="option" :value="option.toString()">
+                            {{ option }}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <!-- Appointments List -->
                   <div class="space-y-3 max-h-96 overflow-y-auto">
                     <Card
-                      v-for="(appointment, index) in filteredAppointments"
-                      :key="appointment.id"
+                      v-for="appointment in filteredAppointments"
+                      :key="`list-appointment-${appointment.id}`"
                       class="border hover:shadow-md transition-shadow cursor-pointer group"
                       @click="openView(appointment)"
                     >
                       <CardContent class="p-4">
                         <div class="flex items-center justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div
-                              class="w-3 h-3 rounded-full flex-shrink-0"
-                              :style="{ backgroundColor: getStatusColor(appointment.status) }"
-                            ></div>
-                            <div>
-                              <h4 class="font-medium text-gray-900 dark:text-white">
+                          <div class="flex items-center space-x-3 flex-1">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <Calendar class="w-5 h-5 text-white" />
+                            </div>
+                            <div class="flex-1">
+                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
                                 {{ appointment.patient.name }}
                               </h4>
-                              <p class="text-sm text-gray-600 dark:text-gray-400">
-                                {{ appointment.type }} • {{ formatDate(appointment.start) }} at {{ formatTime(appointment.start) }}
+                              <p class="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                <span>{{ appointment.type }}</span>
+                                <span class="mx-2">•</span>
+                                <span>{{ formatDateTime(appointment.start) }}</span>
+                              </p>
+                              <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Status: {{ appointment.status }}
                               </p>
                             </div>
                           </div>
 
-                          <div class="flex items-center space-x-2">
-                            <Badge :variant="getStatusBadgeVariant(appointment.status)" class="text-xs px-3 py-1 font-medium rounded-md shadow-sm min-w-0 whitespace-nowrap">
-                              {{ appointment.status }}
-                            </Badge>
-
-                            <DropdownMenu>
-                              <DropdownMenuTrigger as-child @click.stop>
-                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
-                                  <MoreVertical class="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem @click.stop="openView(appointment)">
-                                  <Eye class="w-4 h-4 mr-2" />
-                                  View
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openEdit(appointment)">
-                                  <Edit class="w-4 h-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openDelete(appointment)" class="text-red-600">
-                                  <Trash2 class="w-4 h-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger as-child @click.stop>
+                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
+                                <MoreVertical class="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem @click.stop="openView(appointment)">
+                                <Eye class="w-4 h-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem @click.stop="openEdit(appointment)">
+                                <Edit class="w-4 h-4 mr-2" />
+                                Edit Appointment
+                              </DropdownMenuItem>
+                              <DropdownMenuItem @click.stop="openDelete(appointment)" class="text-red-600">
+                                <Trash2 class="w-4 h-4 mr-2" />
+                                Cancel Appointment
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </CardContent>
                     </Card>
@@ -567,7 +770,33 @@ const confirmDelete = () => {
                     <div v-if="filteredAppointments.length === 0" class="text-center py-8">
                       <Calendar class="w-12 h-12 mx-auto mb-4 text-gray-400" />
                       <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No appointments found</h3>
-                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or create a new appointment.</p>
+                      <p class="text-gray-600 dark:text-gray-400">Try adjusting filters or create a new appointment.</p>
+                    </div>
+                  </div>
+
+                  <div v-if="paginationLinks.length > 0" class="flex flex-col md:flex-row md:items-center md:justify-between items-start gap-4 pt-4">
+                    <div class="flex-1">
+                      <Pagination
+                        :links="paginationLinks"
+                        :from="paginationSummary.from"
+                        :to="paginationSummary.to"
+                        :total="paginationSummary.total"
+                        :item-name="paginationSummary.total === 1 ? 'appointment' : 'appointments'"
+                        @page-change="goToPage"
+                      />
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <Label for="per-page" class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Per page:</Label>
+                      <Select v-model="listViewPerPage" @update:model-value="() => fetchAppointments()">
+                        <SelectTrigger class="h-8 w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="option in [10, 20, 30, 50]" :key="option" :value="option.toString()">
+                            {{ option }}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
@@ -891,7 +1120,7 @@ const confirmDelete = () => {
               <div>
                 <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
                 <div class="mt-1">
-                  <Badge :variant="getStatusBadgeVariant(viewingAppointment.status)" class="px-3 py-1 font-medium">
+                  <Badge :variant="getStatusBadgeVariant(viewingAppointment.status)" class="text-xs px-3 py-1 font-medium rounded-md shadow-sm min-w-0 whitespace-nowrap">
                     {{ viewingAppointment.status }}
                   </Badge>
                 </div>

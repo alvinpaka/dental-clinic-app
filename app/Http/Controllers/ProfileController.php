@@ -17,11 +17,13 @@ class ProfileController extends Controller
      */
     public function edit(Request $request)
     {
+        $user = $request->user()->load('roles');
+
         return Inertia::render('Profile/Index', [
             'auth' => [
-                'user' => $request->user()->load('roles'),
+                'user' => $user,
             ],
-            'user' => $request->user()->load('roles'),
+            'user' => $user,
         ]);
     }
 

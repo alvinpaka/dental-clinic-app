@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson() || $request->is('api/*') || $request->header('X-Inertia')) {
                 return response()->json([
                     'title' => 'Access Denied',
-                    'message' => 'You do not have permission to access this resource.',
+                    'message' => 'You do not have permission to access this page.',
                     'required_role' => extractRequiredRole($e),
                     'resource' => extractResource($e),
                 ], 403);
@@ -31,21 +31,23 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })->create();
 
-function extractRequiredRole(\Illuminate\Auth\Access\AuthorizationException $e): string
-{
-    // Try to extract role information from the exception message or requirements
-    $message = $e->getMessage();
-    if (str_contains(strtolower($message), 'admin')) {
-        return 'Admin';
-    } elseif (str_contains(strtolower($message), 'receptionist')) {
-        return 'Receptionist';
-    } elseif (str_contains(strtolower($message), 'dentist')) {
-        return 'Dentist';
-    } elseif (str_contains(strtolower($message), 'assistant')) {
-        return 'Assistant';
-    }
+if (!function_exists('extractRequiredRole')) {
+    function extractRequiredRole(\Illuminate\Auth\Access\AuthorizationException $e): string
+    {
+        // Try to extract role information from the exception message or requirements
+        $message = $e->getMessage();
+        if (str_contains(strtolower($message), 'admin')) {
+            return 'Admin';
+        } elseif (str_contains(strtolower($message), 'receptionist')) {
+            return 'Receptionist';
+        } elseif (str_contains(strtolower($message), 'dentist')) {
+            return 'Dentist';
+        } elseif (str_contains(strtolower($message), 'assistant')) {
+            return 'Assistant';
+        }
 
-    return '';
+        return '';
+    }
 }
 
 function extractResource(\Illuminate\Auth\Access\AuthorizationException $e): string

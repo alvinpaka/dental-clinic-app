@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Com
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import ChangePasswordModal from '@/Components/ChangePasswordModal.vue';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -13,6 +14,7 @@ const props = defineProps<{
     name: string;
     email: string;
     email_verified_at?: string;
+    password_changed_at?: string;
     roles?: Array<{
       id: number;
       name: string;
@@ -24,6 +26,10 @@ const props = defineProps<{
 const form = useForm({
   name: props.user.name,
   email: props.user.email,
+});
+
+const hasChanges = computed(() => {
+  return form.name !== props.user.name || form.email !== props.user.email;
 });
 
 const submit = () => {
@@ -71,6 +77,23 @@ const accountType = computed(() => {
   // For 3 or more roles, show primary role + count
   const primaryRole = sortedRoles[0].display_name || formatRoleName(sortedRoles[0].name);
   return `${primaryRole} & ${sortedRoles.length - 1} more`;
+});
+
+const passwordLastUpdated = computed(() => {
+  if (!props.user.password_changed_at) {
+    return 'Unknown';
+  }
+
+  const timestamp = new Date(props.user.password_changed_at);
+
+  if (Number.isNaN(timestamp.getTime())) {
+    return 'Unknown';
+  }
+
+  return timestamp.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
 });
 </script>
 
@@ -190,13 +213,11 @@ const accountType = computed(() => {
               <div class="space-y-1">
                 <p class="text-sm font-medium">Password</p>
                 <p class="text-sm text-muted-foreground">
-                  Last updated recently
+                  Last updated
+                  <span class="font-medium text-foreground">{{ passwordLastUpdated }}</span>
                 </p>
               </div>
-              <Button variant="outline" size="sm">
-                <i class="fas fa-key mr-2"></i>
-                Change Password
-              </Button>
+              <ChangePasswordModal />
             </div>
 
             <div class="flex items-center justify-between p-4 border rounded-lg">
