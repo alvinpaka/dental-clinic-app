@@ -285,14 +285,23 @@ const openView = (expense: Expense) => {
 
 const openEdit = (expense: Expense) => {
   if (!props.can.updateExpense) return;
-  editingExpense.value = expense;
-  editForm.id = expense.id;
-  editForm.title = expense.title;
-  editForm.amount = expense.amount;
-  editForm.category = expense.category;
-  editForm.date = expense.date.split('T')[0];
-  editForm.description = expense.description || '';
-  isEditOpen.value = true;
+  
+  // Close the view modal if it's open
+  if (isViewOpen.value) {
+    isViewOpen.value = false;
+  }
+  
+  // Small delay to allow the view modal to close before opening edit modal
+  setTimeout(() => {
+    editingExpense.value = expense;
+    editForm.id = expense.id;
+    editForm.title = expense.title;
+    editForm.amount = expense.amount;
+    editForm.category = expense.category;
+    editForm.date = expense.date.split('T')[0];
+    editForm.description = expense.description || '';
+    isEditOpen.value = true;
+  }, 50);
 };
 
 const openDelete = (expense: Expense) => {
@@ -944,7 +953,7 @@ const confirmDelete = () => {
 
     <!-- View Expense Modal -->
     <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
-      <DialogContent class="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent class="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Operational Expense Details: {{ viewingExpense?.title }}

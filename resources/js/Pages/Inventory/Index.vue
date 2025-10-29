@@ -949,18 +949,8 @@ const confirmDelete = () => {
 
     <!-- View Item Modal -->
     <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
-      <DialogContent class="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center">
-            <Package class="w-6 h-6 mr-3" />
-            {{ viewingItem?.name }}
-          </DialogTitle>
-          <DialogDescription class="text-gray-600 dark:text-gray-400">
-            Item ID: {{ viewingItem?.id }}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div v-if="viewingItem" class="space-y-6">
+      <DialogContent class="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div v-if="viewingItem" class="space-y-4">
           <!-- Basic Information -->
           <Card class="border-0 shadow-lg">
             <CardHeader class="pb-3">
@@ -969,8 +959,8 @@ const confirmDelete = () => {
                 Basic Information
               </CardTitle>
             </CardHeader>
-            <CardContent class="space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent class="space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Item Name</Label>
                   <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ viewingItem.name }}</p>
@@ -986,7 +976,7 @@ const confirmDelete = () => {
               </div>
             </CardContent>
           </Card>
-
+    
           <!-- Inventory Details -->
           <Card class="border-0 shadow-lg">
             <CardHeader class="pb-3">
@@ -995,8 +985,8 @@ const confirmDelete = () => {
                 Inventory Details
               </CardTitle>
             </CardHeader>
-            <CardContent class="space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <CardContent class="space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <i class="fas fa-hashtag text-2xl text-blue-600 mb-2"></i>
                   <p class="text-sm text-blue-700 dark:text-blue-300">Current Stock</p>
@@ -1025,7 +1015,7 @@ const confirmDelete = () => {
               </div>
             </CardContent>
           </Card>
-
+    
           <!-- Additional Information -->
           <Card class="border-0 shadow-lg">
             <CardHeader class="pb-3">
@@ -1034,8 +1024,8 @@ const confirmDelete = () => {
                 Additional Information
               </CardTitle>
             </CardHeader>
-            <CardContent class="space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent class="space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div v-if="viewingItem.supplier">
                   <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Supplier</Label>
                   <p class="text-gray-900 dark:text-white">{{ viewingItem.supplier }}</p>
@@ -1057,7 +1047,7 @@ const confirmDelete = () => {
             </CardContent>
           </Card>
         </div>
-
+    
         <DialogFooter class="gap-2">
           <Button type="button" variant="outline" @click="isViewOpen = false">
             Close
