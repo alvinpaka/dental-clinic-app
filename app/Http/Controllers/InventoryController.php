@@ -42,17 +42,86 @@ class InventoryController extends Controller
         ],
     ];
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorize('viewAny', InventoryItem::class);
 
-        $items = InventoryItem::paginate(10);
+        $perPage = (int) $request->input('per_page', 10);
+        if ($perPage <= 0) {
+            $perPage = 10;
+        }
+
+        $search = trim((string) $request->input('search', ''));
+        $category = $request->input('category');
+        $stockStatus = $request->input('stock_status');
+        $sortBy = $request->input('sort_by', 'name');
+        $sortOrder = $request->input('sort_order', 'asc');
+
+        $query = InventoryItem::query();
+
+        // Apply search
+        if ($search !== '') {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('supplier', 'like', "%{$search}%");
+            });
+        }
+
+        // Apply category filter
+        if ($category && $category !== 'all') {
+            $query->where('category', $category);
+        }
+
+        // Apply stock status filter
+        if ($stockStatus) {
+            switch ($stockStatus) {
+                case 'low':
+                    $query->where('quantity', '>', 0)
+                          ->where('quantity', '<=', DB::raw('low_stock_threshold'));
+                    break;
+                case 'out':
+                    $query->where('quantity', '<=', 0);
+                    break;
+                case 'in_stock':
+                    $query->where('quantity', '>', 0);
+                    break;
+            }
+        }
+
+        // Apply sorting
+        $allowedSorts = ['name', 'quantity', 'unit_price', 'category', 'created_at'];
+        if (!in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'name';
+        }
         
-        // Compute stats
-        $totalItems = InventoryItem::count();
-        $lowStockItems = InventoryItem::where('quantity', '<=', DB::raw('low_stock_threshold'))->where('quantity', '>', 0)->count();
-        $outOfStock = InventoryItem::where('quantity', 0)->count();
-        $totalValue = InventoryItem::sum(DB::raw('quantity * unit_price'));
+        if (!in_array($sortOrder, ['asc', 'desc'], true)) {
+            $sortOrder = 'asc';
+        }
+
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Get paginated results
+        $items = $query->paginate($perPage)->withQueryString();
+        
+        // Compute stats (optimized to use the same query when possible)
+        $totalItems = $query->toBase()->getCountForPagination();
+        $lowStockItems = InventoryItem::where('quantity', '<=', DB::raw('low_stock_threshold'))
+            ->where('quantity', '>', 0)
+            ->when($category && $category !== 'all', function($q) use ($category) {
+                $q->where('category', $category);
+            })
+            ->count();
+            
+        $outOfStock = InventoryItem::where('quantity', '<=', 0)
+            ->when($category && $category !== 'all', function($q) use ($category) {
+                $q->where('category', $category);
+            })
+            ->count();
+            
+        $totalValue = $query->clone()
+            ->select(DB::raw('SUM(quantity * unit_price) as total'))
+            ->value('total') ?? 0;
 
         return Inertia::render('Inventory/Index', [
             'auth' => [
@@ -60,6 +129,18 @@ class InventoryController extends Controller
             ],
             'items' => $items,
             'categories' => self::INVENTORY_CATEGORIES,
+            'filters' => [
+                'search' => $search,
+                'category' => $category,
+                'stock_status' => $stockStatus,
+                'sort_by' => $sortBy,
+                'sort_order' => $sortOrder,
+                'per_page' => $perPage,
+                'page' => (int) $request->input('page', 1),
+                'total' => $items->total(),
+                'from' => $items->firstItem(),
+                'to' => $items->lastItem(),
+            ],
             'stats' => [
                 'total_items' => $totalItems,
                 'low_stock_items' => $lowStockItems,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -9,11 +9,12 @@ import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { Plus, Search, MoreVertical, Stethoscope, FileText, User, Calendar, Upload, Receipt } from 'lucide-vue-next';
+import { Plus, Search, MoreVertical, Stethoscope, FileText, Calendar, Upload, Receipt } from 'lucide-vue-next';
+import Pagination from '@/Components/ui/Pagination.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
+// Interfaces
 interface Patient {
   id: number;
   name: string;
@@ -22,7 +23,7 @@ interface Patient {
 
 interface Treatment {
   id: number;
-  patient: { id: number; name: string };
+  patient: { id: number; name: string; email?: string };
   procedure: string;
   cost: number;
   notes?: string;
@@ -35,9 +36,7 @@ interface Treatment {
     dosage: string;
     quantity: number;
     prescription_amount: number;
-    medicine?: {
-      medicine_name: string;
-    };
+    medicine?: { medicine_name: string };
   }>;
   created_at?: string;
 }
@@ -50,10 +49,20 @@ interface DentalMedicine {
   prescription_required: boolean;
 }
 
+interface PaginationMeta {
+  current_page?: number;
+  last_page?: number;
+  per_page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
 interface Props {
+  auth: { user: { id: number; name: string } | null };
   treatments: {
     data: Treatment[];
-    links: any[];
+    meta?: PaginationMeta;
   };
   patients: Patient[];
   stats?: {
@@ -61,46 +70,81 @@ interface Props {
     total_revenue: number;
     this_month_treatments: number;
   };
-  appointmentTypes?: string[];
-  medicines?: DentalMedicine[];
+  appointmentTypes: string[];
+  medicines: DentalMedicine[];
 }
 
 const props = defineProps<Props>();
 
+// State
 const searchQuery = ref('');
 const filterPatient = ref('all');
 const sortBy = ref('created_at');
 const sortOrder = ref('desc');
-const activeTab = ref('grid');
+const listViewPerPage = ref((props.treatments?.meta?.per_page ?? 10).toString());
+const currentPage = ref(props.treatments?.meta?.current_page ?? 1);
 
-// Filtered and sorted treatments
+// Computed properties
+const totalTreatments = computed(() => props.treatments?.meta?.total ?? props.treatments?.data.length ?? 0);
+const lastPage = computed(() => props.treatments?.meta?.last_page ?? 1);
+
+const paginationLinks = computed(() => {
+  const links: Array<{ url: string | null; label: string; active: boolean }> = [];
+  const current = currentPage.value;
+  const last = lastPage.value;
+
+  // Previous link
+  links.push({
+    url: current > 1 ? '#' : null,
+    label: '&laquo; Previous',
+    active: current === 1,
+  });
+
+  // Page numbers (show current ± 2 pages)
+  const startPage = Math.max(1, current - 2);
+  const endPage = Math.min(last, current + 2);
+  for (let i = startPage; i <= endPage; i++) {
+    links.push({
+      url: i === current ? null : '#',
+      label: i.toString(),
+      active: i === current,
+    });
+  }
+
+  // Next link
+  links.push({
+    url: current < last ? '#' : null,
+    label: 'Next &raquo;',
+    active: current === last,
+  });
+
+  console.log('Generated Pagination Links:', links); // Debug
+  return links;
+});
+
 const filteredTreatments = computed(() => {
-  if (!props.treatments?.data) return [];
+  let treatments = [...(props.treatments?.data || [])];
 
-  let treatments = [...props.treatments.data];
-
-  // Search filter
+  // Apply search filter
   if (searchQuery.value) {
     treatments = treatments.filter(treatment =>
-      treatment.procedure.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      treatment.patient?.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      (treatment.notes && treatment.notes.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
-      (treatment.prescriptions?.some(pres => pres.medicine_id.toString().includes(searchQuery.value.toLowerCase())))
+      [treatment.procedure, treatment.patient?.name, treatment.notes]
+        .some(field => field?.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
+      treatment.prescriptions?.some(pres => pres.medicine_id?.toString().includes(searchQuery.value.toLowerCase()))
     );
   }
 
-  // Patient filter
+  // Apply patient filter
   if (filterPatient.value !== 'all') {
-    treatments = treatments.filter(treatment =>
-      treatment.patient?.id.toString() === filterPatient.value
-    );
+    treatments = treatments.filter(treatment => treatment.patient?.id.toString() === filterPatient.value);
   }
 
-  // Sort
+  // Sort treatments
   treatments.sort((a, b) => {
+    const key = sortBy.value as keyof Treatment;
     let aValue: any, bValue: any;
 
-    switch (sortBy.value) {
+    switch (key) {
       case 'procedure':
         aValue = a.procedure.toLowerCase();
         bValue = b.procedure.toLowerCase();
@@ -109,7 +153,7 @@ const filteredTreatments = computed(() => {
         aValue = a.cost;
         bValue = b.cost;
         break;
-      case 'patient':
+      case 'patient_id':
         aValue = a.patient?.name.toLowerCase() || '';
         bValue = b.patient?.name.toLowerCase() || '';
         break;
@@ -120,14 +164,85 @@ const filteredTreatments = computed(() => {
         break;
     }
 
-    if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1;
-    return 0;
+    return sortOrder.value === 'asc' ? aValue < bValue ? -1 : 1 : aValue < bValue ? 1 : -1;
   });
 
   return treatments;
 });
 
+const paginationSummary = computed(() => {
+  const meta = props.treatments?.meta;
+  console.log('Pagination Meta:', meta); // Debug
+  if (meta) {
+    return { from: meta.from ?? 0, to: meta.to ?? 0, total: meta.total ?? totalTreatments.value };
+  }
+  const count = filteredTreatments.value.length;
+  return { from: count ? 1 : 0, to: count, total: totalTreatments.value };
+});
+
+// Watchers
+watch([searchQuery, filterPatient, sortBy, sortOrder, listViewPerPage], () => {
+  currentPage.value = 1; // Reset to page 1 on filter change
+  router.post(route('treatments.index'), {
+    page: currentPage.value,
+    per_page: Number(listViewPerPage.value),
+    search: searchQuery.value,
+    patient: filterPatient.value,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+  }, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
+});
+
+watch(() => props.treatments?.meta?.per_page, (value) => {
+  if (value && value.toString() !== listViewPerPage.value) {
+    listViewPerPage.value = value.toString();
+  }
+});
+
+watch(() => props.treatments?.meta?.current_page, (value) => {
+  if (value && value !== currentPage.value) {
+    currentPage.value = value;
+  }
+});
+
+// Pagination navigation
+const goToPage = (link: { url: string | null; label: string; active: boolean }) => {
+  if (link.active || !link.url) return;
+
+  let newPage = currentPage.value;
+  if (link.label.includes('Previous')) {
+    newPage = currentPage.value - 1;
+  } else if (link.label.includes('Next')) {
+    newPage = currentPage.value + 1;
+  } else if (!isNaN(parseInt(link.label, 10))) {
+    newPage = parseInt(link.label, 10);
+  } else {
+    return; // Don't proceed if it's not a valid page number
+  }
+
+  if (newPage >= 1 && newPage <= lastPage.value) {
+    // Use GET instead of POST for pagination
+    router.get(route('treatments.index'), {
+      page: newPage,
+      per_page: Number(listViewPerPage.value),
+      search: searchQuery.value,
+      patient: filterPatient.value,
+      sort_by: sortBy.value,
+      sort_order: sortOrder.value,
+    }, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      only: ['treatments', 'filters']
+    });
+  }
+};
+
+// Rest of the script (form handling, modals, etc.)
 const createForm = useForm({
   patient_id: null as number | null,
   appointment_id: null as number | null,
@@ -135,9 +250,7 @@ const createForm = useForm({
   cost: 0,
   notes: '',
   file: null as File | null,
-  prescriptions: [
-    { id: null, medicine_id: null as number | null, prescription_amount: 0 }
-  ] as Array<{ id?: number | null; medicine_id: number | null; prescription_amount: number }>,
+  prescriptions: [] as Array<{ id?: number | null; medicine_id: number | null; prescription_amount: number }>,
 });
 
 const editForm = useForm({
@@ -161,22 +274,24 @@ const openCreate = () => {
 };
 
 const openEdit = (treatment: Treatment) => {
-  if ((treatment as any).invoice) {
+  if (treatment.invoice) {
     alert('This treatment has an invoice and cannot be edited.');
     return;
   }
   editingTreatment.value = treatment;
-  editForm.patient_id = treatment.patient?.id || null;
-  editForm.procedure = treatment.procedure;
-  editForm.cost = treatment.cost.toString();
-  editForm.notes = treatment.notes || '';
-  editForm.prescriptions = treatment.prescriptions ? treatment.prescriptions.map(pres => ({
-    id: pres.id,
-    medicine_id: pres.medicine_id,
-    dosage: pres.dosage,
-    quantity: pres.quantity,
-    prescription_amount: pres.prescription_amount,
-  })) : [];
+  editForm.set({
+    patient_id: treatment.patient?.id || null,
+    procedure: treatment.procedure,
+    cost: treatment.cost.toString(),
+    notes: treatment.notes || '',
+    prescriptions: treatment.prescriptions?.map(pres => ({
+      id: pres.id,
+      medicine_id: pres.medicine_id,
+      dosage: pres.dosage,
+      quantity: pres.quantity,
+      prescription_amount: pres.prescription_amount,
+    })) || [],
+  });
   isEditOpen.value = true;
 };
 
@@ -192,36 +307,20 @@ const openView = (treatment: Treatment) => {
 
 const createInvoice = (treatment: Treatment) => {
   if (!treatment.id) return;
-  
-  router.post(route('treatments.createInvoice', treatment.id), {
-    onSuccess: () => {
-      router.reload();
-    },
+  router.post(route('treatments.createInvoice', treatment.id), {}, {
+    onSuccess: () => router.reload(),
     onError: (errors) => {
       alert('Failed to create invoice. Please try again.');
       console.error(errors);
-    }
+    },
   });
 };
 
 const submitCreate = () => {
-  if (!createForm.patient_id) {
-    alert('Please select a patient');
+  if (!createForm.patient_id || !createForm.procedure || createForm.cost <= 0 || createForm.prescriptions.some(pres => !pres.medicine_id)) {
+    alert('Please fill all required fields correctly.');
     return;
   }
-  if (!createForm.procedure) {
-    alert('Please select a procedure');
-    return;
-  }
-  if (!createForm.cost || createForm.cost <= 0) {
-    alert('Please enter a valid cost');
-    return;
-  }
-  if (createForm.prescriptions.some(pres => !pres.medicine_id)) {
-    alert('Please select a medicine for all prescriptions');
-    return;
-  }
-
   createForm.post(route('treatments.store'), {
     forceFormData: true,
     onSuccess: () => {
@@ -232,23 +331,10 @@ const submitCreate = () => {
 };
 
 const submitEdit = () => {
-  if (!editForm.patient_id) {
-    alert('Please select a patient');
+  if (!editForm.patient_id || !editForm.procedure || parseFloat(editForm.cost) <= 0 || editForm.prescriptions.some(pres => !pres.medicine_id)) {
+    alert('Please fill all required fields correctly.');
     return;
   }
-  if (!editForm.procedure) {
-    alert('Please select a procedure');
-    return;
-  }
-  if (!editForm.cost || parseFloat(editForm.cost) <= 0) {
-    alert('Please enter a valid cost');
-    return;
-  }
-  if (editForm.prescriptions.some(pres => !pres.medicine_id)) {
-    alert('Please select a medicine for all prescriptions');
-    return;
-  }
-
   if (editingTreatment.value) {
     editForm.put(route('treatments.update', editingTreatment.value.id), {
       forceFormData: true,
@@ -272,34 +358,23 @@ const confirmDelete = () => {
   }
 };
 
-// Treatment type icons
 const getTreatmentIcon = (procedure: string) => {
-  const lowerProcedure = procedure.toLowerCase();
-  if (lowerProcedure.includes('cleaning') || lowerProcedure.includes('hygiene')) {
-    return 'fas fa-toothbrush';
-  }
-  if (lowerProcedure.includes('filling') || lowerProcedure.includes('cavity')) {
-    return 'fas fa-fill';
-  }
-  if (lowerProcedure.includes('extraction') || lowerProcedure.includes('removal')) {
-    return 'fas fa-tooth';
-  }
-  if (lowerProcedure.includes('crown') || lowerProcedure.includes('bridge')) {
-    return 'fas fa-crown';
-  }
-  if (lowerProcedure.includes('implant')) {
-    return 'fas fa-bolt';
-  }
-  if (lowerProcedure.includes('x-ray') || lowerProcedure.includes('radiograph')) {
-    return 'fas fa-x-ray';
-  }
+  const lower = procedure.toLowerCase();
+  if (lower.includes('cleaning') || lower.includes('hygiene')) return 'fas fa-toothbrush';
+  if (lower.includes('filling') || lower.includes('cavity')) return 'fas fa-fill';
+  if (lower.includes('extraction') || lower.includes('removal')) return 'fas fa-tooth';
+  if (lower.includes('crown') || lower.includes('bridge')) return 'fas fa-crown';
+  if (lower.includes('implant')) return 'fas fa-bolt';
+  if (lower.includes('x-ray') || lower.includes('radiograph')) return 'fas fa-x-ray';
   return 'fas fa-stethoscope';
 };
 
-const formatUGX = (value: number) => {
-  const numValue = Number(value) || 0;
-  const whole = Math.round(numValue);
-  return `UGX ${whole.toLocaleString('en-US')}`;
+const formatUGX = (value: number) => `UGX ${(Number(value) || 0).toLocaleString('en-US')}`;
+
+const calculateTotalCost = (treatment: Treatment) => {
+  const baseCost = Number(treatment.cost) || 0;
+  const prescriptionsTotal = treatment.prescriptions?.reduce((sum, pres) => sum + (Number(pres.prescription_amount) || 0), 0) ?? 0;
+  return baseCost + prescriptionsTotal;
 };
 </script>
 
@@ -307,908 +382,507 @@ const formatUGX = (value: number) => {
   <AppLayout title="Treatments">
     <Head title="Treatments" />
 
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div class="container mx-auto px-4 py-8">
-        <!-- Header Section -->
-        <div class="mb-8">
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
-                Treatment Management
-              </h1>
-              <p class="text-gray-600 dark:text-gray-400 text-lg">
-                Track and manage dental procedures and treatments
-              </p>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 font-medium rounded-md shadow-sm">
-                <Stethoscope class="w-4 h-4 mr-2" />
-                {{ props.treatments.data.length }} Total Treatments
-              </Badge>
-
-              <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
-                <Plus class="w-4 h-4 mr-2" />
-                Add Treatment
-              </Button>
-            </div>
+        <!-- Header -->
+        <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Treatment Management</h1>
+            <p class="text-gray-600 dark:text-gray-400">Manage dental procedures and patient records</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <Badge class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1">
+              <Stethoscope class="w-4 h-4 mr-2" />
+              {{ totalTreatments }} Treatments
+            </Badge>
+            <Button @click="openCreate" class="bg-blue-600 hover:bg-blue-700 text-white">
+              <Plus class="w-4 h-4 mr-2" />
+              Add Treatment
+            </Button>
           </div>
         </div>
 
-        <!-- Stats Overview -->
-        <div v-if="props.stats" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
-            <CardContent class="p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Total Treatments</p>
-                  <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">{{ props.stats.total_treatments }}</p>
-                  <p class="text-xs text-blue-600 dark:text-blue-400">All procedures performed</p>
-                </div>
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                  <Stethoscope class="w-6 h-6 text-white" />
-                </div>
+        <!-- Stats -->
+        <div v-if="props.stats" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <Card class="shadow-md hover:shadow-lg transition-shadow">
+            <CardContent class="p-4 flex justify-between items-center">
+              <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Treatments</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ props.stats.total_treatments }}</p>
               </div>
+              <Stethoscope class="w-8 h-8 text-blue-500" />
             </CardContent>
           </Card>
-
-          <Card class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20">
-            <CardContent class="p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm font-medium text-green-700 dark:text-green-300 mb-1">Total Revenue</p>
-                  <p class="text-3xl font-bold text-green-900 dark:text-green-100 mb-1">UGX{{ props.stats.total_revenue.toLocaleString() }}</p>
-                  <p class="text-xs text-green-600 dark:text-green-400">From all treatments</p>
-                </div>
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
-                  <Receipt class="w-6 h-6 text-white" />
-                </div>
+          <Card class="shadow-md hover:shadow-lg transition-shadow">
+            <CardContent class="p-4 flex justify-between items-center">
+              <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ formatUGX(props.stats.total_revenue) }}</p>
               </div>
+              <Receipt class="w-8 h-8 text-green-500" />
             </CardContent>
           </Card>
-
-          <Card class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
-            <CardContent class="p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">This Month</p>
-                  <p class="text-3xl font-bold text-purple-900 dark:text-purple-100 mb-1">{{ props.stats.this_month_treatments }}</p>
-                  <p class="text-xs text-purple-600 dark:text-purple-400">Treatments performed</p>
-                </div>
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
-                  <Calendar class="w-6 h-6 text-white" />
-                </div>
+          <Card class="shadow-md hover:shadow-lg transition-shadow">
+            <CardContent class="p-4 flex justify-between items-center">
+              <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">This Month</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ props.stats.this_month_treatments }}</p>
               </div>
+              <Calendar class="w-8 h-8 text-purple-500" />
             </CardContent>
           </Card>
         </div>
 
         <!-- Main Content -->
-        <Card class="border-0 shadow-xl bg-white dark:bg-gray-900 mb-8">
-          <CardHeader class="pb-4">
-            <div>
-              <CardTitle class="text-2xl text-gray-900 dark:text-white">Treatment Management</CardTitle>
-              <CardDescription class="text-gray-600 dark:text-gray-400">
-                View and manage all treatment records
-              </CardDescription>
-            </div>
+        <Card class="shadow-md">
+          <CardHeader>
+            <CardTitle>Treatment Records</CardTitle>
+            <CardDescription>View and manage all treatments</CardDescription>
           </CardHeader>
-
           <CardContent>
-            <Tabs v-model="activeTab" class="w-full">
-              <TabsList class="grid w-full grid-cols-2">
-                <TabsTrigger value="grid">Grid View</TabsTrigger>
-                <TabsTrigger value="list">List View</TabsTrigger>
-              </TabsList>
+            <!-- Filters -->
+            <div class="flex flex-col md:flex-row gap-4 mb-6">
+              <div class="relative flex-1">
+                <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input v-model="searchQuery" placeholder="Search treatments..." class="pl-10" />
+              </div>
+              <Select v-model="filterPatient">
+                <SelectTrigger class="w-48">
+                  <SelectValue placeholder="All patients" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All patients</SelectItem>
+                  <SelectItem v-for="patient in props.patients" :key="patient.id" :value="patient.id.toString()">
+                    {{ patient.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Select v-model="sortBy">
+                <SelectTrigger class="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Date</SelectItem>
+                  <SelectItem value="procedure">Procedure</SelectItem>
+                  <SelectItem value="cost">Cost</SelectItem>
+                  <SelectItem value="patient_id">Patient</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'" variant="outline" size="sm">
+                <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down']"></i>
+              </Button>
+              <Select v-model="listViewPerPage">
+                <SelectTrigger class="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="option in [10, 20, 30, 50]" :key="option" :value="option.toString()">
+                    {{ option }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-              <!-- Grid View -->
-              <TabsContent value="grid" class="mt-0">
-                <div class="space-y-6">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search treatments by procedure, patient, notes, or prescription..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Patient:</Label>
-                      <Select v-model="filterPatient">
-                        <SelectTrigger class="w-48">
-                          <SelectValue placeholder="All patients" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All patients</SelectItem>
-                          <SelectItem v-for="patient in (props.patients || [])" :key="patient.id" :value="patient.id.toString()">
-                            {{ patient.name }}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
-                      <Select v-model="sortBy">
-                        <SelectTrigger class="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="created_at">Date</SelectItem>
-                          <SelectItem value="procedure">Procedure</SelectItem>
-                          <SelectItem value="cost">Cost</SelectItem>
-                          <SelectItem value="patient">Patient</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Button
-                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
-                        variant="outline"
-                        size="sm"
-                        class="px-3"
-                      >
-                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <!-- Treatments Grid -->
-                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card
-                      v-for="(treatment, index) in filteredTreatments"
-                      :key="treatment.id"
-                      class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group"
-                    >
-                      <CardHeader class="pb-4">
-                        <div class="flex items-start justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <i :class="[getTreatmentIcon(treatment.procedure), 'text-white text-lg']"></i>
-                            </div>
-                            <div>
-                              <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors line-clamp-2">
-                                {{ treatment.patient?.name || 'N/A' }}
-                              </CardTitle>
-                              <CardDescription class="text-gray-600 dark:text-gray-400">
-                                ID: {{ treatment.id }}
-                              </CardDescription>
-                            </div>
-                          </div>
-
-                          <div class="flex items-center space-x-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger as-child>
-                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <MoreVertical class="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem @click="openView(treatment)">
-                                  <i class="fas fa-eye mr-2"></i>
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem v-if="!treatment.invoice" @click="openEdit(treatment)">
-                                  <i class="fas fa-edit mr-2"></i>
-                                  Edit Treatment
-                                </DropdownMenuItem>
-                                <DropdownMenuItem v-if="!treatment.invoice" @click="createInvoice(treatment)" class="text-green-600">
-                                  <FileText class="w-4 h-4 mr-2" />
-                                  Create Invoice
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click="openDelete(treatment)" class="text-red-600">
-                                  <i class="fas fa-trash mr-2"></i>
-                                  Delete Treatment
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+            <!-- Table -->
+            <div class="overflow-x-auto border rounded-lg">
+              <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Patient</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Procedure</th>
+                    <!-- <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Prescriptions</th> -->
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Notes</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Total</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                  <tr v-for="treatment in filteredTreatments" :key="treatment.id" class="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" @click="openView(treatment)">
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                          <i :class="[getTreatmentIcon(treatment.procedure), 'text-white text-sm']"></i>
                         </div>
-                      </CardHeader>
-
-                      <CardContent class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                          <!-- Procedure with icon -->
-                          <div class="flex items-center space-x-2 col-span-2">
-                            <i class="fa-solid fa-teeth-open w-4 h-4 text-blue-400"></i>
-                            <span class="text-gray-600 dark:text-gray-400">{{ treatment.procedure }} {{ formatUGX(treatment.cost) }}</span>
-                          </div>
-
-                          <!-- Prescriptions list -->
-                          <div v-if="treatment.prescriptions && treatment.prescriptions.length > 0" class="flex flex-col space-y-2 col-span-2">
-                            <div v-for="(prescription, index) in treatment.prescriptions" :key="index" class="flex items-center space-x-2">
-                              <i class="fas fa-pills w-4 h-4 text-blue-400"></i>
-                              <span class="text-gray-600 dark:text-gray-400">
-                                {{ prescription.medicine ? prescription.medicine.medicine_name : prescription.medication }}
-                              </span>
-                              <span class="text-xs text-green-600 dark:text-green-400 font-medium">
-                                ({{ formatUGX(prescription.prescription_amount) }})
-                              </span>
-                            </div>
-                          </div>
-
-                          <!-- Total cost -->
-                          <div class="flex items-center space-x-2 col-span-2">
-                            <i class="fas fa-money-bill w-4 h-4 text-blue-400"></i>
-                            <span class="text-lg text-red-600 dark:text-red-600">Total: {{ formatUGX(parseFloat(treatment.cost || 0) + (treatment.prescriptions?.reduce((acc, prescription) => acc + parseFloat(prescription.prescription_amount || 0), 0) || 0)) }}</span>
-                          </div>
-
-                          <!-- Create Invoice Button -->
-                          <div v-if="!treatment.invoice" class="flex items-center justify-center col-span-2 mt-3">
-                            <Button
-                              @click="createInvoice(treatment)"
-                              size="sm"
-                              class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                            >
-                              <FileText class="w-4 h-4 mr-2" />
-                              Create Invoice
+                        <div>
+                          <p class="font-semibold text-gray-900 dark:text-white">{{ treatment.patient?.name || 'N/A' }}</p>
+                          <p class="text-xs text-gray-500 dark:text-gray-400">ID: {{ treatment.id }}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-teeth-open text-blue-400"></i>
+                        {{ treatment.procedure }}
+                      </div>
+                      <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatUGX(treatment.cost) }}</p>
+                    </td>
+                    <!-- <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      <div v-if="treatment.prescriptions?.length" class="space-y-1">
+                        <div v-for="prescription in treatment.prescriptions" :key="prescription.id || prescription.medicine_id" class="flex items-center gap-2">
+                          <i class="fas fa-pills text-blue-400"></i>
+                          <span>{{ prescription.medicine?.medicine_name || prescription.medicine_id }}</span>
+                          <span class="text-xs text-green-600 dark:text-green-400">{{ formatUGX(prescription.prescription_amount) }}</span>
+                        </div>
+                      </div>
+                      <span v-else class="text-gray-500 italic">None</span>
+                    </td> -->
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">{{ treatment.notes || '—' }}</td>
+                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      <div class="flex items-center gap-2">
+                        <Calendar class="w-4 h-4 text-gray-400" />
+                        {{ treatment.created_at ? new Date(treatment.created_at).toLocaleDateString() : '—' }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-red-600 dark:text-red-400 font-semibold">{{ formatUGX(calculateTotalCost(treatment)) }}</td>
+                    <td class="px-4 py-3 text-right" @click.stop>
+                      <div class="flex justify-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger as-child>
+                            <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
+                              <MoreVertical class="h-4 w-4" />
                             </Button>
-                          </div>
-
-                          <!-- Invoice Created Badge -->
-                          <div v-else class="flex items-center justify-center col-span-2 mt-3">
-                            <Badge class="bg-green-600 text-white border-green-700 shadow-lg px-3 py-1 text-sm font-medium rounded-sm">
-                              <FileText class="w-4 h-4 mr-2" />
-                              Invoice Created
-                            </Badge>
-                          </div>
-
-                          <div v-if="treatment.notes" class="flex items-start space-x-2 col-span-2">
-                            <FileText class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                            <span class="text-gray-600 dark:text-gray-400 line-clamp-2">{{ treatment.notes }}</span>
-                          </div>
-                          <div v-if="treatment.file_path" class="flex items-center space-x-2 col-span-2">
-                            <Upload class="w-4 h-4 text-gray-400" />
-                            <span class="text-gray-600 dark:text-gray-400">Attachment available</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <!-- Empty State -->
-                    <div v-if="filteredTreatments.length === 0" class="col-span-full">
-                      <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
-                        <CardContent class="p-12 text-center">
-                          <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
-                            <Stethoscope class="w-12 h-12 text-gray-400" />
-                          </div>
-                          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            {{ searchQuery || filterPatient !== 'all' ? 'No treatments found' : 'No treatments yet' }}
-                          </h3>
-                          <p class="text-gray-600 dark:text-gray-400 mb-6">
-                            {{ searchQuery || filterPatient !== 'all' ? 'Try adjusting your search criteria' : 'Get started by adding your first treatment' }}
-                          </p>
-                          <Button v-if="!searchQuery && filterPatient === 'all'" @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-                            <Plus class="w-4 h-4 mr-2" />
-                            Add First Treatment
-                          </Button>
-                          <Button v-else @click="searchQuery = ''; filterPatient = 'all'" variant="outline">
-                            Clear Filters
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <!-- List View -->
-              <TabsContent value="list" class="mt-0">
-                <div class="space-y-4">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search treatments by procedure, patient, notes, or prescription..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Patient:</Label>
-                      <Select v-model="filterPatient">
-                        <SelectTrigger class="w-48">
-                          <SelectValue placeholder="All patients" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All patients</SelectItem>
-                          <SelectItem v-for="patient in (props.patients || [])" :key="patient.id" :value="patient.id.toString()">
-                            {{ patient.name }}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
-                      <Select v-model="sortBy">
-                        <SelectTrigger class="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="created_at">Date</SelectItem>
-                          <SelectItem value="procedure">Procedure</SelectItem>
-                          <SelectItem value="cost">Cost</SelectItem>
-                          <SelectItem value="patient">Patient</SelectItem>
-                        </SelectContent>
-                      </Select>
-
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" class="w-48">
+                            <DropdownMenuItem @click="openView(treatment)">
+                              <i class="fas fa-eye mr-2 w-4 h-4 text-center"></i>View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="!treatment.invoice" @click="openEdit(treatment)">
+                              <i class="fas fa-edit mr-2 w-4 h-4 text-center"></i>Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="!treatment.invoice" @click="createInvoice(treatment)" class="text-green-600">
+                              <FileText class="w-4 h-4 mr-2" />Create Invoice
+                            </DropdownMenuItem>
+                            <DropdownMenuItem @click="openDelete(treatment)" class="text-red-600">
+                              <i class="fas fa-trash mr-2 w-4 h-4 text-center"></i>Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-if="!filteredTreatments.length">
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-600 dark:text-gray-400">
+                      <Stethoscope class="w-10 h-10 mx-auto mb-4 text-gray-400" />
+                      <p class="text-lg font-semibold">
+                        {{ searchQuery || filterPatient !== 'all' ? 'No treatments found' : 'No treatments yet' }}
+                      </p>
+                      <p class="text-sm">
+                        {{ searchQuery || filterPatient !== 'all' ? 'Try adjusting your filters' : 'Add your first treatment to get started.' }}
+                      </p>
                       <Button
-                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
-                        variant="outline"
-                        size="sm"
-                        class="px-3"
+                        v-if="!searchQuery && filterPatient === 'all'"
+                        @click="openCreate"
+                        class="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
                       >
-                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
+                        <Plus class="w-4 h-4 mr-2" />Add Treatment
                       </Button>
-                    </div>
-                  </div>
+                      <Button v-else @click="searchQuery = ''; filterPatient = 'all'" variant="outline" class="mt-4">
+                        Clear Filters
+                      </Button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-                  <!-- Treatments List -->
-                  <div class="space-y-3 max-h-96 overflow-y-auto">
-                    <Card
-                      v-for="(treatment, index) in filteredTreatments"
-                      :key="treatment.id"
-                      class="border hover:shadow-md transition-shadow cursor-pointer group"
-                      @click="openView(treatment)"
-                    >
-                      <CardContent class="p-4">
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center space-x-3 flex-1">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <i :class="[getTreatmentIcon(treatment.procedure), 'text-white text-sm']"></i>
-                            </div>
-                            <div class="flex-1">
-                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                                {{ treatment.patient?.name || 'Unknown' }}
-                              </h4>
-                              <p class="text-sm text-gray-600 dark:text-gray-400">
-                                Procedure
-                                <span v-if="treatment.procedure"> • <i class="fa-solid fa-teeth-open text-blue-400"></i> {{ treatment.procedure }}</span>
-                              </p>
-                              <p class="text-sm text-gray-600 dark:text-gray-400">
-                                  Prescriptions
-                                <span v-if="treatment.prescriptions?.length"> • <i class="fas fa-pills text-blue-400"></i> {{ treatment.prescriptions?.map(pres => pres.medicine ? pres.medicine.medicine_name : pres.medication).join(', ') }}</span>
-                                <span v-if="treatment.notes"> • {{ treatment.notes }}</span>
-                              </p>
-                            </div>
-                          </div>
-
-                          <!-- Create Invoice Button / Badge Section -->
-                          <div class="flex items-center space-x-3">
-                            <!-- Create Invoice Button -->
-                            <div v-if="!treatment.invoice" class="flex-shrink-0">
-                              <Button
-                                @click.stop="createInvoice(treatment)"
-                                size="sm"
-                                class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                              >
-                                <FileText class="w-4 h-4 mr-2" />
-                                Create Invoice
-                              </Button>
-                            </div>
-
-                            <!-- Invoice Created Badge -->
-                            <div v-else class="flex-shrink-0">
-                              <Badge class="bg-green-600 text-white border-green-700 shadow-lg px-3 py-1 text-sm font-medium rounded-sm">
-                                <FileText class="w-4 h-4 mr-2" />
-                                Invoice Created
-                              </Badge>
-                            </div>
-
-                            <DropdownMenu>
-                              <DropdownMenuTrigger as-child @click.stop>
-                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
-                                  <MoreVertical class="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem @click.stop="openView(treatment)">
-                                  <i class="fas fa-eye mr-2"></i>
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem v-if="!treatment.invoice" @click.stop="openEdit(treatment)">
-                                  <i class="fas fa-edit mr-2"></i>
-                                  Edit Treatment
-                                </DropdownMenuItem>
-                                <DropdownMenuItem v-if="!treatment.invoice" @click.stop="createInvoice(treatment)" class="text-green-600">
-                                  <FileText class="w-4 h-4 mr-2" />
-                                  Create Invoice
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openDelete(treatment)" class="text-red-600">
-                                  <i class="fas fa-trash mr-2"></i>
-                                  Delete Treatment
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <div v-if="filteredTreatments.length === 0" class="text-center py-8">
-                      <Stethoscope class="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                        No treatments found
-                      </h3>
-                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or add a new treatment.</p>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
+            <!-- Pagination -->
+            <div v-if="paginationLinks.length > 0" class="flex flex-col md:flex-row md:items-center md:justify-between items-start gap-4 mt-6">
+              <div class="flex-1">
+                <Pagination
+                  v-if="paginationLinks.length > 1"
+                  :links="paginationLinks"
+                  :from="paginationSummary.from"
+                  :to="paginationSummary.to"
+                  :total="paginationSummary.total"
+                  :item-name="paginationSummary.total === 1 ? 'treatment' : 'treatments'"
+                  @page-change="goToPage"
+                />
+              </div>
+              <div class="flex items-center gap-2">
+                <Label for="per-page" class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Per page:</Label>
+                <Select v-model="listViewPerPage" @update:model-value="() => fetchTreatments()">
+                  <SelectTrigger class="h-8 w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="option in [10, 20, 30, 50]" :key="option" :value="option.toString()">
+                      {{ option }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
-    </div>
 
-    <!-- Create Modal -->
-    <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
-      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            Add New Treatment
-          </DialogTitle>
-          <DialogDescription class="text-gray-600 dark:text-gray-400">
-            Record a new dental procedure or treatment.
-          </DialogDescription>
-        </DialogHeader>
-        <form @submit.prevent="submitCreate" class="space-y-6">
-          <div class="space-y-2">
-            <Label for="patient" class="text-gray-700 dark:text-gray-300">Patient</Label>
-            <Select v-model="createForm.patient_id">
-              <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                <SelectValue placeholder="Select a patient" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="patient in (props.patients || [])" :key="patient.id" :value="patient.id">
-                  {{ patient.name }} ({{ patient.email }})
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div class="space-y-2">
-            <Label for="procedure" class="text-gray-700 dark:text-gray-300">Procedure</Label>
-            <Select v-model="createForm.procedure">
-              <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                <SelectValue placeholder="Select a procedure" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="type in (props.appointmentTypes || [])" :key="type" :value="type">
-                  {{ type }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div class="space-y-2">
-            <Label for="cost" class="text-gray-700 dark:text-gray-300">Cost (UGX)</Label>
-            <Input
-              id="cost"
-              type="number"
-              v-model="createForm.cost"
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
-            />
-          </div>
-
-          <!-- Prescriptions Section -->
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <Label class="text-lg font-medium text-gray-700 dark:text-gray-300">Prescriptions</Label>
-              <Button type="button" variant="outline" size="sm" @click="createForm.prescriptions.push({ id: null, medicine_id: null, prescription_amount: 0 })">
-                <Plus class="w-4 h-4 mr-2" />
-                Add Prescription
-              </Button>
-            </div>
-            <div v-for="(prescription, index) in createForm.prescriptions" :key="index" class="grid grid-cols-12 gap-4 items-end">
-              <div class="col-span-8">
-                <Label for="medicine" class="text-gray-700 dark:text-gray-300">Medicine</Label>
-                <Select v-model="prescription.medicine_id">
-                  <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                    <SelectValue placeholder="Select a medicine" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="medicine in (props.medicines || [])" :key="medicine.medicine_id" :value="medicine.medicine_id">
-                      {{ medicine.medicine_name }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="col-span-3">
-                <Label for="cost" class="text-gray-700 dark:text-gray-300">Cost (UGX)</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  v-model="prescription.prescription_amount"
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                />
-              </div>
-              <div class="col-span-1">
-                <Button variant="destructive" size="sm" @click="createForm.prescriptions.splice(index, 1)">
-                  <i class="fas fa-trash"></i>
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <Label for="notes" class="text-gray-700 dark:text-gray-300">Notes (Optional)</Label>
-            <Input
-              id="notes"
-              v-model="createForm.notes"
-              placeholder="Additional treatment details or observations"
-              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <Label for="file" class="text-gray-700 dark:text-gray-300">Upload File (Optional)</Label>
-            <Input
-              id="file"
-              type="file"
-              @change="(e) => (createForm.file = (e.target as HTMLInputElement).files?.[0] || null)"
-              accept="image/*,.pdf"
-              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-            <p class="text-xs text-gray-500 dark:text-gray-400">Upload X-rays, images, or documents (JPEG, PNG, JPG, PDF - max 10MB)</p>
-          </div>
-
-          <DialogFooter class="gap-2">
-            <Button type="button" variant="outline" @click="isCreateOpen = false">
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              :disabled="createForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-            >
-              <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
-              <i v-else class="fas fa-plus mr-2"></i>
-              {{ createForm.processing ? 'Creating...' : 'Create Treatment' }}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-
-    <!-- Edit Modal -->
-    <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
-      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            Edit Treatment
-          </DialogTitle>
-          <DialogDescription class="text-gray-600 dark:text-gray-400">
-            Update the dental procedure or treatment.
-          </DialogDescription>
-        </DialogHeader>
-        <form @submit.prevent="submitEdit" class="space-y-6">
-          <div class="space-y-2">
-            <Label for="edit-patient" class="text-gray-700 dark:text-gray-300">Patient</Label>
-            <Select v-model="editForm.patient_id">
-              <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                <SelectValue placeholder="Select a patient" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="patient in (props.patients || [])" :key="patient.id" :value="patient.id">
-                  {{ patient.name }} ({{ patient.email }})
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div class="space-y-2">
-            <Label for="edit-procedure" class="text-gray-700 dark:text-gray-300">Procedure</Label>
-            <Select v-model="editForm.procedure">
-              <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                <SelectValue placeholder="Select a procedure" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="type in (props.appointmentTypes || [])" :key="type" :value="type">
-                  {{ type }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div class="space-y-2">
-            <Label for="edit-cost" class="text-gray-700 dark:text-gray-300">Cost (UGX)</Label>
-            <Input
-              id="edit-cost"
-              type="number"
-              v-model="editForm.cost"
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              required
-            />
-          </div>
-
-          <!-- Prescriptions Section -->
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <Label class="text-lg font-medium text-gray-700 dark:text-gray-300">Prescriptions</Label>
-              <Button type="button" variant="outline" size="sm" @click="editForm.prescriptions.push({ id: null, medicine_id: null, dosage: '', quantity: 0, prescription_amount: 0 })">
-                <Plus class="w-4 h-4 mr-2" />
-                Add Prescription
-              </Button>
-            </div>
-            <div v-for="(prescription, index) in editForm.prescriptions" :key="index" class="grid grid-cols-12 gap-4 items-end">
-              <input type="hidden" v-model="prescription.id" />
-              <div class="col-span-5">
-                <Label :for="`edit-prescription-id-${index}`" class="text-gray-700 dark:text-gray-300">Medicine</Label>
-                <Select v-model="prescription.medicine_id">
-                  <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                    <SelectValue placeholder="Select a medicine" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="medicine in (props.medicines || [])" :key="medicine.medicine_id" :value="medicine.medicine_id">
-                      {{ medicine.medicine_name }} ({{ medicine.dosage_form }})
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="col-span-5">
-                <Label :for="`edit-prescription-dosage-${index}`" class="text-gray-700 dark:text-gray-300">Dosage</Label>
-                <Input
-                  :id="`edit-prescription-dosage-${index}`"
-                  v-model="prescription.dosage"
-                  placeholder="Dosage"
-                  class="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                />
-              </div>
-              <div class="col-span-2">
-                <Label :for="`edit-prescription-quantity-${index}`" class="text-gray-700 dark:text-gray-300">Quantity</Label>
-                <Input
-                  :id="`edit-prescription-quantity-${index}`"
-                  type="number"
-                  v-model="prescription.quantity"
-                  placeholder="0"
-                  min="0"
-                  class="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                />
-              </div>
-              <div class="col-span-2">
-                <Label :for="`edit-prescription-prescription_amount-${index}`" class="text-gray-700 dark:text-gray-300">Prescription Amount</Label>
-                <Input
-                  :id="`edit-prescription-prescription_amount-${index}`"
-                  type="number"
-                  v-model="prescription.prescription_amount"
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  class="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                />
-              </div>
-              <div class="col-span-2">
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  @click="editForm.prescriptions.splice(index, 1)"
-                  :disabled="editForm.prescriptions.length === 1"
-                >
-                  <i class="fas fa-trash"></i>
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <Label for="edit-notes" class="text-gray-700 dark:text-gray-300">Notes (Optional)</Label>
-            <Input
-              id="edit-notes"
-              v-model="editForm.notes"
-              placeholder="Additional treatment details or observations"
-              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <Label for="edit-file" class="text-gray-700 dark:text-gray-300">Upload File (Optional)</Label>
-            <Input
-              id="edit-file"
-              type="file"
-              @change="(e) => (editForm.file = (e.target as HTMLInputElement).files?.[0] || null)"
-              accept="image/*,.pdf"
-              class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-            <p class="text-xs text-gray-500 dark:text-gray-400">Upload X-rays, images, or documents (JPEG, PNG, JPG, PDF - max 10MB)</p>
-          </div>
-
-          <DialogFooter class="gap-2">
-            <Button type="button" variant="outline" @click="isEditOpen = false">
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              :disabled="editForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-            >
-              <i v-if="editForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
-              <i v-else class="fas fa-save mr-2"></i>
-              {{ editForm.processing ? 'Saving...' : 'Save Changes' }}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-
-    <!-- Delete Modal -->
-    <Dialog :open="isDeleteOpen" @update:open="(value) => isDeleteOpen = value">
-      <DialogContent class="max-w-md">
-        <DialogHeader>
-          <DialogTitle class="text-xl font-bold text-red-600">Delete Treatment</DialogTitle>
-          <DialogDescription class="text-gray-600 dark:text-gray-400">
-            This action cannot be undone. This will permanently delete the treatment record and all associated data.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div class="py-4">
-          <div class="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+      <!-- Modals -->
+      <Dialog v-model:open="isCreateOpen">
+        <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Add New Treatment</DialogTitle>
+            <DialogDescription>Record a new dental procedure</DialogDescription>
+          </DialogHeader>
+          <form @submit.prevent="submitCreate" class="space-y-4">
             <div>
-              <p class="font-medium text-red-800 dark:text-red-200">Delete "{{ editingTreatment?.procedure }}"?</p>
-              <p class="text-sm text-red-600 dark:text-red-400">This will remove the treatment record permanently.</p>
+              <Label>Patient</Label>
+              <Select v-model="createForm.patient_id">
+                <SelectTrigger><SelectValue placeholder="Select a patient" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="patient in props.patients" :key="patient.id" :value="patient.id">
+                    {{ patient.name }} ({{ patient.email }})
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-        </div>
-
-        <DialogFooter class="gap-2">
-          <Button type="button" variant="outline" @click="isDeleteOpen = false">
-            Cancel
-          </Button>
-          <Button
-            @click="confirmDelete"
-            variant="destructive"
-            class="bg-red-600 hover:bg-red-700"
-          >
-            <i class="fas fa-trash mr-2"></i>
-            Delete Treatment
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <!-- View Modal -->
-    <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
-      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            Treatment Details
-          </DialogTitle>
-          <DialogDescription class="text-gray-600 dark:text-gray-400">
-            Complete information about this dental treatment.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div v-if="viewingTreatment" class="space-y-6">
-          <!-- Treatment Header -->
-          <div class="flex items-start space-x-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg">
-            <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-              <i :class="[getTreatmentIcon(viewingTreatment.procedure), 'text-white text-2xl']"></i>
+            <div>
+              <Label>Procedure</Label>
+              <Select v-model="createForm.procedure">
+                <SelectTrigger><SelectValue placeholder="Select a procedure" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="type in props.appointmentTypes" :key="type" :value="type">{{ type }}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div class="flex-1">
-              <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Patient Name: {{ viewingTreatment.patient?.name || 'N/A' }}</Label>
-              <p class="text-gray-600 dark:text-gray-400">Treatment ID: {{ viewingTreatment.id }}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-500">
-                Created: {{ new Date(viewingTreatment.created_at || '').toLocaleDateString() }}
-              </p>
+            <div>
+              <Label>Cost (UGX)</Label>
+              <Input v-model="createForm.cost" type="number" placeholder="0.00" step="0.01" min="0" required />
             </div>
-          </div>
-
-          <!-- Cost Breakdown -->
-          <div class="space-y-4">
-            <h4 class="text-lg font-medium text-gray-900 dark:text-white">Cost Breakdown</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-700 dark:text-gray-300">Procedure</span>
-                  <span class="font-medium text-green-600">{{ formatUGX(viewingTreatment.cost) }}</span>
-                </div>
-                <div class="mt-2 pl-4 border-l border-gray-200 dark:border-gray-700">
-                  <div class="flex justify-between items-center">
-                    <span class="text-gray-600 dark:text-gray-400">
-                      {{ viewingTreatment.procedure }}
-                    </span>
-                    <span class="text-sm">{{ formatUGX(viewingTreatment.cost) }}</span>
-                  </div>
-                </div>
-              </div>
-              <div v-if="viewingTreatment.prescriptions && viewingTreatment.prescriptions.length" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-700 dark:text-gray-300">Prescriptions</span>
-                  <span class="font-medium text-green-600">{{ formatUGX(viewingTreatment.prescriptions.reduce((acc, p) => acc + Number(p.prescription_amount || 0), 0)) }}</span>
-                </div>
-                <div v-for="(prescription, index) in viewingTreatment.prescriptions" :key="index" class="mt-2 pl-4 border-l border-gray-200 dark:border-gray-700">
-                  <div class="flex justify-between items-center">
-                    <span class="text-gray-600 dark:text-gray-400">
-                      {{ prescription.medicine ? prescription.medicine.medicine_name : prescription.medication }}
-                    </span>
-                    <span class="text-sm">{{ formatUGX(prescription.prescription_amount) }}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="col-span-full border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-                <div class="flex justify-between items-center font-bold text-lg text-red-600">
-                  <span>Total Cost</span>
-                  <span>{{ formatUGX(Number(viewingTreatment.cost || 0) + (viewingTreatment.prescriptions?.reduce((acc, p) => acc + Number(p.prescription_amount || 0), 0) || 0)) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Notes -->
-          <Card v-if="viewingTreatment.notes" class="border-0 shadow-lg">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-lg flex items-center">
-                <FileText class="w-5 h-5 mr-2 text-purple-600" />
-                Treatment Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ viewingTreatment.notes }}</p>
-            </CardContent>
-          </Card>
-
-          <!-- File Attachment -->
-          <Card v-if="viewingTreatment.file_path" class="border-0 shadow-lg">
-            <CardHeader class="pb-3">
-              <CardTitle class="text-lg flex items-center">
-                <Upload class="w-5 h-5 mr-2 text-orange-600" />
-                File Attachment
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div class="flex items-center space-x-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                <i class="fas fa-file text-orange-600 text-xl"></i>
-                <div class="flex-1">
-                  <p class="font-medium text-gray-900 dark:text-white">Attachment Available</p>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">File has been uploaded for this treatment</p>
-                </div>
-                <Button size="sm" variant="outline">
-                  <i class="fas fa-download mr-2"></i>
-                  Download
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <Label class="text-lg font-medium">Prescriptions</Label>
+                <Button type="button" variant="outline" size="sm" @click="createForm.prescriptions.push({ id: null, medicine_id: null, prescription_amount: 0 })">
+                  <Plus class="w-4 h-4 mr-2" />Add
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div v-for="(prescription, index) in createForm.prescriptions" :key="index" class="grid grid-cols-12 gap-2 items-end">
+                <div class="col-span-8">
+                  <Select v-model="prescription.medicine_id">
+                    <SelectTrigger><SelectValue placeholder="Select a medicine" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="medicine in props.medicines" :key="medicine.medicine_id" :value="medicine.medicine_id">
+                        {{ medicine.medicine_name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="col-span-3">
+                  <Input v-model="prescription.prescription_amount" type="number" placeholder="0.00" step="0.01" min="0" />
+                </div>
+                <div class="col-span-1">
+                  <Button variant="destructive" size="sm" @click="createForm.prescriptions.splice(index, 1)">
+                    <i class="fas fa-trash"></i>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label>Notes (Optional)</Label>
+              <Input v-model="createForm.notes" placeholder="Additional details" />
+            </div>
+            <div>
+              <Label>Upload File (Optional)</Label>
+              <Input type="file" @change="(e) => (createForm.file = (e.target as HTMLInputElement).files?.[0] || null)" accept="image/*,.pdf" />
+              <p class="text-xs text-gray-500 dark:text-gray-400">JPEG, PNG, JPG, PDF (max 10MB)</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" @click="isCreateOpen = false">Cancel</Button>
+              <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700">
+                <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
+                <i v-else class="fas fa-plus mr-2"></i>
+                {{ createForm.processing ? 'Creating...' : 'Create' }}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-        <DialogFooter class="gap-2">
-          <Button type="button" variant="outline" @click="isViewOpen = false">
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <Dialog v-model:open="isEditOpen">
+        <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Edit Treatment</DialogTitle>
+            <DialogDescription>Update treatment details</DialogDescription>
+          </DialogHeader>
+          <form @submit.prevent="submitEdit" class="space-y-4">
+            <div>
+              <Label>Patient</Label>
+              <Select v-model="editForm.patient_id">
+                <SelectTrigger><SelectValue placeholder="Select a patient" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="patient in props.patients" :key="patient.id" :value="patient.id">
+                    {{ patient.name }} ({{ patient.email }})
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Procedure</Label>
+              <Select v-model="editForm.procedure">
+                <SelectTrigger><SelectValue placeholder="Select a procedure" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="type in props.appointmentTypes" :key="type" :value="type">{{ type }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Cost (UGX)</Label>
+              <Input v-model="editForm.cost" type="number" placeholder="0.00" step="0.01" min="0" required />
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <Label class="text-lg font-medium">Prescriptions</Label>
+                <Button type="button" variant="outline" size="sm" @click="editForm.prescriptions.push({ id: null, medicine_id: null, dosage: '', quantity: 0, prescription_amount: 0 })">
+                  <Plus class="w-4 h-4 mr-2" />Add
+                </Button>
+              </div>
+              <div v-for="(prescription, index) in editForm.prescriptions" :key="index" class="grid grid-cols-12 gap-2 items-end">
+                <input type="hidden" v-model="prescription.id" />
+                <div class="col-span-5">
+                  <Select v-model="prescription.medicine_id">
+                    <SelectTrigger><SelectValue placeholder="Select a medicine" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="medicine in props.medicines" :key="medicine.medicine_id" :value="medicine.medicine_id">
+                        {{ medicine.medicine_name }} ({{ medicine.dosage_form }})
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="col-span-2">
+                  <Input v-model="prescription.prescription_amount" type="number" placeholder="0.00" step="0.01" min="0" />
+                </div>
+                <div class="col-span-1">
+                  <Button variant="destructive" size="sm" @click="editForm.prescriptions.splice(index, 1)">
+                    <i class="fas fa-trash"></i>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label>Notes (Optional)</Label>
+              <Input v-model="editForm.notes" placeholder="Additional details" />
+            </div>
+            <div>
+              <Label>Upload File (Optional)</Label>
+              <Input type="file" @change="(e) => (editForm.file = (e.target as HTMLInputElement).files?.[0] || null)" accept="image/*,.pdf" />
+              <p class="text-xs text-gray-500 dark:text-gray-400">JPEG, PNG, JPG, PDF (max 10MB)</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" @click="isEditOpen = false">Cancel</Button>
+              <Button type="submit" :disabled="editForm.processing" class="bg-blue-600 hover:bg-blue-700">
+                <i v-if="editForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
+                <i v-else class="fas fa-save mr-2"></i>
+                {{ editForm.processing ? 'Saving...' : 'Save' }}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog v-model:open="isDeleteOpen">
+        <DialogContent class="max-w-md">
+          <DialogHeader>
+            <DialogTitle class="text-xl font-bold text-red-600">Delete Treatment</DialogTitle>
+            <DialogDescription>This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+            <p class="font-medium text-red-800 dark:text-red-200">Delete "{{ editingTreatment?.procedure }}"?</p>
+            <p class="text-sm text-red-600 dark:text-red-400">This will permanently remove the treatment record.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" @click="isDeleteOpen = false">Cancel</Button>
+            <Button variant="destructive" @click="confirmDelete">Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog v-model:open="isViewOpen">
+        <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Treatment Details</DialogTitle>
+            <DialogDescription>View complete treatment information</DialogDescription>
+          </DialogHeader>
+          <div v-if="viewingTreatment" class="space-y-4">
+            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-start gap-4">
+              <div class="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
+                <i :class="[getTreatmentIcon(viewingTreatment.procedure), 'text-white text-lg']"></i>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-900 dark:text-white">{{ viewingTreatment.patient?.name || 'N/A' }}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Treatment ID: {{ viewingTreatment.id }}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Created: {{ viewingTreatment.created_at ? new Date(viewingTreatment.created_at).toLocaleDateString() : '—' }}
+                </p>
+              </div>
+            </div>
+            <div>
+              <h4 class="text-lg font-medium text-gray-900 dark:text-white">Cost Breakdown</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div class="flex justify-between">
+                    <span class="text-gray-700 dark:text-gray-300">Procedure</span>
+                    <span class="font-medium text-green-600">{{ formatUGX(viewingTreatment.cost) }}</span>
+                  </div>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">{{ viewingTreatment.procedure }}</p>
+                </div>
+                <div v-if="viewingTreatment.prescriptions?.length" class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div class="flex justify-between">
+                    <span class="text-gray-700 dark:text-gray-300">Prescriptions</span>
+                    <span class="font-medium text-green-600">{{ formatUGX(viewingTreatment.prescriptions.reduce((acc, p) => acc + Number(p.prescription_amount || 0), 0)) }}</span>
+                  </div>
+                  <div v-for="prescription in viewingTreatment.prescriptions" :key="prescription.id || prescription.medicine_id" class="mt-2">
+                    <div class="flex justify-between">
+                      <span class="text-gray-600 dark:text-gray-400">{{ prescription.medicine?.medicine_name || prescription.medicine_id }}</span>
+                      <span class="text-sm">{{ formatUGX(prescription.prescription_amount) }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-span-full pt-4 border-t">
+                  <div class="flex justify-between font-bold text-lg text-red-600">
+                    <span>Total Cost</span>
+                    <span>{{ formatUGX(calculateTotalCost(viewingTreatment)) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Card v-if="viewingTreatment.notes">
+              <CardHeader>
+                <CardTitle class="text-lg flex items-center">
+                  <FileText class="w-5 h-5 mr-2 text-purple-600" />Notes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p class="text-gray-700 dark:text-gray-300">{{ viewingTreatment.notes }}</p>
+              </CardContent>
+            </Card>
+            <Card v-if="viewingTreatment.file_path">
+              <CardHeader>
+                <CardTitle class="text-lg flex items-center">
+                  <Upload class="w-5 h-5 mr-2 text-orange-600" />Attachment
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div class="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <i class="fas fa-file text-orange-600"></i>
+                  <div>
+                    <p class="font-medium text-gray-900 dark:text-white">Attachment Available</p>
+                    <Button size="sm" variant="outline" class="mt-2">
+                      <i class="fas fa-download mr-2"></i>Download
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" @click="isViewOpen = false">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   </AppLayout>
 </template>
 
 <style scoped>
-.bg-clip-text {
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.line-clamp-2 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
+/* Minimal Tailwind-based styles */
 </style>

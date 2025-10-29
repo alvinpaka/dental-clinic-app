@@ -22,6 +22,15 @@ const form = useForm({
   password_confirmation: '',
 });
 
+const onOpenChange = (open: boolean) => {
+  if (open) {
+    isOpen.value = true;
+    return;
+  }
+
+  closeModal();
+};
+
 const submit = () => {
   form.put(route('password.update'), {
     onSuccess: () => {
@@ -47,7 +56,7 @@ const closeModal = () => {
 </script>
 
 <template>
-  <Dialog :open="isOpen" @update:open="closeModal">
+  <Dialog :open="isOpen" @update:open="onOpenChange">
     <DialogTrigger as-child>
       <Button variant="outline" size="sm" @click="isOpen = true">
         <i class="fas fa-key mr-2"></i>

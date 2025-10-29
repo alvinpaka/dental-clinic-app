@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
@@ -9,8 +9,8 @@ import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import Pagination from '@/Components/ui/Pagination.vue';
 import { Users, Plus, Edit, Trash, Shield, Search, MoreVertical, Eye, UserPlus, Calendar, Mail } from 'lucide-vue-next';
 
 // Types
@@ -28,21 +28,121 @@ interface Role {
   name: string;
 }
 
+interface PaginationLink {
+  url: string | null;
+  label: string;
+  active: boolean;
+}
+
+interface PaginationMeta {
+  current_page?: number;
+  last_page?: number;
+  per_page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
+interface Filters {
+  search?: string;
+  role?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  per_page?: number;
+  page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
+}
+
 // Props
 const props = defineProps<{
   staff: {
     data: Staff[];
-    current_page: number;
-    per_page: number;
-    total: number;
+    links?: PaginationLink[];
+    meta?: PaginationMeta;
   };
   roles: Role[];
+  filters?: Filters;
 }>();
 
 // Reactive data
-const activeTab = ref('grid');
-const searchQuery = ref('');
-const roleFilter = ref('all');
+const searchQuery = ref(props.filters?.search ?? '');
+const roleFilter = ref(props.filters?.role ?? 'all');
+const sortBy = ref(props.filters?.sort_by ?? 'name');
+const sortOrder = ref<'asc' | 'desc'>(props.filters?.sort_order ?? 'asc');
+const currentPage = ref(props.filters?.page ?? props.staff?.meta?.current_page ?? 1);
+
+const paginationLinks = computed(() => props.staff?.links || []);
+const totalStaff = computed(() => props.filters?.total ?? props.staff?.meta?.total ?? props.staff?.data.length ?? 0);
+
+const listPerPageOptions = [10, 20, 30, 50];
+const listViewPerPage = ref((props.filters?.per_page ?? props.staff?.meta?.per_page ?? 10).toString());
+
+// Watchers for filter changes
+watch([searchQuery, roleFilter, sortBy, sortOrder, listViewPerPage], () => {
+  currentPage.value = 1;
+  fetchStaff();
+});
+
+watch(() => props.filters, (newFilters) => {
+  if (newFilters) {
+    searchQuery.value = newFilters.search ?? '';
+    roleFilter.value = newFilters.role ?? 'all';
+    sortBy.value = newFilters.sort_by ?? 'name';
+    sortOrder.value = newFilters.sort_order ?? 'asc';
+    currentPage.value = newFilters.page ?? 1;
+    
+    if (newFilters.per_page && newFilters.per_page.toString() !== listViewPerPage.value) {
+      listViewPerPage.value = newFilters.per_page.toString();
+    }
+  }
+}, { deep: true, immediate: true });
+
+// Fetch staff with current filters
+function fetchStaff(overrides = {}) {
+  const params = {
+    search: searchQuery.value,
+    role: roleFilter.value,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+    per_page: Number(listViewPerPage.value),
+    page: currentPage.value,
+    ...overrides
+  };
+
+  router.get(route('staff.index'), params, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
+}
+
+// Toggle sort order
+function toggleSort(column: string) {
+  if (sortBy.value === column) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortBy.value = column;
+    sortOrder.value = 'asc';
+  }
+}
+
+// Handle pagination
+function goToPage(link: PaginationLink) {
+  if (!link.url || link.active) return;
+  
+  try {
+    const url = new URL(link.url, window.location.origin);
+    const page = url.searchParams.get('page');
+    if (page) {
+      currentPage.value = parseInt(page, 10);
+      fetchStaff({ page: currentPage.value });
+    }
+  } catch (e) {
+    console.error('Error parsing pagination URL:', e);
+  }
+}
 
 // Modal states
 const isCreateOpen = ref(false);
@@ -77,7 +177,7 @@ const viewingStaff = ref<Staff | null>(null);
 
 // Filtered staff based on search and role filter
 const filteredStaff = computed(() => {
-  let filtered = props.staff.data;
+  let filtered = [...(props.staff?.data || [])];
 
   // Search filter
   if (searchQuery.value) {
@@ -97,6 +197,24 @@ const filteredStaff = computed(() => {
   }
 
   return filtered;
+});
+
+const paginationSummary = computed(() => {
+  const meta = props.staff?.meta;
+  if (meta) {
+    return {
+      from: meta.from ?? 0,
+      to: meta.to ?? 0,
+      total: meta.total ?? totalStaff.value,
+    };
+  }
+
+  const count = filteredStaff.value.length;
+  return {
+    from: count ? 1 : 0,
+    to: count,
+    total: totalStaff.value,
+  };
 });
 
 // Modal functions
@@ -298,221 +416,202 @@ const formatDate = (dateString: string) => {
           </CardHeader>
 
           <CardContent>
-            <Tabs v-model="activeTab" class="w-full">
-              <TabsList class="grid w-full grid-cols-2">
-                <TabsTrigger value="grid">Grid View</TabsTrigger>
-                <TabsTrigger value="list">List View</TabsTrigger>
-              </TabsList>
+            <div class="space-y-6">
+              <div class="flex flex-col lg:flex-row gap-4 lg:items-center">
+                <div class="relative flex-1 w-full">
+                  <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    v-model="searchQuery"
+                    @update:model-value="() => fetchStaff()"
+                    placeholder="Search staff by name or email..."
+                    class="pl-10 w-full"
+                  />
+                </div>
+                <div class="w-full lg:w-64">
+                  <Select v-model="roleFilter" @update:model-value="() => fetchStaff()">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem v-for="role in roles" :key="role.id" :value="role.id">
+                        {{ role.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-              <!-- Grid View -->
-              <TabsContent value="grid" class="mt-6">
-                <div class="space-y-6">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search staff by name, email, or role..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-
-                    <Select v-model="roleFilter">
-                      <SelectTrigger class="w-48 h-12">
-                        <SelectValue placeholder="Filter by role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        <SelectItem v-for="role in props.roles" :key="role.id" :value="role.name">
-                          {{ role.name }}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <!-- Staff Grid -->
-                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card
-                      v-for="(member, index) in filteredStaff"
-                      :key="member.id"
-                      class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group"
+              <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                  <thead class="bg-gray-50 dark:bg-gray-800/70">
+                    <tr>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer" @click="toggleSort('name')">
+                        <div class="flex items-center gap-1">
+                          <span>Staff Member</span>
+                          <span v-if="sortBy === 'name'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer" @click="toggleSort('email')">
+                        <div class="flex items-center gap-1">
+                          <span>Contact</span>
+                          <span v-if="sortBy === 'email'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        Role
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer" @click="toggleSort('created_at')">
+                        <div class="flex items-center gap-1">
+                          <span>Joined Date</span>
+                          <span v-if="sortBy === 'created_at'" class="text-blue-600 dark:text-blue-400">
+                            {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                          </span>
+                        </div>
+                      </th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                    <tr
+                      v-for="staffMember in filteredStaff"
+                      :key="staffMember.id"
+                      class="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer"
+                      @click="openView(staffMember)"
                     >
-                      <CardHeader class="pb-4">
-                        <div class="flex items-start justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <span class="text-white font-bold text-lg">{{ getInitials(member.name) }}</span>
-                            </div>
-                            <div>
-                              <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
-                                {{ member.name }}
-                              </CardTitle>
-                              <CardDescription class="text-gray-600 dark:text-gray-400">
-                                ID: {{ member.id }}
-                              </CardDescription>
-                            </div>
+                      <td class="px-4 py-4 align-top">
+                        <div class="flex items-center gap-3">
+                          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                            <span class="text-white font-semibold text-sm">{{ getInitials(staffMember.name) }}</span>
                           </div>
-
+                          <div>
+                            <p class="font-semibold text-gray-900 dark:text-white">{{ staffMember.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">ID: {{ staffMember.id }}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex flex-col gap-1">
+                          <span class="flex items-center gap-2">
+                            <Mail class="w-4 h-4 text-gray-400" />
+                            {{ staffMember.email }}
+                          </span>
+                          <span class="flex items-center gap-2">
+                            <UserPlus class="w-4 h-4 text-gray-400" />
+                            {{ staffMember.email_verified_at ? 'Verified' : 'Not Verified' }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex flex-wrap gap-2">
+                          <Badge
+                            v-for="role in staffMember.roles"
+                            :key="role.id"
+                            :class="getRoleColor(role.name)"
+                          >
+                            <Shield class="w-3 h-3 mr-1" />
+                            {{ role.name.charAt(0).toUpperCase() + role.name.slice(1) }}
+                          </Badge>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex items-center gap-2">
+                          <Calendar class="w-4 h-4 text-gray-400" />
+                          {{ formatDate(staffMember.created_at) }}
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top" @click.stop>
+                        <div class="flex items-center justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger as-child>
-                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
                                 <MoreVertical class="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem @click="openView(member)">
+                            <DropdownMenuContent align="end" class="w-48">
+                              <DropdownMenuItem @click="openView(staffMember)">
                                 <Eye class="w-4 h-4 mr-2" />
-                                View Profile
+                                View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem @click="openEdit(member)">
+                              <DropdownMenuItem @click="openEdit(staffMember)">
                                 <Edit class="w-4 h-4 mr-2" />
-                                Edit Profile
+                                Edit Staff
                               </DropdownMenuItem>
-                              <DropdownMenuItem @click="openEditRoles(member)">
+                              <DropdownMenuItem @click="openEditRoles(staffMember)">
                                 <Shield class="w-4 h-4 mr-2" />
                                 Manage Roles
                               </DropdownMenuItem>
-                              <DropdownMenuItem @click="openDelete(member)" class="text-red-600">
+                              <DropdownMenuItem 
+                                @click="openDelete(staffMember)" 
+                                class="text-red-600"
+                              >
                                 <Trash class="w-4 h-4 mr-2" />
-                                Remove Staff
+                                Delete Staff
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                      </CardHeader>
-
-                      <CardContent class="space-y-4">
-                        <div class="flex items-center space-x-2 text-sm">
-                          <Mail class="w-4 h-4 text-gray-400" />
-                          <span class="text-gray-600 dark:text-gray-400">{{ member.email }}</span>
-                        </div>
-
-                        <div class="flex items-center space-x-2 text-sm">
-                          <Calendar class="w-4 h-4 text-gray-400" />
-                          <span class="text-gray-600 dark:text-gray-400">Joined {{ formatDate(member.created_at || '') }}</span>
-                        </div>
-
-                        <div class="flex flex-wrap gap-2">
-                          <Badge
-                            v-for="role in member.roles"
-                            :key="role.id"
-                            :class="getRoleColor(role.name)"
-                            variant="secondary"
-                            class="text-xs px-3 py-1 font-medium rounded-md shadow-sm"
-                          >
-                            {{ role.name }}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <!-- List View -->
-              <TabsContent value="list" class="mt-6">
-                <div class="space-y-4">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search staff..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-
-                    <Select v-model="roleFilter">
-                      <SelectTrigger class="w-48 h-12">
-                        <SelectValue placeholder="Filter by role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        <SelectItem v-for="role in props.roles" :key="role.id" :value="role.name">
-                          {{ role.name }}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <!-- Staff List -->
-                  <div class="space-y-3">
-                    <Card
-                      v-for="(member, index) in filteredStaff"
-                      :key="member.id"
-                      class="border hover:shadow-md transition-shadow"
-                    >
-                      <CardContent class="p-4">
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <span class="text-white font-bold text-sm">{{ getInitials(member.name) }}</span>
-                            </div>
-                            <div>
-                              <h4 class="font-medium text-gray-900 dark:text-white">
-                                {{ member.name }}
-                              </h4>
-                              <p class="text-sm text-gray-600 dark:text-gray-400">
-                                {{ member.email }} • Joined {{ formatDate(member.created_at || '') }}
-                              </p>
-                            </div>
+                      </td>
+                    </tr>
+                    <tr v-if="filteredStaff.length === 0">
+                      <td colspan="5" class="px-6 py-12 text-center">
+                        <div class="flex flex-col items-center gap-4 text-gray-600 dark:text-gray-400">
+                          <Users class="w-10 h-10 text-gray-400" />
+                          <div>
+                            <p class="text-xl font-semibold text-gray-900 dark:text-white">
+                              {{ searchQuery || roleFilter !== 'all' ? 'No staff members found' : 'No staff members yet' }}
+                            </p>
+                            <p class="text-sm">
+                              {{ searchQuery || roleFilter !== 'all' ? 'Try adjusting your search criteria' : 'Get started by adding your first staff member.' }}
+                            </p>
                           </div>
-
-                          <div class="flex items-center space-x-2">
-                            <div class="flex flex-wrap gap-1">
-                              <Badge
-                                v-for="role in member.roles.slice(0, 2)"
-                                :key="role.id"
-                                :class="getRoleColor(role.name)"
-                                variant="secondary"
-                                class="text-xs px-3 py-1 font-medium rounded-md shadow-sm"
-                              >
-                                {{ role.name }}
-                              </Badge>
-                              <Badge
-                                v-if="member.roles.length > 2"
-                                variant="outline"
-                                class="text-xs px-3 py-1 font-medium rounded-md shadow-sm border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400"
-                              >
-                                +{{ member.roles.length - 2 }}
-                              </Badge>
-                            </div>
-
-                            <DropdownMenu>
-                              <DropdownMenuTrigger as-child @click.stop>
-                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
-                                  <MoreVertical class="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem @click.stop="openView(member)">
-                                  <Eye class="w-4 h-4 mr-2" />
-                                  View Profile
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openEdit(member)">
-                                  <Edit class="w-4 h-4 mr-2" />
-                                  Edit Profile
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openEditRoles(member)">
-                                  <Shield class="w-4 h-4 mr-2" />
-                                  Manage Roles
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openDelete(member)" class="text-red-600">
-                                  <Trash class="w-4 h-4 mr-2" />
-                                  Remove Staff
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                          <div class="flex gap-2">
+                            <Button @click.stop="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                              <Plus class="w-4 h-4 mr-2" />
+                              Add Staff Member
+                            </Button>
+                            <Button v-if="searchQuery || roleFilter !== 'all'" @click.stop="() => { searchQuery.value = ''; roleFilter.value = 'all'; }" variant="outline">
+                              Clear Filters
+                            </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-if="paginationLinks.length > 0" class="flex flex-col md:flex-row md:items-center md:justify-between items-start gap-4">
+                <div class="flex-1">
+                  <Pagination
+                    v-if="paginationLinks.length > 1"
+                    :links="paginationLinks"
+                    :from="props.filters?.from ?? staff.meta?.from ?? 1"
+                    :to="props.filters?.to ?? staff.meta?.to ?? staff.data.length"
+                    :total="totalStaff"
+                    item-name="staff members"
+                    @page-change="goToPage"
+                    class="mt-2 sm:mt-0"
+                  />
                 </div>
-              </TabsContent>
-            </Tabs>
+                <div class="flex items-center gap-2">
+                  <Label for="per-page" class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Per page:</Label>
+                  <Select v-model="listViewPerPage" @update:model-value="(value) => { listViewPerPage = value; fetchStaff(); }">
+                    <SelectTrigger class="h-8 w-20">
+                      <SelectValue>{{ listViewPerPage }}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="option in listPerPageOptions" :key="option" :value="option.toString()">
+                        {{ option }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

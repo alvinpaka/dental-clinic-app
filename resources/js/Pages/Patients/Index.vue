@@ -10,7 +10,7 @@ import { Badge } from '@/Components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
+import Pagination from '@/Components/ui/Pagination.vue';
 import { Plus, Search, MoreVertical, Users, UserPlus, Calendar, Phone } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -22,12 +22,24 @@ interface Patient {
   dob: string;
   dob_formatted: string;
   dob_formatted_edit: string;
+  appointments?: any[];
+  treatments?: any[];
+}
+
+interface PaginationMeta {
+  current_page?: number;
+  last_page?: number;
+  per_page?: number;
+  total?: number;
+  from?: number;
+  to?: number;
 }
 
 interface Props {
+  auth: { user: { id: number; name: string } | null };
   patients: {
     data: Patient[];
-    links: any[];
+    meta?: PaginationMeta;
   };
   stats?: {
     total_patients: number;
@@ -43,12 +55,154 @@ interface Props {
 
 const props = defineProps<Props>();
 
+// State
 const searchQuery = ref('');
-const sortBy = ref('name');
-const sortOrder = ref('asc');
-const activeTab = ref('grid');
+const sortBy = ref('created_at');
+const sortOrder = ref('desc');
+const listViewPerPage = ref((props.patients?.meta?.per_page ?? 10).toString());
+const currentPage = ref(props.patients?.meta?.current_page ?? 1);
+const listPerPageOptions = [10, 20, 30, 50];
 
-// Define forms with useForm
+// Computed properties
+const totalPatients = computed(() => props.patients?.meta?.total ?? props.patients?.data.length ?? 0);
+const lastPage = computed(() => props.patients?.meta?.last_page ?? 1);
+
+const paginationLinks = computed(() => {
+  const links: Array<{ url: string | null; label: string; active: boolean }> = [];
+  const current = currentPage.value;
+  const last = lastPage.value;
+
+  // Previous link
+  links.push({
+    url: current > 1 ? '#' : null,
+    label: '&laquo; Previous',
+    active: current === 1,
+  });
+
+  // Page numbers (show current ± 2 pages)
+  const startPage = Math.max(1, current - 2);
+  const endPage = Math.min(last, current + 2);
+  for (let i = startPage; i <= endPage; i++) {
+    links.push({
+      url: i === current ? null : '#',
+      label: i.toString(),
+      active: i === current,
+    });
+  }
+
+  // Next link
+  links.push({
+    url: current < last ? '#' : null,
+    label: 'Next &raquo;',
+    active: current === last,
+  });
+
+  console.log('Generated Pagination Links:', links); // Debug
+  return links;
+});
+
+const paginationSummary = computed(() => {
+  const meta = props.patients?.meta;
+  console.log('Pagination Meta:', meta); // Debug
+  if (meta) {
+    return { from: meta.from ?? 0, to: meta.to ?? 0, total: meta.total ?? totalPatients.value };
+  }
+  const count = filteredPatients.value.length;
+  return { from: count ? 1 : 0, to: count, total: totalPatients.value };
+});
+
+const filteredPatients = computed(() => {
+  let patients = [...(props.patients?.data || [])];
+
+  // Apply search filter
+  if (searchQuery.value) {
+    patients = patients.filter(patient =>
+      patient.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      patient.email.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      patient.phone.includes(searchQuery.value.toLowerCase())
+    );
+  }
+
+  // Sort patients
+  patients.sort((a, b) => {
+    let aValue = a[sortBy.value as keyof Patient];
+    let bValue = b[sortBy.value as keyof Patient];
+
+    if (sortBy.value === 'name' || sortBy.value === 'email') {
+      aValue = aValue.toString().toLowerCase();
+      bValue = bValue.toString().toLowerCase();
+    } else if (sortBy.value === 'dob' || sortBy.value === 'created_at') {
+      aValue = new Date(aValue || 0).getTime();
+      bValue = new Date(bValue || 0).getTime();
+    }
+
+    return sortOrder.value === 'asc' ? (aValue < bValue ? -1 : 1) : (aValue < bValue ? 1 : -1);
+  });
+
+  return patients;
+});
+
+// Watchers
+watch([searchQuery, sortBy, sortOrder, listViewPerPage], () => {
+  currentPage.value = 1; // Reset to page 1 on filter change
+  router.post(route('patients.index'), {
+    page: currentPage.value,
+    per_page: Number(listViewPerPage.value),
+    search: searchQuery.value,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+  }, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
+});
+
+watch(() => props.patients?.meta?.per_page, (value) => {
+  if (value && value.toString() !== listViewPerPage.value) {
+    listViewPerPage.value = value.toString();
+  }
+});
+
+watch(() => props.patients?.meta?.current_page, (value) => {
+  if (value && value !== currentPage.value) {
+    currentPage.value = value;
+  }
+});
+
+// Pagination navigation
+const goToPage = (link: { url: string | null; label: string; active: boolean }) => {
+  if (link.active || !link.url) return;
+
+  let newPage = currentPage.value;
+  if (link.label.includes('Previous')) {
+    newPage = currentPage.value - 1;
+  } else if (link.label.includes('Next')) {
+    newPage = currentPage.value + 1;
+  } else if (!isNaN(parseInt(link.label, 10))) {
+    newPage = parseInt(link.label, 10);
+  } else {
+    return; // Don't proceed if it's not a valid page number
+  }
+
+  if (newPage >= 1 && newPage <= lastPage.value) {
+    // Use GET instead of POST for pagination
+    router.get(route('patients.index'), {
+      page: newPage,
+      per_page: Number(listViewPerPage.value),
+      search: searchQuery.value,
+      sort_by: sortBy.value,
+      sort_order: sortOrder.value,
+    }, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      only: ['patients', 'filters']
+    });
+  }
+};
+
+// Form handling
 const createForm = useForm({
   name: '',
   email: '',
@@ -72,37 +226,6 @@ const isViewOpen = ref(false);
 const editingPatient = ref<Patient | null>(null);
 const viewingPatient = ref<Patient | null>(null);
 
-// Filtered and sorted patients
-const filteredPatients = computed(() => {
-  let patients = [...props.patients.data];
-
-  // Search filter
-  if (searchQuery.value) {
-    patients = patients.filter(patient =>
-      patient.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      patient.email.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      patient.phone.includes(searchQuery.value)
-    );
-  }
-
-  // Sort
-  patients.sort((a, b) => {
-    let aValue = a[sortBy.value as keyof Patient];
-    let bValue = b[sortBy.value as keyof Patient];
-
-    if (sortBy.value === 'name') {
-      aValue = aValue.toString().toLowerCase();
-      bValue = bValue.toString().toLowerCase();
-    }
-
-    if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  return patients;
-});
-
 const openCreate = () => {
   if (!props.can.createPatient) return;
   isCreateOpen.value = true;
@@ -111,11 +234,13 @@ const openCreate = () => {
 const openEdit = (patient: Patient) => {
   if (!props.can.updatePatient) return;
   editingPatient.value = patient;
-  editForm.name = patient.name;
-  editForm.email = patient.email;
-  editForm.phone = patient.phone;
-  editForm.dob = patient.dob_formatted_edit || patient.dob;
-  editForm.age = calculateAgeFromDOB(editForm.dob);
+  editForm.set({
+    name: patient.name,
+    email: patient.email,
+    phone: patient.phone,
+    dob: patient.dob_formatted_edit || patient.dob,
+    age: calculateAgeFromDOB(patient.dob),
+  });
   isEditOpen.value = true;
 };
 
@@ -133,13 +258,11 @@ const openView = (patient: Patient) => {
 const submitCreate = () => {
   if (!props.can.createPatient) return;
 
-  // Validate that either age or DOB is provided
   if (!createForm.age && !createForm.dob) {
     alert('Please provide either age or date of birth');
     return;
   }
 
-  // If age is provided but DOB is empty, calculate DOB from age
   if (createForm.age && !createForm.dob) {
     createForm.dob = calculateDOBFromAge(parseInt(createForm.age));
   }
@@ -149,25 +272,17 @@ const submitCreate = () => {
       createForm.reset();
       isCreateOpen.value = false;
     },
-    onError: () => {
-      // Validation errors are automatically handled by useForm
-      console.log('Validation errors:', createForm.errors);
-    },
   });
 };
 
 const submitEdit = () => {
-  if (!props.can.updatePatient || !editingPatient.value) {
-    return;
-  }
+  if (!props.can.updatePatient || !editingPatient.value) return;
 
-  // Validate that either age or DOB is provided
   if (!editForm.age && !editForm.dob) {
     alert('Please provide either age or date of birth');
     return;
   }
 
-  // If age is provided but DOB is empty, calculate DOB from age
   if (editForm.age && !editForm.dob) {
     editForm.dob = calculateDOBFromAge(parseInt(editForm.age));
   }
@@ -178,17 +293,11 @@ const submitEdit = () => {
       isEditOpen.value = false;
       editingPatient.value = null;
     },
-    onError: () => {
-      // Validation errors are automatically handled by useForm
-      console.log('Validation errors:', editForm.errors);
-    },
   });
 };
 
 const confirmDelete = () => {
-  if (!props.can.deletePatient || !editingPatient.value) {
-    return;
-  }
+  if (!props.can.deletePatient || !editingPatient.value) return;
 
   router.delete(route('patients.destroy', editingPatient.value.id), {
     onSuccess: () => {
@@ -198,30 +307,37 @@ const confirmDelete = () => {
   });
 };
 
-// Calculate age from DOB
 const calculateAge = (dob: string) => {
+  if (!dob) return 'N/A';
   const birthDate = new Date(dob);
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
-
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
     age--;
   }
-
   return age;
 };
 
-// Format currency values
+const calculateDOBFromAge = (age: number) => {
+  const today = new Date();
+  const birthYear = today.getFullYear() - age;
+  return new Date(birthYear, 0, 1).toISOString().split('T')[0]; // YYYY-MM-DD
+};
+
+const calculateAgeFromDOB = (dob: string) => {
+  if (!dob) return '';
+  return calculateAge(dob).toString();
+};
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'UGX',
     minimumFractionDigits: 0,
-  }).format(amount).replace('UGX', 'UGX');
+  }).format(amount).replace('UGX', 'UGX ');
 };
 
-// Calculate total cost for treatment (procedure + prescriptions)
 const calculateTotalCost = (treatment: any) => {
   const procedureCost = Number(treatment.cost) || 0;
   const prescriptionCost = treatment.prescriptions?.reduce((total: number, prescription: any) => {
@@ -230,30 +346,7 @@ const calculateTotalCost = (treatment: any) => {
   return procedureCost + prescriptionCost;
 };
 
-
-// Calculate DOB from age (assuming birth on January 1st of that year)
-const calculateDOBFromAge = (age: number) => {
-  const today = new Date();
-  const birthYear = today.getFullYear() - age;
-  return new Date(birthYear, 0, 1).toISOString().split('T')[0]; // YYYY-MM-DD format
-};
-
-// Calculate age from DOB
-const calculateAgeFromDOB = (dob: string) => {
-  if (!dob) return '';
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-
-  return age.toString();
-};
-
-// Watch for age changes and update DOB
+// Watchers for form age/DOB sync
 watch(() => createForm.age, (newAge) => {
   if (newAge && !createForm.dob) {
     createForm.dob = calculateDOBFromAge(parseInt(newAge));
@@ -262,7 +355,6 @@ watch(() => createForm.age, (newAge) => {
   }
 });
 
-// Watch for DOB changes and update age
 watch(() => createForm.dob, (newDOB) => {
   if (newDOB && !createForm.age) {
     createForm.age = calculateAgeFromDOB(newDOB);
@@ -270,7 +362,7 @@ watch(() => createForm.dob, (newDOB) => {
     createForm.age = '';
   }
 });
-// Watch for age changes in edit form and update DOB
+
 watch(() => editForm.age, (newAge) => {
   if (newAge && !editForm.dob) {
     editForm.dob = calculateDOBFromAge(parseInt(newAge));
@@ -279,7 +371,6 @@ watch(() => editForm.age, (newAge) => {
   }
 });
 
-// Watch for DOB changes in edit form and update age
 watch(() => editForm.dob, (newDOB) => {
   if (newDOB && !editForm.age) {
     editForm.age = calculateAgeFromDOB(newDOB);
@@ -306,13 +397,11 @@ watch(() => editForm.dob, (newDOB) => {
                 Manage your patient records and information efficiently
               </p>
             </div>
-
             <div class="flex items-center gap-3">
               <Badge variant="secondary" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 font-medium rounded-md shadow-sm">
                 <Users class="w-4 h-4 mr-2" />
-                {{ props.patients.data.length }} Total Patients
+                {{ totalPatients }} Total Patients
               </Badge>
-
               <Button
                 v-if="props.can.createPatient"
                 @click="openCreate"
@@ -341,7 +430,6 @@ watch(() => editForm.dob, (newDOB) => {
               </div>
             </CardContent>
           </Card>
-
           <Card class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20">
             <CardContent class="p-6">
               <div class="flex items-center justify-between">
@@ -356,7 +444,6 @@ watch(() => editForm.dob, (newDOB) => {
               </div>
             </CardContent>
           </Card>
-
           <Card class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
             <CardContent class="p-6">
               <div class="flex items-center justify-between">
@@ -376,280 +463,211 @@ watch(() => editForm.dob, (newDOB) => {
         <!-- Main Content -->
         <Card class="border-0 shadow-xl bg-white dark:bg-gray-900 mb-8">
           <CardHeader class="pb-4">
-            <div>
-              <CardTitle class="text-2xl text-gray-900 dark:text-white">Patient Management</CardTitle>
-              <CardDescription class="text-gray-600 dark:text-gray-400">
-                View and manage all patient records
-              </CardDescription>
-            </div>
+            <CardTitle class="text-2xl text-gray-900 dark:text-white">Patient Management</CardTitle>
+            <CardDescription class="text-gray-600 dark:text-gray-400">
+              View and manage all patient records
+            </CardDescription>
           </CardHeader>
-
           <CardContent>
-            <Tabs v-model="activeTab" class="w-full">
-              <TabsList class="grid w-full grid-cols-2">
-                <TabsTrigger value="grid">Grid View</TabsTrigger>
-                <TabsTrigger value="list">List View</TabsTrigger>
-              </TabsList>
-
-              <!-- Grid View -->
-              <TabsContent value="grid" class="mt-0">
-                <div class="space-y-6">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search patients by name, email, or phone..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
-                      <Select v-model="sortBy">
-                        <SelectTrigger class="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="name">Name</SelectItem>
-                          <SelectItem value="email">Email</SelectItem>
-                          <SelectItem value="phone">Phone</SelectItem>
-                          <SelectItem value="dob">Age</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Button
-                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
-                        variant="outline"
-                        size="sm"
-                        class="px-3"
-                      >
-                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
-                      </Button>
-                    </div>
+            <div class="space-y-6">
+              <div class="flex flex-col lg:flex-row gap-4 lg:items-center">
+                <div class="relative flex-1 w-full">
+                  <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    v-model="searchQuery"
+                    placeholder="Search patients by name, email, or phone..."
+                    class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                  />
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-2">
+                    <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
+                    <Select v-model="sortBy">
+                      <SelectTrigger class="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="name">Name</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="phone">Phone</SelectItem>
+                        <SelectItem value="dob">Date of Birth</SelectItem>
+                        <SelectItem value="created_at">Date Added</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  <Button
+                    @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
+                    variant="outline"
+                    size="sm"
+                    class="px-3"
+                  >
+                    <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
+                  </Button>
+                </div>
+                <div class="flex items-center gap-2">
+                  <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Per page:</Label>
+                  <Select v-model="listViewPerPage">
+                    <SelectTrigger class="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="option in listPerPageOptions" :key="`patients-per-page-${option}`" :value="option.toString()">
+                        {{ option }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-                  <!-- Patients Grid -->
-                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card
-                      v-for="(patient, index) in filteredPatients"
+              <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                  <thead class="bg-gray-50 dark:bg-gray-800/70">
+                    <tr>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        Patient
+                      </th>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        Email
+                      </th>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        Phone
+                      </th>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        Age
+                      </th>
+                      <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                    <tr
+                      v-for="patient in filteredPatients"
                       :key="patient.id"
-                      class="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-gray-900 group"
+                      class="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer"
+                      @click="openView(patient)"
                     >
-                      <CardHeader class="pb-4">
-                        <div class="flex items-start justify-between">
-                          <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <span class="text-white font-bold text-lg">{{ patient.name.charAt(0).toUpperCase() }}</span>
-                            </div>
-                            <div>
-                              <CardTitle class="text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
-                                {{ patient.name }}
-                              </CardTitle>
-                              <CardDescription class="text-gray-600 dark:text-gray-400">
-                                ID: {{ patient.id }}
-                              </CardDescription>
-                            </div>
+                      <td class="px-4 py-4 align-top">
+                        <div class="flex items-center gap-3">
+                          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg text-white font-semibold">
+                            {{ patient.name.charAt(0).toUpperCase() }}
                           </div>
-
+                          <div>
+                            <p class="font-semibold text-gray-900 dark:text-white">{{ patient.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">ID: {{ patient.id }}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-gray-700 dark:text-gray-300">
+                        <div class="flex items-center gap-2">
+                          <i class="fas fa-envelope text-gray-400"></i>
+                          <span class="truncate max-w-[220px]">{{ patient.email }}</span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-gray-700 dark:text-gray-300">
+                        <div class="flex items-center gap-2">
+                          <Phone class="w-4 h-4 text-gray-400" />
+                          <span>{{ patient.phone }}</span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-gray-700 dark:text-gray-300">
+                        <div class="flex items-center gap-2">
+                          <i class="fas fa-user text-gray-400"></i>
+                          <span>{{ calculateAge(patient.dob) }} years</span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top" @click.stop>
+                        <div class="flex items-center justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger as-child>
-                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
                                 <MoreVertical class="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" class="w-48">
                               <DropdownMenuItem @click="openView(patient)">
-                                <i class="fas fa-eye mr-2"></i>
-                                View Details
+                                <i class="fas fa-eye mr-2 w-4 text-center"></i>
+                                <span>View Details</span>
                               </DropdownMenuItem>
-                              <DropdownMenuItem v-if="props.can.updatePatient" @click="openEdit(patient)">
-                                <i class="fas fa-edit mr-2"></i>
-                                Edit Patient
+                              <DropdownMenuItem 
+                                v-if="props.can.updatePatient"
+                                @click="openEdit(patient)"
+                              >
+                                <i class="fas fa-edit mr-2 w-4 text-center"></i>
+                                <span>Edit</span>
                               </DropdownMenuItem>
-                              <DropdownMenuItem v-if="props.can.deletePatient" @click="openDelete(patient)" class="text-red-600">
-                                <i class="fas fa-trash mr-2"></i>
-                                Delete Patient
+                              <DropdownMenuItem 
+                                v-if="props.can.deletePatient"
+                                @click="openDelete(patient)" 
+                                class="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                              >
+                                <i class="fas fa-trash mr-2 w-4 text-center"></i>
+                                <span>Delete</span>
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                      </CardHeader>
-
-                      <CardContent class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                          <div class="flex items-center space-x-2">
-                            <i class="fas fa-envelope text-gray-400 w-4"></i>
-                            <span class="text-gray-600 dark:text-gray-400 truncate">{{ patient.email }}</span>
+                      </td>
+                    </tr>
+                    <tr v-if="filteredPatients.length === 0">
+                      <td colspan="6" class="px-6 py-12 text-center">
+                        <div class="flex flex-col items-center gap-4 text-gray-600 dark:text-gray-400">
+                          <Users class="w-10 h-10 text-gray-400" />
+                          <div>
+                            <p class="text-xl font-semibold text-gray-900 dark:text-white">
+                              {{ searchQuery ? 'No patients found' : 'No patients yet' }}
+                            </p>
+                            <p class="text-sm">
+                              {{ searchQuery ? 'Try adjusting your search criteria' : 'Get started by adding your first patient.' }}
+                            </p>
                           </div>
-                          <div class="flex items-center space-x-2">
-                            <Phone class="w-4 h-4 text-gray-400" />
-                            <span class="text-gray-600 dark:text-gray-400">{{ patient.phone }}</span>
-                          </div>
-                          <div class="flex items-center space-x-2">
-                            <i class="fas fa-birthday-cake text-gray-400 w-4"></i>
-                            <span class="text-gray-600 dark:text-gray-400">{{ patient.dob_formatted }}</span>
-                          </div>
-                          <div class="flex items-center space-x-2">
-                            <i class="fas fa-user text-gray-400 w-4"></i>
-                            <span class="text-gray-600 dark:text-gray-400">{{ calculateAge(patient.dob) }} years old</span>
+                          <div class="flex gap-2">
+                            <Button
+                              v-if="!searchQuery && props.can.createPatient"
+                              @click.stop="openCreate"
+                              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                            >
+                              <Plus class="w-4 h-4 mr-2" />
+                              Add First Patient
+                            </Button>
+                            <Button v-else @click.stop="searchQuery = ''" variant="outline">
+                              Clear Search
+                            </Button>
                           </div>
                         </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-                        <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                          <Button variant="outline" size="sm" @click="openView(patient)" class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200">
-                            <i class="fas fa-eye mr-2"></i>
-                            View Profile
-                          </Button>
-                          <Button size="sm" as-child class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
-                            <Link :href="route('appointments.index', { patient_id: patient.id })">
-                              <Calendar class="w-4 h-4 mr-2" />
-                              Book Appointment
-                            </Link>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <!-- Empty State -->
-                    <div v-if="filteredPatients.length === 0" class="col-span-full">
-                      <Card class="border-0 shadow-xl bg-white dark:bg-gray-900">
-                        <CardContent class="p-12 text-center">
-                          <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
-                            <Users class="w-12 h-12 text-gray-400" />
-                          </div>
-                          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            {{ searchQuery ? 'No patients found' : 'No patients yet' }}
-                          </h3>
-                          <p class="text-gray-600 dark:text-gray-400 mb-6">
-                            {{ searchQuery ? 'Try adjusting your search criteria' : 'Get started by adding your first patient' }}
-                          </p>
-                          <Button
-                            v-if="!searchQuery && props.can.createPatient"
-                            @click="openCreate"
-                            class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-                          >
-                            <Plus class="w-4 h-4 mr-2" />
-                            Add First Patient
-                          </Button>
-                          <Button v-else @click="searchQuery = ''" variant="outline">
-                            Clear Search
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
+              <div v-if="paginationLinks.length > 0" class="flex flex-col md:flex-row md:items-center md:justify-between items-start gap-4 mt-6">
+                <div class="flex-1">
+                  <Pagination
+                    v-if="paginationLinks.length > 1"
+                    :links="paginationLinks"
+                    :from="(currentPage - 1) * parseInt(listViewPerPage) + 1"
+                    :to="Math.min(currentPage * parseInt(listViewPerPage), totalPatients)"
+                    :total="totalPatients"
+                    :item-name="totalPatients === 1 ? 'patient' : 'patients'"
+                    @page-change="goToPage"
+                  />
                 </div>
-              </TabsContent>
-
-              <!-- List View -->
-              <TabsContent value="list" class="mt-0">
-                <div class="space-y-4">
-                  <!-- Search and Filters -->
-                  <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="relative flex-1">
-                      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        v-model="searchQuery"
-                        placeholder="Search patients by name, email, or phone..."
-                        class="pl-10 h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      />
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <Label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</Label>
-                      <Select v-model="sortBy">
-                        <SelectTrigger class="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="name">Name</SelectItem>
-                          <SelectItem value="email">Email</SelectItem>
-                          <SelectItem value="created_at">Date Added</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Button
-                        @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
-                        variant="outline"
-                        size="sm"
-                        class="px-3"
-                      >
-                        <i :class="['fas', sortOrder === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down', 'text-sm']"></i>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <!-- Patients List -->
-                  <div class="space-y-3 max-h-96 overflow-y-auto">
-                    <Card
-                      v-for="(patient, index) in filteredPatients"
-                      :key="patient.id"
-                      class="border hover:shadow-md transition-shadow cursor-pointer group"
-                      @click="openView(patient)"
-                    >
-                      <CardContent class="p-4">
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center space-x-3 flex-1">
-                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <span class="text-white font-bold text-sm">{{ patient.name.charAt(0).toUpperCase() }}</span>
-                            </div>
-                            <div class="flex-1">
-                              <h4 class="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                                {{ patient.name }}
-                              </h4>
-                              <p class="text-sm text-gray-600 dark:text-gray-400">
-                                <i class="fas fa-envelope mr-1"></i>{{ patient.email }}
-                                <span class="mx-2">•</span>
-                                <i class="fas fa-phone mr-1"></i>{{ patient.phone }}
-                              </p>
-                              <p class="text-sm text-gray-600 dark:text-gray-400">
-                                <i class="fas fa-birthday-cake mr-1"></i>{{ patient.dob_formatted }}
-                                <span class="mx-2">•</span>
-                                <i class="fas fa-user mr-1"></i>{{ calculateAge(patient.dob) }} years old
-                              </p>
-                            </div>
-                          </div>
-
-                          <div class="flex items-center space-x-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger as-child @click.stop>
-                                <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
-                                  <MoreVertical class="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem @click.stop="openView(patient)">
-                                  <i class="fas fa-eye mr-2"></i>
-                                  View Profile
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openEdit(patient)">
-                                  <i class="fas fa-edit mr-2"></i>
-                                  Edit Patient
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @click.stop="openDelete(patient)" class="text-red-600">
-                                  <i class="fas fa-trash mr-2"></i>
-                                  Delete Patient
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <div v-if="filteredPatients.length === 0" class="text-center py-8">
-                      <i class="fas fa-users text-4xl mx-auto mb-4 text-gray-300"></i>
-                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                        No patients found
-                      </h3>
-                      <p class="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or add a new patient.</p>
-                    </div>
-                  </div>
+                <div class="flex items-center gap-2">
+                  <Label for="per-page" class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Per page:</Label>
+                  <Select v-model="listViewPerPage" @update:model-value="() => fetchPatients()">
+                    <SelectTrigger class="h-8 w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="option in [10, 20, 30, 50]" :key="option" :value="option.toString()">
+                        {{ option }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </TabsContent>
-            </Tabs>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -677,7 +695,6 @@ watch(() => editForm.dob, (newDOB) => {
               required
             />
           </div>
-
           <div class="space-y-2">
             <Label for="email" class="text-gray-700 dark:text-gray-300">Email Address</Label>
             <Input
@@ -691,7 +708,6 @@ watch(() => editForm.dob, (newDOB) => {
               {{ Array.isArray(createForm.errors.email) ? createForm.errors.email[0] : createForm.errors.email }}
             </div>
           </div>
-
           <div class="space-y-2">
             <Label for="phone" class="text-gray-700 dark:text-gray-300">Phone Number</Label>
             <Input
@@ -699,9 +715,9 @@ watch(() => editForm.dob, (newDOB) => {
               v-model="createForm.phone"
               placeholder="07XXXXXXXX"
               class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+              required
             />
           </div>
-
           <div class="space-y-2">
             <Label for="dob" class="text-gray-700 dark:text-gray-300">Date of Birth</Label>
             <Input
@@ -716,7 +732,6 @@ watch(() => editForm.dob, (newDOB) => {
             </div>
             <p class="text-xs text-gray-500 dark:text-gray-400">Or enter age below</p>
           </div>
-
           <div class="space-y-2">
             <Label for="age" class="text-gray-700 dark:text-gray-300">Age</Label>
             <Input
@@ -731,7 +746,6 @@ watch(() => editForm.dob, (newDOB) => {
             />
             <p class="text-xs text-gray-500 dark:text-gray-400">Or enter date of birth above</p>
           </div>
-
           <DialogFooter class="gap-2">
             <Button type="button" variant="outline" @click="isCreateOpen = false">
               Cancel
@@ -768,7 +782,6 @@ watch(() => editForm.dob, (newDOB) => {
               required
             />
           </div>
-
           <div class="space-y-2">
             <Label for="edit-email" class="text-gray-700 dark:text-gray-300">Email Address</Label>
             <Input
@@ -782,7 +795,6 @@ watch(() => editForm.dob, (newDOB) => {
               {{ Array.isArray(editForm.errors.email) ? editForm.errors.email[0] : editForm.errors.email }}
             </div>
           </div>
-
           <div class="space-y-2">
             <Label for="edit-phone" class="text-gray-700 dark:text-gray-300">Phone Number</Label>
             <Input
@@ -793,7 +805,6 @@ watch(() => editForm.dob, (newDOB) => {
               required
             />
           </div>
-
           <div class="space-y-2">
             <Label for="edit-dob" class="text-gray-700 dark:text-gray-300">Date of Birth</Label>
             <Input
@@ -808,7 +819,6 @@ watch(() => editForm.dob, (newDOB) => {
             </div>
             <p class="text-xs text-gray-500 dark:text-gray-400">Or enter age below</p>
           </div>
-
           <div class="space-y-2">
             <Label for="edit-age" class="text-gray-700 dark:text-gray-300">Age</Label>
             <Input
@@ -823,7 +833,6 @@ watch(() => editForm.dob, (newDOB) => {
             />
             <p class="text-xs text-gray-500 dark:text-gray-400">Or enter date of birth above</p>
           </div>
-
           <DialogFooter class="gap-2">
             <Button type="button" variant="outline" @click="isEditOpen = false">
               Cancel
@@ -847,7 +856,6 @@ watch(() => editForm.dob, (newDOB) => {
             This action cannot be undone. This will permanently delete the patient record and all associated data.
           </DialogDescription>
         </DialogHeader>
-
         <div class="py-4">
           <div class="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
             <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
@@ -857,7 +865,6 @@ watch(() => editForm.dob, (newDOB) => {
             </div>
           </div>
         </div>
-
         <DialogFooter class="gap-2">
           <Button type="button" variant="outline" @click="isDeleteOpen = false">
             Cancel
@@ -885,7 +892,6 @@ watch(() => editForm.dob, (newDOB) => {
             Detailed patient information and records
           </DialogDescription>
         </DialogHeader>
-
         <div class="flex-1 overflow-y-auto py-4">
           <div v-if="viewingPatient" class="space-y-6">
             <!-- Patient Avatar and Basic Info -->
@@ -898,7 +904,6 @@ watch(() => editForm.dob, (newDOB) => {
                 <p class="text-gray-600 dark:text-gray-400">Patient ID: {{ viewingPatient.id }}</p>
               </div>
             </div>
-  
             <!-- Patient Details -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
@@ -910,7 +915,7 @@ watch(() => editForm.dob, (newDOB) => {
                     <i class="fas fa-envelope text-blue-500 w-5"></i>
                     <div>
                       <p class="text-sm text-gray-500 dark:text-gray-400">Email</p>
-                      <p class="font-medium">{{ viewingPatient.email }}</p>
+                      <p class="font-medium">{{ viewingPatient.email || 'N/A' }}</p>
                     </div>
                   </div>
                   <div class="flex items-center space-x-3">
@@ -922,7 +927,6 @@ watch(() => editForm.dob, (newDOB) => {
                   </div>
                 </CardContent>
               </Card>
-  
               <Card>
                 <CardHeader>
                   <CardTitle class="text-lg">Personal Information</CardTitle>
@@ -939,13 +943,12 @@ watch(() => editForm.dob, (newDOB) => {
                     <i class="fas fa-user text-orange-500 w-5"></i>
                     <div>
                       <p class="text-sm text-gray-500 dark:text-gray-400">Age</p>
-                      <p class="font-medium">{{ calculateAge(viewingPatient.dob) }} years old</p>
+                      <p class="font-medium">{{ calculateAge(viewingPatient.dob) }} years</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
-  
             <!-- Treatments Section -->
             <Card>
               <CardHeader>
@@ -977,7 +980,7 @@ watch(() => editForm.dob, (newDOB) => {
                             <div v-if="treatment.prescriptions && treatment.prescriptions.length > 0" class="space-y-1">
                               <div v-for="prescription in treatment.prescriptions" :key="prescription.id" class="text-xs">
                                 <span class="text-gray-600 dark:text-gray-400">
-                                  {{ prescription.medicine?.medicine_name || prescription.medication }}
+                                  {{ prescription.medicine?.medicine_name || prescription.medicine_id || 'N/A' }}
                                   <span v-if="prescription.prescription_amount" class="text-green-600 dark:text-green-400">
                                     ({{ formatCurrency(prescription.prescription_amount) }})
                                   </span>
@@ -1006,7 +1009,6 @@ watch(() => editForm.dob, (newDOB) => {
                 </div>
               </CardContent>
             </Card>
-  
             <!-- Actions -->
             <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div class="flex space-x-2">

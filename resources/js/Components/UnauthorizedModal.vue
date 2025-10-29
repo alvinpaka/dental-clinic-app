@@ -14,7 +14,7 @@ interface UnauthorizedModalProps {
 
 const props = withDefaults(defineProps<UnauthorizedModalProps>(), {
   title: 'Access Denied',
-  message: 'You do not have permission to access this resource.',
+  message: 'You do not have permission to access this page.',
   requiredRole: '',
   resource: ''
 });

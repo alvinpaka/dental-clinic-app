@@ -15,27 +15,118 @@ class AppointmentController extends Controller
         $this->authorizeResource(Appointment::class, 'appointment');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $appointments = Appointment::with(['patient', 'dentist'])->get()->map(fn ($apt) => [
-            'id' => $apt->id,
-            'title' => $apt->patient->name . ' - ' . $apt->type,
-            'patient' => [
-                'id' => $apt->patient->id,
-                'name' => $apt->patient->name,
-            ],
-            'dentist' => $apt->dentist ? [
-                'id' => $apt->dentist->id,
-                'name' => $apt->dentist->name,
-            ] : null,
-            'start' => $apt->start_time->toISOString(),
-            'end' => $apt->end_time->toISOString(),
-            'status' => $apt->status,
-            'type' => $apt->type,
-            'notes' => $apt->notes,
-        ]);
+        $perPage = (int) $request->input('per_page', 10);
+        if ($perPage <= 0) {
+            $perPage = 10;
+        }
+
+        $search = trim((string) $request->input('search', ''));
+        $status = $request->input('status');
+        $type = $request->input('type');
+        $dentistId = $request->input('dentist_id');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $sortBy = $request->input('sort_by', 'start_time');
+        $sortOrder = $request->input('sort_order', 'asc');
+
+        $appointmentsQuery = Appointment::with(['patient', 'dentist']);
+
+        // Apply search
+        if ($search !== '') {
+            $appointmentsQuery->where(function($query) use ($search) {
+                $query->whereHas('patient', function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%");
+                })->orWhere('type', 'like', "%{$search}%")
+                  ->orWhere('notes', 'like', "%{$search}%");
+            });
+        }
+
+        // Apply filters
+        if ($status && $status !== 'all') {
+            $appointmentsQuery->where('status', $status);
+        }
+
+        if ($type && $type !== 'all') {
+            $appointmentsQuery->where('type', $type);
+        }
+
+        if ($dentistId && $dentistId !== 'all') {
+            $appointmentsQuery->where('user_id', $dentistId);
+        }
+
+        if ($startDate) {
+            $appointmentsQuery->whereDate('start_time', '>=', $startDate);
+        }
+
+        if ($endDate) {
+            $appointmentsQuery->whereDate('start_time', '<=', $endDate);
+        }
+
+        // Apply sorting
+        $allowedSorts = ['start_time', 'end_time', 'status', 'type', 'created_at'];
+        if (!in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'start_time';
+        }
+        
+        if (!in_array($sortOrder, ['asc', 'desc'], true)) {
+            $sortOrder = 'asc';
+        }
+
+        $appointmentsQuery->orderBy($sortBy, $sortOrder);
+
+        // Get calendar appointments (limited to 3 months for performance)
+        $calendarStart = now()->startOfMonth();
+        $calendarEnd = now()->addMonths(3)->endOfMonth();
+        
+        $calendarAppointments = (clone $appointmentsQuery)
+            ->whereBetween('start_time', [$calendarStart, $calendarEnd])
+            ->get()
+            ->map(fn ($apt) => [
+                'id' => $apt->id,
+                'title' => $apt->patient->name . ' - ' . $apt->type,
+                'patient' => [
+                    'id' => $apt->patient->id,
+                    'name' => $apt->patient->name,
+                ],
+                'dentist' => $apt->dentist ? [
+                    'id' => $apt->dentist->id,
+                    'name' => $apt->dentist->name,
+                ] : null,
+                'start' => $apt->start_time->toISOString(),
+                'end' => $apt->end_time->toISOString(),
+                'status' => $apt->status,
+                'type' => $apt->type,
+                'notes' => $apt->notes,
+            ]);
+
+        // Get paginated appointments for the list view
+        $appointments = $appointmentsQuery
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn ($apt) => [
+                'id' => $apt->id,
+                'title' => $apt->patient->name . ' - ' . $apt->type,
+                'patient' => [
+                    'id' => $apt->patient->id,
+                    'name' => $apt->patient->name,
+                ],
+                'dentist' => $apt->dentist ? [
+                    'id' => $apt->dentist->id,
+                    'name' => $apt->dentist->name,
+                ] : null,
+                'start' => $apt->start_time->toISOString(),
+                'end' => $apt->end_time->toISOString(),
+                'status' => $apt->status,
+                'type' => $apt->type,
+                'notes' => $apt->notes,
+            ])
+            ->withQueryString();
 
         $patients = Patient::select('id', 'name', 'email')->get();
+        $dentists = User::role('Dentist')->select('id', 'name', 'email')->get();
 
         $appointmentTypes = [
             'Dental Cleaning',
@@ -52,6 +143,16 @@ class AppointmentController extends Controller
             'Oral Surgery',
             'Emergency Dental Care',
             'Dental Consultation'
+        ];
+
+        $appointmentStatuses = [
+            'scheduled' => 'Scheduled',
+            'confirmed' => 'Confirmed',
+            'in_progress' => 'In Progress',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+            'no_show' => 'No Show',
+            'rescheduled' => 'Rescheduled'
         ];
 
         // Calculate stats
@@ -75,9 +176,27 @@ class AppointmentController extends Controller
                 'user' => auth()->user(),
             ],
             'appointments' => $appointments,
+            'calendarAppointments' => $calendarAppointments,
             'patients' => $patients,
-            'stats' => $stats,
+            'dentists' => $dentists,
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+                'type' => $type,
+                'dentist_id' => $dentistId,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'sort_by' => $sortBy,
+                'sort_order' => $sortOrder,
+                'per_page' => $perPage,
+                'page' => (int) $request->input('page', 1),
+                'total' => $appointments->total(),
+                'from' => $appointments->firstItem(),
+                'to' => $appointments->lastItem(),
+            ],
             'appointmentTypes' => $appointmentTypes,
+            'appointmentStatuses' => $appointmentStatuses,
+            'stats' => $stats,
             'can' => [
                 'createAppointment' => auth()->user()?->can('create', Appointment::class) ?? false,
                 'updateAppointment' => auth()->user()?->can('update', new Appointment()) ?? false,

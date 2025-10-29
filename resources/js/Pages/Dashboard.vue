@@ -45,13 +45,18 @@ interface Auth {
   user: User;
 }
 
-const props = defineProps<{
+interface Props {
   auth: Auth;
   stats: Stats;
   todaysAppointments: TodaysAppointment[];
   recentActivity: Activity[];
   pendingTasks: PendingTasks;
-}>();
+  appointmentStatuses?: any;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  appointmentStatuses: () => ({}),
+});
 
 const currentTime = ref(new Date());
 

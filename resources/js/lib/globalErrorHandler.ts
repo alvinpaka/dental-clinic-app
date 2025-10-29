@@ -13,7 +13,7 @@ export const setupGlobalErrorHandler = () => {
         // Extract error details from the response
         const errorData = error.response.data;
         const title = errorData?.title || 'Access Denied';
-        const message = errorData?.message || 'You do not have permission to access this resource.';
+        const message = errorData?.message || 'You do not have permission to access this page.';
         const requiredRole = errorData?.required_role || '';
         const resource = errorData?.resource || '';
 
@@ -41,7 +41,7 @@ export const setupGlobalErrorHandler = () => {
       if (event.detail.response?.status === 403) {
         const errorData = event.detail.response.data;
         const title = errorData?.title || 'Access Denied';
-        const message = errorData?.message || 'You do not have permission to access this resource.';
+        const message = errorData?.message || 'You do not have permission to access this page.';
         const requiredRole = errorData?.required_role || '';
         const resource = errorData?.resource || '';
 

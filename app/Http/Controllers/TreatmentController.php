@@ -15,37 +15,97 @@ class TreatmentController extends Controller
         $this->authorizeResource(Treatment::class, 'treatment');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $treatments = Treatment::with(['patient:id,name,email', 'appointment', 'invoice', 'medicine', 'prescriptions.medicine'])->paginate(10);
-        $patients = Patient::select('id', 'name', 'email')->get();
-        $medicines = \App\Models\DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get();
-        
-        $appointmentTypes = [
-            'Dental Cleaning',
-            'Tooth Extraction',
-            'Root Canal',
-            'Dental Filling',
-            'Dental Crown',
-            'Dental Bridge',
-            'Dental Implant',
-            'Teeth Whitening',
-            'Orthodontic Treatment',
-            'Periodontal Treatment',
-            'Dental X-Ray',
-            'Oral Surgery',
-            'Emergency Dental Care',
-            'Dental Consultation'
-        ];
-        
+        $perPage = (int) $request->input('per_page', 10);
+        if ($perPage <= 0) {
+            $perPage = 10;
+        }
+
+        $page = (int) $request->input('page', 1);
+        if ($page <= 0) {
+            $page = 1;
+        }
+
+        // Build query with filters and sorting
+        $query = Treatment::with(['patient:id,name,email', 'appointment', 'invoice', 'prescriptions.medicine'])
+            ->latest('created_at');
+
+        // Apply search filter
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('procedure', 'like', "%{$search}%")
+                  ->orWhereHas('patient', function ($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhere('notes', 'like', "%{$search}%")
+                  ->orWhereHas('prescriptions', function ($q) use ($search) {
+                      $q->where('medicine_id', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // Apply patient filter
+        if ($patient = $request->input('patient')) {
+            if ($patient !== 'all') {
+                $query->where('patient_id', $patient);
+            }
+        }
+
+        // Apply sorting
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortOrder = $request->input('sort_order', 'desc');
+        if (in_array($sortBy, ['created_at', 'procedure', 'cost', 'patient_id'])) {
+            if ($sortBy === 'patient_id') {
+                $query->join('patients', 'treatments.patient_id', '=', 'patients.id')
+                      ->orderBy('patients.name', $sortOrder)
+                      ->select('treatments.*');
+            } else {
+                $query->orderBy($sortBy, $sortOrder);
+            }
+        }
+
+        // Paginate results
+        $treatments = $query->paginate($perPage, ['*'], 'page', $page)->withQueryString();
+
         return Inertia::render('Treatments/Index', [
             'auth' => [
                 'user' => auth()->user(),
             ],
-            'treatments' => $treatments, 
-            'patients' => $patients,
-            'medicines' => $medicines,
-            'appointmentTypes' => $appointmentTypes
+            'treatments' => [
+                'data' => $treatments->items(),
+                'meta' => [
+                    'current_page' => $treatments->currentPage(),
+                    'last_page' => $treatments->lastPage(),
+                    'per_page' => $treatments->perPage(),
+                    'total' => $treatments->total(),
+                    'from' => $treatments->firstItem(),
+                    'to' => $treatments->lastItem(),
+                ],
+            ],
+            'patients' => Patient::select('id', 'name', 'email')->get(),
+            'medicines' => \App\Models\DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get(),
+            'appointmentTypes' => [
+                'Dental Cleaning',
+                'Tooth Extraction',
+                'Root Canal',
+                'Dental Filling',
+                'Dental Crown',
+                'Dental Bridge',
+                'Dental Implant',
+                'Teeth Whitening',
+                'Orthodontic Treatment',
+                'Periodontal Treatment',
+                'Dental X-Ray',
+                'Oral Surgery',
+                'Emergency Dental Care',
+                'Dental Consultation',
+            ],
+            'stats' => [
+                'total_treatments' => Treatment::count(),
+                'total_revenue' => Treatment::sum('cost'),
+                'this_month_treatments' => Treatment::whereMonth('created_at', now()->month)->count(),
+            ],
         ]);
     }
 

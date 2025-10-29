@@ -19,9 +19,66 @@ class InvoiceController extends Controller
         $this->authorizeResource(Invoice::class, 'invoice');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $invoices = Invoice::with(['patient', 'treatment.prescriptions.medicine'])->paginate(10);
+        $perPage = (int) $request->input('per_page', 10);
+        if ($perPage <= 0) {
+            $perPage = 10;
+        }
+
+        $search = trim((string) $request->input('search', ''));
+        $status = $request->input('status');
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortOrder = $request->input('sort_order', 'desc');
+
+        $allowedSorts = ['created_at', 'amount', 'status', 'due_date', 'patient'];
+        if (!in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'created_at';
+        }
+
+        if (!in_array($sortOrder, ['asc', 'desc'], true)) {
+            $sortOrder = 'desc';
+        }
+
+        $invoicesQuery = Invoice::with(['patient', 'treatment.prescriptions.medicine']);
+
+        if ($search !== '') {
+            $invoicesQuery->where(function ($query) use ($search) {
+                $query->where('id', 'like', "%{$search}%")
+                    ->orWhereHas('patient', function ($patientQuery) use ($search) {
+                        $patientQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('treatment', function ($treatmentQuery) use ($search) {
+                        $treatmentQuery->where('procedure', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('prescription', function ($prescriptionQuery) use ($search) {
+                        $prescriptionQuery->where('medication', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('treatment.prescriptions', function ($treatmentPrescriptionQuery) use ($search) {
+                        $treatmentPrescriptionQuery->where('medication', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($status && $status !== 'all') {
+            $invoicesQuery->where('status', $status);
+        }
+
+        if ($sortBy === 'patient') {
+            $invoicesQuery->orderBy(
+                Patient::select('name')
+                    ->whereColumn('patients.id', 'invoices.patient_id')
+                    ->limit(1),
+                $sortOrder
+            );
+        } else {
+            $invoicesQuery->orderBy($sortBy, $sortOrder);
+        }
+
+        $invoices = $invoicesQuery
+            ->paginate($perPage)
+            ->withQueryString();
         // Get patients who have treatments with costs or prescriptions
         $patients = Patient::where(function ($query) {
             $query->whereHas('treatments', function ($q) {
@@ -57,7 +114,18 @@ class InvoiceController extends Controller
                 'user' => auth()->user(),
             ],
             'invoices' => $invoices,
-            'patients' => $patients
+            'patients' => $patients,
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+                'sort_by' => $sortBy,
+                'sort_order' => $sortOrder,
+                'per_page' => $perPage,
+                'page' => (int) $request->input('page', 1),
+                'total' => $invoices->total(),
+                'from' => $invoices->firstItem(),
+                'to' => $invoices->lastItem(),
+            ],
         ]);
     }
 

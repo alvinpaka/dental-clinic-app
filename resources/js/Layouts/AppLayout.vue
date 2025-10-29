@@ -24,7 +24,7 @@ const props = defineProps<{
 
 const page = usePage();
 
-usePage().props.jetstream ??= {}; // For Breeze dark mode compat
+usePage().props.jetstream ?? {}; // For Breeze dark mode compat
 
 // Initialize theme from localStorage on component mount
 onMounted(() => {
@@ -44,8 +44,15 @@ const navigationItems = [
 ];
 
 const activeTab = computed(() => {
+  // Get the base URL without query parameters
+  const currentPath = page.url.split('?')[0];
+  
   for (const item of navigationItems) {
-    if (page.url === item.href || page.url.startsWith(item.href + '/')) {
+    // Check if current path matches or starts with the item's href
+    if (currentPath === item.href || 
+        currentPath.startsWith(item.href + '/') ||
+        // Special case for pagination - check if the base path matches
+        (currentPath === '/patients' && item.href === '/patients')) {
       return item.value;
     }
   }

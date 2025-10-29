@@ -14,7 +14,7 @@ const errorDetails = ref<UnauthorizedError>({});
 const showUnauthorizedModal = (error: UnauthorizedError = {}) => {
   errorDetails.value = {
     title: error.title || 'Access Denied',
-    message: error.message || 'You do not have permission to access this resource.',
+    message: error.message || 'You do not have permission to access this page.',
     requiredRole: error.requiredRole || '',
     resource: error.resource || ''
   };
