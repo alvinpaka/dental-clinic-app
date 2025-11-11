@@ -180,6 +180,15 @@ const calculateTotalCost = (treatment: Treatment) => {
               <span>Add Treatment</span>
             </Button>
           </template>
+          <Button variant="outline" @click="$inertia.visit(route('patients.medical-history.show', props.patient.id))">
+            Medical History
+          </Button>
+          <Button variant="outline" @click="$inertia.visit(route('patients.consents.index', props.patient.id))">
+            Consents
+          </Button>
+          <Button variant="outline" @click="$inertia.visit(route('patients.notes.index', props.patient.id))">
+            Clinical Notes
+          </Button>
           <Button variant="outline" @click="$inertia.visit(route('patients.odontogram.show', props.patient.id))">
             Odontogram
           </Button>

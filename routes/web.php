@@ -12,6 +12,12 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\OdontogramController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\CashDrawerController;
+use App\Http\Controllers\MedicalHistoryController;
+use App\Http\Controllers\ConsentController;
+use App\Http\Controllers\ClinicalNotesController;
+use App\Http\Controllers\CashSessionsAdminController;
+use App\Http\Controllers\ClinicalNoteTemplatesAdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
@@ -38,6 +44,18 @@ Route::middleware('auth')->group(function () {
     Route::put('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid'])
         ->middleware('can:update,invoice')
         ->name('invoices.mark-paid');
+    Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'storePayment'])
+        ->middleware('can:update,invoice')
+        ->name('invoices.payments.store');
+    Route::get('invoices/{invoice}/payments/{payment}/receipt', [InvoiceController::class, 'paymentReceipt'])
+        ->middleware('can:view,invoice')
+        ->name('invoices.payments.receipt');
+    Route::post('invoices/{invoice}/payments/{payment}/refund', [InvoiceController::class, 'refundPayment'])
+        ->middleware('auth')
+        ->name('invoices.payments.refund');
+    Route::get('invoices/payments/export', [InvoiceController::class, 'exportPayments'])
+        ->middleware('can:viewAny,App\\Models\\Invoice')
+        ->name('invoices.payments.export');
     // Staff Management Routes
     Route::resource('staff', StaffController::class);
 
@@ -64,6 +82,89 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])
         ->middleware('can:viewReports')
         ->name('reports.index');
+
+    // Cash Drawer
+    Route::get('/cash-drawer/active', [CashDrawerController::class, 'active'])
+        ->middleware('auth')
+        ->name('cash-drawer.active');
+    Route::get('/cash-drawer', [CashDrawerController::class, 'index'])
+        ->middleware('auth')
+        ->name('cash-drawer.index');
+    Route::post('/cash-drawer/open', [CashDrawerController::class, 'open'])
+        ->middleware('auth')
+        ->name('cash-drawer.open');
+    Route::post('/cash-drawer/close', [CashDrawerController::class, 'close'])
+        ->middleware('auth')
+        ->name('cash-drawer.close');
+    Route::post('/cash-drawer/adjust', [CashDrawerController::class, 'adjust'])
+        ->middleware('auth')
+        ->name('cash-drawer.adjust');
+
+    // Cash Sessions Admin
+    Route::get('/admin/cash-sessions', [CashSessionsAdminController::class, 'index'])
+        ->middleware('can:viewReports')
+        ->name('admin.cash-sessions.index');
+
+    // Clinical Note Templates Admin
+    Route::get('/admin/clinical-note-templates', [ClinicalNoteTemplatesAdminController::class, 'index'])
+        ->middleware('can:manageClinicalTemplates')
+        ->name('admin.clinical-note-templates.index');
+    Route::post('/admin/clinical-note-templates', [ClinicalNoteTemplatesAdminController::class, 'store'])
+        ->middleware('can:manageClinicalTemplates')
+        ->name('admin.clinical-note-templates.store');
+    Route::post('/admin/clinical-note-templates/{template}', [ClinicalNoteTemplatesAdminController::class, 'update'])
+        ->middleware('can:manageClinicalTemplates')
+        ->name('admin.clinical-note-templates.update');
+    Route::post('/admin/clinical-note-templates/{template}/toggle', [ClinicalNoteTemplatesAdminController::class, 'toggle'])
+        ->middleware('can:manageClinicalTemplates')
+        ->name('admin.clinical-note-templates.toggle');
+    Route::delete('/admin/clinical-note-templates/{template}', [ClinicalNoteTemplatesAdminController::class, 'destroy'])
+        ->middleware('can:manageClinicalTemplates')
+        ->name('admin.clinical-note-templates.destroy');
+
+    // Medical History
+    Route::get('/patients/{patient}/medical-history', [MedicalHistoryController::class, 'show'])
+        ->middleware('can:view,patient')
+        ->name('patients.medical-history.show');
+    Route::post('/patients/{patient}/medical-history', [MedicalHistoryController::class, 'upsert'])
+        ->middleware('can:update,patient')
+        ->name('patients.medical-history.upsert');
+
+    // Consents (per patient)
+    Route::get('/patients/{patient}/consents', [ConsentController::class, 'patientIndex'])
+        ->middleware('can:view,patient')
+        ->name('patients.consents.index');
+    Route::post('/patients/{patient}/consents/sign', [ConsentController::class, 'patientSign'])
+        ->middleware('can:update,patient')
+        ->name('patients.consents.sign');
+    Route::get('/patients/{patient}/consents/{consent}/pdf', [ConsentController::class, 'patientPdf'])
+        ->middleware('can:view,patient')
+        ->name('patients.consents.pdf');
+
+    // Clinical Notes (SOAP)
+    Route::get('/patients/{patient}/notes', [ClinicalNotesController::class, 'index'])
+        ->middleware('can:view,patient')
+        ->name('patients.notes.index');
+    Route::post('/patients/{patient}/notes', [ClinicalNotesController::class, 'store'])
+        ->middleware('can:update,patient')
+        ->name('patients.notes.store');
+    Route::post('/patients/{patient}/notes/{note}', [ClinicalNotesController::class, 'update'])
+        ->middleware('can:update,patient')
+        ->name('patients.notes.update');
+    Route::post('/patients/{patient}/notes/{note}/sign', [ClinicalNotesController::class, 'sign'])
+        ->middleware('can:update,patient')
+        ->name('patients.notes.sign');
+    Route::get('/patients/{patient}/notes/{note}/pdf', [ClinicalNotesController::class, 'pdf'])
+        ->middleware('can:view,patient')
+        ->name('patients.notes.pdf');
+
+    // Consent templates (admin/receptionist via viewReports gate)
+    Route::get('/consent-templates', [ConsentController::class, 'templatesIndex'])
+        ->middleware('can:viewReports')
+        ->name('consents.templates.index');
+    Route::post('/consent-templates', [ConsentController::class, 'templatesStore'])
+        ->middleware('can:viewReports')
+        ->name('consents.templates.store');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

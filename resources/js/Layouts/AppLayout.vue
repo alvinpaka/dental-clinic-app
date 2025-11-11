@@ -37,10 +37,14 @@ const navigationItems = [
   { value: 'appointments', label: 'Appointments', href: '/appointments', icon: 'fas fa-calendar-check' },
   { value: 'treatments', label: 'Treatments', href: '/treatments', icon: 'fas fa-tooth' },
   { value: 'invoices', label: 'Billing', href: '/invoices', icon: 'fas fa-file-invoice-dollar' },
+  { value: 'cash-drawer', label: 'Cash Drawer', href: '/cash-drawer', icon: 'fas fa-cash-register' },
+  { value: 'admin-cash-sessions', label: 'Cash Sessions', href: '/admin/cash-sessions', icon: 'fas fa-coins' },
+  { value: 'admin-clinical-note-templates', label: 'Clinical Note Templates', href: '/admin/clinical-note-templates', icon: 'fas fa-notes-medical' },
   { value: 'staff', label: 'Staff', href: '/staff', icon: 'fas fa-user-md' },
   { value: 'inventory', label: 'Inventory', href: '/inventory', icon: 'fas fa-boxes' },
   { value: 'expenses', label: 'Expenses', href: '/expenses', icon: 'fas fa-receipt' },
   { value: 'reports', label: 'Financial Reports', href: '/reports', icon: 'fas fa-chart-bar' },
+  { value: 'consent-templates', label: 'Consent Templates', href: '/consent-templates', icon: 'fas fa-file-signature' },
 ];
 
 const activeTab = computed(() => {
@@ -57,6 +61,39 @@ const activeTab = computed(() => {
     }
   }
   return 'dashboard';
+});
+
+const visibleNavigationItems = computed(() => {
+  const roles = ((page as any)?.props?.auth?.user?.roles || []).map((r: any) => r?.name ?? r);
+  const isCashier = Array.isArray(roles) && (roles.includes('admin') || roles.includes('receptionist'));
+  const isAdmin = Array.isArray(roles) && roles.includes('admin');
+  return navigationItems.filter((item) => {
+    if (item.value === 'cash-drawer') return isCashier;
+    if (item.value === 'consent-templates') return isCashier;
+    if (item.value.startsWith('admin-')) return isAdmin;
+    return true;
+  });
+});
+
+const visibleMainItems = computed(() => visibleNavigationItems.value.filter(i => !i.value.startsWith('admin-')))
+const visibleAdminItems = computed(() => visibleNavigationItems.value.filter(i => i.value.startsWith('admin-')))
+
+// Cash drawer banner (for cashier roles)
+const showCashBanner = ref(false)
+const isCashierRole = computed(() => {
+  const roles = ((page as any)?.props?.auth?.user?.roles || []).map((r: any) => r?.name ?? r);
+  return Array.isArray(roles) && (roles.includes('admin') || roles.includes('receptionist'))
+})
+
+onMounted(async () => {
+  themeStore.initTheme();
+  try {
+    if (isCashierRole.value) {
+      const res = await fetch(route('cash-drawer.active'), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      const data = await res.json()
+      showCashBanner.value = !data?.active
+    }
+  } catch {}
 });
 </script>
 
@@ -153,7 +190,23 @@ const activeTab = computed(() => {
       <aside class="hidden md:block fixed left-0 top-16 w-64 bg-muted p-4 h-screen overflow-y-auto z-40">
         <nav class="space-y-1">
           <Link
-            v-for="item in navigationItems"
+            v-for="item in visibleMainItems"
+            :key="item.value"
+            :href="item.href"
+            :class="[
+              'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
+              activeTab === item.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+            ]"
+          >
+            <i :class="[item.icon, 'mr-2 w-4 h-4']"></i>
+            {{ item.label }}
+          </Link>
+
+          <div v-if="visibleAdminItems.length" class="mt-4 mb-1 px-3 text-xs uppercase tracking-wide text-muted-foreground">Admin</div>
+          <Link
+            v-for="item in visibleAdminItems"
             :key="item.value"
             :href="item.href"
             :class="[

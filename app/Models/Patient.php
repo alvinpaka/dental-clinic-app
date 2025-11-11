@@ -43,4 +43,9 @@ class Patient extends Model
             'treatment_id' // Foreign key on prescriptions table...
         );
     }
+
+    public function medicalHistory()
+    {
+        return $this->hasOne(MedicalHistory::class);
+    }
 }
