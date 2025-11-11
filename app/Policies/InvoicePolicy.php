@@ -68,8 +68,8 @@ class InvoicePolicy
      */
     public function update(User $user, Invoice $invoice): bool
     {
-        // Only the creator or admin can update
-        return $invoice->created_by === $user->id || $user->hasRole('admin');
+        // Admin or receptionist can update any invoice; creator can update their own
+        return $user->hasAnyRole(['admin', 'receptionist']) || $invoice->created_by === $user->id;
     }
 
     /**

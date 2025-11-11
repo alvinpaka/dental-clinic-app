@@ -28,7 +28,7 @@ class TreatmentController extends Controller
         }
 
         // Build query with filters and sorting
-        $query = Treatment::with(['patient:id,name,email', 'appointment', 'invoice', 'prescriptions.medicine'])
+        $query = Treatment::with(['patient:id,name,email', 'appointment', 'invoice.payments', 'prescriptions.medicine'])
             ->latest('created_at');
 
         // Apply search filter
@@ -49,6 +49,16 @@ class TreatmentController extends Controller
         if ($patient = $request->input('patient')) {
             if ($patient !== 'all') {
                 $query->where('patient_id', $patient);
+            }
+        }
+
+        // Apply invoice status filter
+        $invoiceStatus = $request->input('invoice_status');
+        if ($invoiceStatus && $invoiceStatus !== 'all') {
+            if ($invoiceStatus === 'invoiced') {
+                $query->whereHas('invoice');
+            } elseif ($invoiceStatus === 'not_invoiced') {
+                $query->whereDoesntHave('invoice');
             }
         }
 
@@ -82,6 +92,15 @@ class TreatmentController extends Controller
                     'from' => $treatments->firstItem(),
                     'to' => $treatments->lastItem(),
                 ],
+            ],
+            'filters' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'search' => $request->input('search', ''),
+                'patient' => $request->input('patient', 'all'),
+                'invoice_status' => $request->input('invoice_status', 'all'),
+                'sort_by' => $sortBy,
+                'sort_order' => $sortOrder,
             ],
             'patients' => Patient::select('id', 'name', 'email')->get(),
             'medicines' => \App\Models\DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get(),

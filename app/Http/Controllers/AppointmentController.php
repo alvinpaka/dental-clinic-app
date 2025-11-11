@@ -126,7 +126,7 @@ class AppointmentController extends Controller
             ->withQueryString();
 
         $patients = Patient::select('id', 'name', 'email')->get();
-        $dentists = User::role('Dentist')->select('id', 'name', 'email')->get();
+        $dentists = User::role('dentist')->select('id', 'name', 'email')->get();
 
         $appointmentTypes = [
             'Dental Cleaning',
