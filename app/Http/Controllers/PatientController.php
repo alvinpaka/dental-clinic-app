@@ -87,9 +87,12 @@ class PatientController extends Controller
                 'active_appointments' => \App\Models\Appointment::where('status', 'scheduled')->count(),
             ],
             'can' => [
+                // Use policy-compatible checks: 'create' is defined with only User, so class check is fine
                 'createPatient' => auth()->user()?->can('create', Patient::class) ?? false,
-                'updatePatient' => auth()->user()?->can('update', Patient::class) ?? false,
-                'deletePatient' => auth()->user()?->can('delete', Patient::class) ?? false,
+                // 'update' and 'delete' require a Patient instance. For index-level permissions,
+                // expose booleans based on roles consistent with PatientPolicy logic.
+                'updatePatient' => auth()->user()?->hasAnyRole(['admin', 'receptionist']) ?? false,
+                'deletePatient' => auth()->user()?->hasRole('admin') ?? false,
             ],
         ]);
     }

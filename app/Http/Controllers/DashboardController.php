@@ -19,7 +19,7 @@ class DashboardController extends Controller
         
         return Inertia::render('Dashboard', [
             'auth' => [
-                'user' => auth()->user(),
+                'user' => auth()->user()?->load('roles'),
             ],
             'stats' => [
                 'total_patients' => Patient::count(),
