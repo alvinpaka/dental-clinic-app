@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
+import { formatUGX } from '@/Composables/useCurrency';
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
@@ -30,7 +31,6 @@ interface Prescription {
   duration?: string | null;
   amount?: number | null;
   medicine?: { medicine_name?: string | null };
-  medicine_name?: string | null;
 }
 
 interface Treatment {
@@ -67,6 +67,15 @@ interface Invoice {
   prescription?: Prescription;
   created_at?: string;
   paid_at?: string;
+  paid_total?: number | string;
+  balance?: number | string;
+  payments?: Array<{
+    id: number;
+    amount: number | string;
+    method?: string | null;
+    received_at?: string | null;
+    reference?: string | null;
+  }>;
 }
 
 interface InvoiceItemOption {
@@ -128,6 +137,17 @@ const selectedTreatmentPrescriptionIds = ref<number[]>([]);
 const editSelectedPrescriptionIds = ref<number[]>([]);
 const editSelectedTreatmentPrescriptionIds = ref<number[]>([]);
 const editSelectedTreatmentIds = ref<number[]>([]);
+
+// Permissions: admin or receptionist can take payments
+const page = usePage<any>();
+const canTakePayments = computed(() => {
+  const roles = (page?.props?.auth?.user?.roles || []).map((r: any) => r?.name ?? r);
+  return Array.isArray(roles) && (roles.includes('admin') || roles.includes('receptionist'));
+});
+const canDeleteInvoices = computed(() => {
+  const roles = (page?.props?.auth?.user?.roles || []).map((r: any) => r?.name ?? r);
+  return Array.isArray(roles) && roles.includes('admin');
+});
 
 // Filtered invoices
 const paginationLinks = computed(() => props.invoices?.links || []);
@@ -245,6 +265,68 @@ const isCreateOpen = ref(false);
 const isEditOpen = ref(false);
 const isDeleteOpen = ref(false);
 const editingInvoice = ref<Invoice | null>(null);
+const isPaymentOpen = ref(false);
+const payingInvoice = ref<Invoice | null>(null);
+
+const paymentForm = useForm({
+  amount: 0,
+  method: '',
+  received_at: new Date().toISOString().slice(0, 10),
+  reference: '',
+  notes: '',
+});
+
+const openPayment = (invoice: Invoice) => {
+  payingInvoice.value = invoice;
+  paymentForm.reset();
+  paymentForm.amount = Number(invoice.balance || 0) || Math.max(invoice.amount, 0);
+  paymentForm.received_at = new Date().toISOString().slice(0, 10);
+  isPaymentOpen.value = true;
+};
+
+const submitPayment = async () => {
+  if (!payingInvoice.value) return;
+  if (paymentForm.amount <= 0) {
+    alert('Amount must be greater than zero.');
+    return;
+  }
+  const maxBalance = Number(payingInvoice.value.balance || 0);
+  if (Number(paymentForm.amount) > maxBalance + 0.0001) {
+    alert(`Amount cannot exceed current balance of ${formatUGX(maxBalance)}`);
+    return;
+  }
+  // If method is cash, ensure an active cash session
+  if (paymentForm.method === 'cash') {
+    try {
+      const res = await fetch(route('cash-drawer.active'), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const data = await res.json();
+      if (!data?.active) {
+        if (confirm('No active cash session. Open a session now?')) {
+          window.location.href = route('cash-drawer.index');
+          return;
+        }
+        return;
+      }
+    } catch (e) {
+      // If check fails, block to be safe
+      alert('Unable to verify cash drawer status. Please open a cash session first.');
+      return;
+    }
+  }
+  paymentForm.post(route('invoices.payments.store', payingInvoice.value.id), {
+    preserveScroll: true,
+    onSuccess: () => {
+      isPaymentOpen.value = false;
+      payingInvoice.value = null;
+      router.reload();
+    },
+  });
+};
+
+// Sum all payment amounts for an invoice (used to infer refunds in list view)
+const sumPayments = (inv: Invoice) => {
+  return (inv.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+};
 
 // Computed properties
 const availableTreatments = computed(() => {
@@ -728,10 +810,17 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                 {{ totalInvoices }} Total Invoices
               </Badge>
 
-              <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+              <Button as-child variant="outline" class="shadow-sm">
+                <a :href="route('invoices.payments.export')" target="_blank">
+                  <i class="fas fa-file-csv w-4 h-4 mr-2"></i>
+                  Export Payments
+                </a>
+              </Button>
+
+              <!-- <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                 <Plus class="w-4 h-4 mr-2" />
                 Create Invoice
-              </Button>
+              </Button> -->
             </div>
           </div>
         </div>
@@ -742,9 +831,9 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
             <CardContent class="p-6">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm font-medium text-green-700 dark:text-green-300 mb-1">Total Revenue</p>
-                  <p class="text-3xl font-bold text-green-900 dark:text-green-100 mb-1">{{ formatCurrency(totalRevenue) }}</p>
-                  <p class="text-xs text-green-600 dark:text-green-400">From paid invoices</p>
+                  <p class="text-sm font-medium text-green-700 dark:text-green-300 mb-1">Payments Today</p>
+                  <p class="text-3xl font-bold text-green-900 dark:text-green-100 mb-1">{{ formatUGX(props.stats.payments_today || 0) }}</p>
+                  <p class="text-xs text-green-600 dark:text-green-400">Collected today</p>
                 </div>
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
                   <Receipt class="w-6 h-6 text-white" />
@@ -757,9 +846,9 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
             <CardContent class="p-6">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Total Invoices</p>
-                  <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">{{ props.stats.total_invoices }}</p>
-                  <p class="text-xs text-blue-600 dark:text-blue-400">All time</p>
+                  <p class="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Payments This Month</p>
+                  <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">{{ formatUGX(props.stats.payments_this_month || 0) }}</p>
+                  <p class="text-xs text-blue-600 dark:text-blue-400">Month to date</p>
                 </div>
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
                   <FileText class="w-6 h-6 text-white" />
@@ -772,8 +861,8 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
             <CardContent class="p-6">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm font-medium text-amber-700 dark:text-amber-300 mb-1">Pending Amount</p>
-                  <p class="text-3xl font-bold text-amber-900 dark:text-amber-100 mb-1">{{ formatCurrency(pendingAmount) }}</p>
+                  <p class="text-sm font-medium text-amber-700 dark:text-amber-300 mb-1">Outstanding Total</p>
+                  <p class="text-3xl font-bold text-amber-900 dark:text-amber-100 mb-1">{{ formatUGX(props.stats.outstanding_total || 0) }}</p>
                   <p class="text-xs text-amber-600 dark:text-amber-400">Awaiting payment</p>
                 </div>
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg">
@@ -787,8 +876,8 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
             <CardContent class="p-6">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm font-medium text-red-700 dark:text-red-300 mb-1">Overdue</p>
-                  <p class="text-3xl font-bold text-red-900 dark:text-red-100 mb-1">{{ props.stats.overdue_count }}</p>
+                  <p class="text-sm font-medium text-red-700 dark:text-red-300 mb-1">Overdue Invoices</p>
+                  <p class="text-3xl font-bold text-red-900 dark:text-red-100 mb-1">{{ props.stats.overdue_invoices || 0 }}</p>
                   <p class="text-xs text-red-600 dark:text-red-400">Past due date</p>
                 </div>
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg">
@@ -888,6 +977,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                       <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Treatment / Prescription</th>
                       <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Due Date</th>
                       <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Amount</th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Balance</th>
                       <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Status</th>
                       <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Actions</th>
                     </tr>
@@ -950,12 +1040,30 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                         <span v-if="isOverdue(invoice.due_date, invoice.status) && invoice.status !== 'paid'" class="text-xs text-red-500 font-semibold">Overdue</span>
                       </td>
                       <td class="px-4 py-4 align-top text-gray-700 dark:text-gray-300">
-                        <span class="font-semibold text-red-600 dark:text-red-400">{{ formatCurrency(invoice.amount) }}</span>
+                        <span class="font-semibold text-red-600 dark:text-red-400">{{ formatUGX(invoice.amount) }}</span>
+                      </td>
+                      <!-- Paid column removed as per spec (use Amount and Balance only) -->
+                      <td class="px-4 py-4 align-top">
+                        <Badge :class="[
+                          'px-2 py-0.5 text-xs font-semibold border',
+                          Number(invoice.balance || 0) > 0
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/60'
+                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200/60 dark:border-green-800/60'
+                        ]">
+                          {{ formatUGX(Number(invoice.balance || 0)) }}
+                        </Badge>
                       </td>
                       <td class="px-4 py-4 align-top">
-                        <Badge :variant="getStatusBadgeVariant(invoice.status)" class="px-3 py-1 text-xs font-medium">
-                          {{ invoice.status }}
-                        </Badge>
+                        <div class="space-y-1">
+                          <Badge :variant="getStatusBadgeVariant(invoice.status)" class="px-3 py-1 text-xs font-medium">
+                            {{ invoice.status }}
+                          </Badge>
+                          <div v-if="sumPayments(invoice) > Number(invoice.paid_total || 0) && Number(invoice.paid_total || 0) < Number(invoice.amount || 0)">
+                            <Badge class="px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                              Partially Refunded
+                            </Badge>
+                          </div>
+                        </div>
                       </td>
                       <td class="px-4 py-4 align-top" @click.stop>
                         <div class="flex items-center justify-end">
@@ -984,21 +1092,61 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                                 <Download class="w-4 h-4 mr-2" />
                                 Download PDF
                               </DropdownMenuItem>
+
                               <DropdownMenuItem 
-                                v-if="invoice.status !== 'paid'" 
+                                v-if="(page.props.auth.user.roles || []).some((r: any) => (r.name ?? r) === 'admin') && invoice.status !== 'paid'" 
                                 @click="markAsPaid(invoice)"
                               >
-                                <CreditCard class="w-4 h-4 mr-2" />
+                                <i class="fas fa-check mr-2"></i>
                                 Mark as Paid
                               </DropdownMenuItem>
+                              <div
+                                v-else-if="invoice.status !== 'paid'"
+                                class="px-2 py-1.5 text-sm text-gray-400 dark:text-gray-500 opacity-60 cursor-not-allowed"
+                                title="Only admins can mark invoices as paid"
+                              >
+                                <div class="flex items-center">
+                                  <i class="fas fa-check mr-2"></i>
+                                  Mark as Paid
+                                </div>
+                              </div>
+                              <template v-if="invoice.payments && invoice.payments.length">
+                                <div class="px-2 pt-1 text-[11px] uppercase tracking-wide text-gray-400">Receipts</div>
+                                <div v-for="p in invoice.payments" :key="p.id" class="px-2 py-1 text-sm">
+                                  <a :href="route('invoices.payments.receipt', [invoice.id, p.id])" class="flex items-center text-blue-600 hover:underline">
+                                    <i class="fas fa-receipt w-4 h-4 mr-2"></i>
+                                    #{{ p.id }} • {{ p.received_at ? new Date(p.received_at).toLocaleDateString() : '—' }} • {{ formatUGX(Number(p.amount || 0)) }}
+                                  </a>
+                                </div>
+                              </template>
+                              <div
+                                v-else-if="!canTakePayments && invoice.status !== 'paid'"
+                                class="px-2 py-1.5 text-sm text-gray-400 dark:text-gray-500 opacity-60 cursor-not-allowed"
+                                title="You don't have permission to mark invoices as paid"
+                              >
+                                <div class="flex items-center">
+                                  <i class="fas fa-check mr-2"></i>
+                                  Mark as Paid
+                                </div>
+                              </div>
                               <DropdownMenuItem 
-                                v-if="invoice.status !== 'paid'" 
+                                v-if="canDeleteInvoices && invoice.status !== 'paid'" 
                                 @click="openDelete(invoice)" 
                                 class="text-red-600"
                               >
                                 <i class="fas fa-trash mr-2"></i>
                                 Delete
                               </DropdownMenuItem>
+                              <div
+                                v-else-if="!canDeleteInvoices && invoice.status !== 'paid'"
+                                class="px-2 py-1.5 text-sm text-gray-400 dark:text-gray-500 opacity-60 cursor-not-allowed"
+                                title="Only admins can delete invoices"
+                              >
+                                <div class="flex items-center">
+                                  <i class="fas fa-trash mr-2"></i>
+                                  Delete
+                                </div>
+                              </div>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -1473,6 +1621,59 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
             </DialogFooter>
           </form>
         </div>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Record Payment Modal -->
+    <Dialog :open="isPaymentOpen" @update:open="(value) => isPaymentOpen = value">
+      <DialogContent class="max-w-md">
+        <DialogHeader>
+          <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Record Payment</DialogTitle>
+          <DialogDescription>Add a payment to this invoice</DialogDescription>
+        </DialogHeader>
+        <form @submit.prevent="submitPayment" class="space-y-4">
+          <div>
+            <Label>Amount (UGX)</Label>
+            <Input v-model.number="paymentForm.amount" type="number" step="0.01" min="0.01" required />
+            <p v-if="payingInvoice?.balance" class="text-xs text-gray-500 mt-1">Balance: {{ formatCurrency(Number(payingInvoice?.balance || 0)) }}</p>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Method</Label>
+              <Select v-model="paymentForm.method">
+                <SelectTrigger class="h-10">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Date</Label>
+              <Input v-model="paymentForm.received_at" type="date" />
+            </div>
+          </div>
+          <div>
+            <Label>Reference</Label>
+            <Input v-model="paymentForm.reference" placeholder="Txn / receipt no." />
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Input v-model="paymentForm.notes" placeholder="Optional notes" />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" @click="isPaymentOpen = false">Cancel</Button>
+            <Button type="submit" :disabled="paymentForm.processing" class="bg-blue-600 hover:bg-blue-700">
+              <i v-if="paymentForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
+              <i v-else class="fas fa-check mr-2"></i>
+              {{ paymentForm.processing ? 'Saving...' : 'Save Payment' }}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
 

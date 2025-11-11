@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, useForm, usePage, router } from '@inertiajs/vue3';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { ArrowLeft, Download, Printer } from 'lucide-vue-next';
+import { formatUGX } from '@/Composables/useCurrency';
 import { route } from 'ziggy-js';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
+import { Input } from '@/Components/ui/input';
+import { Label } from '@/Components/ui/label';
+import { ref, computed } from 'vue';
 
 interface Invoice {
   id: number;
@@ -17,10 +22,34 @@ interface Invoice {
   due_date: string;
   pdf_path?: string;
   created_at: string;
+  paid_at?: string;
+  paid_total?: number | string;
+  balance?: number | string;
+  payments?: Array<{
+    id: number;
+    amount: number | string;
+    method?: string | null;
+    received_at?: string | null;
+    reference?: string | null;
+    notes?: string | null;
+  }>;
+}
+
+interface Refund {
+  id: number;
+  invoice_id: number;
+  payment_id: number;
+  amount: number | string;
+  reason?: string | null;
+  notes?: string | null;
+  refunded_at?: string | null;
+  refunded_by?: number | null;
+  refunded_by_user?: { name: string } | null;
 }
 
 interface Props {
   invoice: Invoice;
+  refunds?: Refund[];
 }
 
 const props = defineProps<Props>();
@@ -35,9 +64,49 @@ const printInvoice = () => {
   window.print();
 };
 
-const formatUGX = (value: number) => {
-  const whole = Math.round(value);
-  return `UGX ${whole.toLocaleString('en-US')}`;
+// Refund UI state
+const isRefundOpen = ref(false);
+const refundingPayment = ref<any | null>(null);
+const refundForm = useForm({ amount: 0, reason: '', notes: '' });
+
+const page = usePage<any>();
+const canRefund = computed(() => {
+  const roles = (page?.props?.auth?.user?.roles || []).map((r: any) => r?.name ?? r);
+  return Array.isArray(roles) && (roles.includes('admin') || roles.includes('receptionist'));
+});
+
+// Build a map of refunded totals per payment
+const refundedByPaymentId = computed<Record<number, number>>(() => {
+  const map: Record<number, number> = {};
+  (props.refunds || []).forEach((r: any) => {
+    const pid = Number(r.payment_id);
+    map[pid] = (map[pid] || 0) + Number(r.amount || 0);
+  });
+  return map;
+});
+
+const openRefund = (payment: any) => {
+  refundingPayment.value = payment;
+  refundForm.amount = 0;
+  refundForm.reason = '';
+  refundForm.notes = '';
+  isRefundOpen.value = true;
+};
+
+const submitRefund = () => {
+  if (!refundingPayment.value) return;
+  if (Number(refundForm.amount) <= 0) {
+    alert('Amount must be greater than zero.');
+    return;
+  }
+  refundForm.post(route('invoices.payments.refund', [props.invoice.id, refundingPayment.value.id]), {
+    preserveScroll: true,
+    onSuccess: () => {
+      isRefundOpen.value = false;
+      refundingPayment.value = null;
+      router.reload();
+    },
+  });
 };
 </script>
 
@@ -86,6 +155,14 @@ const formatUGX = (value: number) => {
             <p class="text-sm text-red-600">{{ formatUGX(props.invoice.amount) }}</p>
           </div>
           <div>
+            <label class="text-sm font-medium text-gray-500">Paid</label>
+            <p class="text-sm text-green-600">{{ formatUGX(Number(props.invoice.paid_total || 0)) }}</p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-gray-500">Balance</label>
+            <p :class="['text-sm', Number(props.invoice.balance || 0) > 0 ? 'text-amber-600' : 'text-green-600']">{{ formatUGX(Number(props.invoice.balance || 0)) }}</p>
+          </div>
+          <div>
             <label class="text-sm font-medium text-gray-500">Due Date</label>
             <p class="text-sm">{{ new Date(props.invoice.due_date).toLocaleDateString() }}</p>
           </div>
@@ -102,6 +179,11 @@ const formatUGX = (value: number) => {
               >
                 {{ props.invoice.status }}
               </Badge>
+              <div v-if="(props.refunds && props.refunds.length) && Number(props.invoice.paid_total || 0) < Number(props.invoice.amount || 0)" class="mt-2">
+                <Badge class="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                  Partially Refunded
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -120,6 +202,112 @@ const formatUGX = (value: number) => {
           </div>
         </CardContent>
       </Card>
+
+      <!-- Refunds History -->
+      <Card v-if="props.refunds && props.refunds.length" class="mt-6">
+        <CardHeader>
+          <CardTitle>Refunds</CardTitle>
+          <CardDescription>History of refunds issued for this invoice</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+              <thead>
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Date</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Payment</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Amount</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Reason</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Cashier</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                <tr v-for="r in props.refunds" :key="r.id">
+                  <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{{ r.refunded_at ? new Date(r.refunded_at).toLocaleString() : '—' }}</td>
+                  <td class="px-4 py-2 text-gray-700 dark:text-gray-300">#{{ r.payment_id }}</td>
+                  <td class="px-4 py-2 text-red-600">{{ formatUGX(Number(r.amount || 0)) }}</td>
+                  <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{{ r.reason || r.notes || '—' }}</td>
+                  <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{{ (r as any).refunded_by?.name || (r as any).refundedBy?.name || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Payments History -->
+      <Card class="mt-6">
+        <CardHeader>
+          <CardTitle>Payments</CardTitle>
+          <CardDescription>Recorded payments for this invoice</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div v-if="props.invoice.payments && props.invoice.payments.length" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+              <thead>
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Date</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Method</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Reference</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Amount</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Notes</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Receipt</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                <tr v-for="p in props.invoice.payments" :key="p.id">
+                  <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{{ p.received_at ? new Date(p.received_at).toLocaleDateString() : '—' }}</td>
+                  <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{{ p.method || '—' }}</td>
+                  <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{{ p.reference || '—' }}</td>
+                  <td class="px-4 py-2 text-green-600">
+                    <div>{{ formatUGX(Number(p.amount || 0)) }}</div>
+                    <div v-if="refundedByPaymentId[Number(p.id)]" class="text-xs text-gray-500">
+                      Refunded: {{ formatUGX(refundedByPaymentId[Number(p.id)]) }} · Remaining: {{ formatUGX(Math.max(0, Number(p.amount || 0) - refundedByPaymentId[Number(p.id)])) }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{{ p.notes || '—' }}</td>
+                  <td class="px-4 py-2">
+                    <a :href="route('invoices.payments.receipt', [props.invoice.id, p.id])" class="text-blue-600 hover:underline">Receipt</a>
+                  </td>
+                  <td class="px-4 py-2">
+                    <Button v-if="canRefund" size="sm" variant="outline" @click="openRefund(p)">Refund</Button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="text-sm text-gray-600 dark:text-gray-400">No payments recorded yet.</div>
+        </CardContent>
+      </Card>
+
+      <!-- Refund Modal -->
+      <Dialog v-model:open="isRefundOpen">
+        <DialogContent class="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Refund Payment</DialogTitle>
+            <DialogDescription>Issue a refund for this payment.</DialogDescription>
+          </DialogHeader>
+          <div class="space-y-3">
+            <div>
+              <Label>Amount (UGX)</Label>
+              <Input v-model.number="refundForm.amount" type="number" step="0.01" min="0.01" required />
+            </div>
+            <div>
+              <Label>Reason</Label>
+              <Input v-model="refundForm.reason" type="text" placeholder="Reason for refund" />
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Input v-model="refundForm.notes" type="text" placeholder="Additional notes (optional)" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" @click="isRefundOpen = false">Cancel</Button>
+            <Button @click="submitRefund">Refund</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   </AppLayout>
 </template>

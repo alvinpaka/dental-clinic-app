@@ -11,6 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PaymentReceiptMail;
 
 class InvoiceController extends Controller
 {
@@ -40,7 +42,7 @@ class InvoiceController extends Controller
             $sortOrder = 'desc';
         }
 
-        $invoicesQuery = Invoice::with(['patient', 'treatment.prescriptions.medicine']);
+        $invoicesQuery = Invoice::with(['patient', 'treatment.prescriptions.medicine', 'payments']);
 
         if ($search !== '') {
             $invoicesQuery->where(function ($query) use ($search) {
@@ -79,6 +81,23 @@ class InvoiceController extends Controller
         $invoices = $invoicesQuery
             ->paginate($perPage)
             ->withQueryString();
+
+        // Stats
+        $paymentsToday = (float) \App\Models\Payment::whereDate('received_at', Carbon::today())->sum('amount');
+        $paymentsThisMonth = (float) \App\Models\Payment::whereYear('received_at', Carbon::now()->year)
+            ->whereMonth('received_at', Carbon::now()->month)
+            ->sum('amount');
+        $overdueCount = (int) Invoice::where('status', '!=', 'paid')
+            ->whereDate('due_date', '<', Carbon::today())
+            ->count();
+        $outstandingTotal = Invoice::withSum('payments', 'amount')
+            ->where('status', '!=', 'paid')
+            ->get()
+            ->sum(function ($inv) {
+                $paid = (float) ($inv->payments_sum_amount ?? 0);
+                $bal = max(0, (float) $inv->amount - $paid);
+                return round($bal, 2);
+            });
         // Get patients who have treatments with costs or prescriptions
         $patients = Patient::where(function ($query) {
             $query->whereHas('treatments', function ($q) {
@@ -115,6 +134,12 @@ class InvoiceController extends Controller
             ],
             'invoices' => $invoices,
             'patients' => $patients,
+            'stats' => [
+                'payments_today' => $paymentsToday,
+                'payments_this_month' => $paymentsThisMonth,
+                'overdue_invoices' => $overdueCount,
+                'outstanding_total' => (float) $outstandingTotal,
+            ],
             'filters' => [
                 'search' => $search,
                 'status' => $status,
@@ -338,12 +363,17 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice)
     {
-        $invoice->load(['patient', 'treatment.prescriptions.medicine', 'prescription']);
+        $invoice->load(['patient', 'treatment.prescriptions.medicine', 'prescription', 'payments']);
+        $refunds = \App\Models\PaymentRefund::where('invoice_id', $invoice->id)
+            ->with(['refundedBy'])
+            ->orderByDesc('refunded_at')
+            ->get();
         return Inertia::render('Invoices/Show', [
             'auth' => [
                 'user' => auth()->user(),
             ],
-            'invoice' => $invoice
+            'invoice' => $invoice,
+            'refunds' => $refunds,
         ]);
     }
 
@@ -367,11 +397,324 @@ class InvoiceController extends Controller
     {
         $this->authorize('update', $invoice);
 
+        // Admin only: restrict marking invoices as paid
+        if (!auth()->user() || !auth()->user()->hasRole('admin')) {
+            abort(403, 'Only admins can mark invoices as paid.');
+        }
+
+        // Create a catch-up payment for any remaining balance
+        $paidTotal = (float) $invoice->payments()->sum('amount');
+        $remaining = max(0, (float) $invoice->amount - $paidTotal);
+        if ($remaining > 0) {
+            $invoice->payments()->create([
+                'amount' => $remaining,
+                'method' => 'manual_mark_paid',
+                'received_at' => Carbon::now(),
+                'reference' => 'Marked as paid',
+                'notes' => 'Auto-created to reconcile balance on mark as paid',
+                'received_by' => optional(request()->user())->id,
+            ]);
+        }
+
         $invoice->update([
             'status' => 'paid',
             'paid_at' => Carbon::now(),
         ]);
 
+        // Audit log
+        try {
+            \App\Models\AuditLog::create([
+                'user_id' => optional(request()->user())->id,
+                'action' => 'invoice.mark_paid',
+                'subject_type' => Invoice::class,
+                'subject_id' => $invoice->id,
+                'metadata' => [
+                    'remaining' => $remaining,
+                ],
+                'ip_address' => request()->ip(),
+                'user_agent' => (string) request()->header('User-Agent'),
+            ]);
+        } catch (\Throwable $e) {}
+
         return redirect()->route('invoices.index')->with('success', 'Invoice marked as paid.');
+    }
+
+    public function storePayment(Request $request, Invoice $invoice)
+    {
+        $this->authorize('update', $invoice);
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'method' => 'nullable|in:cash,card,mobile_money,bank_transfer',
+            'received_at' => 'nullable|date',
+            'reference' => 'nullable|string|max:191',
+            'notes' => 'nullable|string',
+        ]);
+
+        // Require active cash session for cash payments
+        if (($validated['method'] ?? null) === 'cash') {
+            $userId = optional($request->user())->id;
+            $session = $userId ? \App\Models\CashSession::activeForUser((int) $userId) : null;
+            if (!$session) {
+                return back()->withErrors(['method' => 'You must open a cash drawer session before recording a cash payment.']);
+            }
+        }
+
+        // Prevent overpayment: cap to remaining balance
+        $paidTotalBefore = (float) $invoice->payments()->sum('amount');
+        $remaining = max(0, (float) $invoice->amount - $paidTotalBefore);
+        if ($remaining <= 0) {
+            return back()->withErrors(['amount' => 'This invoice is already fully paid.']);
+        }
+        $amountToApply = min($remaining, (float) $validated['amount']);
+
+        $payment = $invoice->payments()->create([
+            'amount' => $amountToApply,
+            'method' => $validated['method'] ?? null,
+            'received_at' => $validated['received_at'] ?? now(),
+            'reference' => $validated['reference'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+            'received_by' => optional($request->user())->id,
+        ]);
+
+        // Audit log for payment
+        try {
+            \App\Models\AuditLog::create([
+                'user_id' => optional($request->user())->id,
+                'action' => 'payment.create',
+                'subject_type' => \App\Models\Payment::class,
+                'subject_id' => $payment->id,
+                'metadata' => [
+                    'invoice_id' => $invoice->id,
+                    'amount' => (float) $payment->amount,
+                    'method' => $payment->method,
+                ],
+                'ip_address' => $request->ip(),
+                'user_agent' => (string) $request->header('User-Agent'),
+            ]);
+        } catch (\Throwable $e) {}
+
+        // Log cash movement into active session (if any)
+        try {
+            $userId = optional($request->user())->id;
+            if ($userId) {
+                $session = \App\Models\CashSession::activeForUser((int) $userId);
+                \App\Models\CashMovement::create([
+                    'cash_session_id' => optional($session)->id,
+                    'type' => 'inflow',
+                    'method' => $payment->method,
+                    'amount' => (float) $payment->amount,
+                    'reason' => 'Invoice payment',
+                    'payment_id' => $payment->id,
+                    'created_by' => $userId,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to log cash movement for payment ID '.$payment->id.': '.$e->getMessage());
+        }
+
+        // Sync invoice status if fully paid
+        $invoice->refresh();
+        $paidTotal = (float) $invoice->payments()->sum('amount');
+        if ($paidTotal >= (float) $invoice->amount) {
+            $invoice->update(['status' => 'paid']);
+        }
+
+        // Attempt to email receipt (log driver is fine in dev)
+        try {
+            $invoice->loadMissing('patient');
+            if (optional($invoice->patient)->email) {
+                Mail::mailer('log')
+                    ->to($invoice->patient->email)
+                    ->queue(new PaymentReceiptMail($invoice->fresh(['patient','treatment.prescriptions.medicine','prescription.medicine','payments']), $payment));
+            }
+        } catch (\Throwable $e) {
+            // swallow mail errors to not block UX
+        }
+
+        $message = $amountToApply < (float) $validated['amount']
+            ? 'Payment recorded (excess removed as it exceeded balance).'
+            : 'Payment recorded.';
+        return back()->with('success', $message);
+    }
+
+    public function paymentReceipt(Invoice $invoice, \App\Models\Payment $payment)
+    {
+        $this->authorize('view', $invoice);
+        if ($payment->invoice_id !== $invoice->id) {
+            abort(404);
+        }
+
+        $invoice->load(['patient', 'treatment.prescriptions.medicine', 'prescription.medicine', 'payments']);
+        $payment->load('receivedBy');
+
+        // Compute previous and new balance around this payment
+        $paidBefore = (float) $invoice->payments
+            ->where('id', '<', $payment->id)
+            ->sum('amount');
+        $prevBalance = max(0, (float) $invoice->amount - $paidBefore);
+        $newBalance = max(0, $prevBalance - (float) $payment->amount);
+
+        $receiptUrl = route('invoices.payments.receipt', [$invoice->id, $payment->id]);
+
+        // Refund context for this payment
+        $refundedForPayment = (float) \App\Models\PaymentRefund::where('payment_id', $payment->id)->sum('amount');
+        $remainingForPayment = max(0, (float) $payment->amount - $refundedForPayment);
+
+        return view('invoices.payment-receipt', [
+            'invoice' => $invoice,
+            'payment' => $payment,
+            'prevBalance' => round($prevBalance, 2),
+            'newBalance' => round($newBalance, 2),
+            'receiptUrl' => $receiptUrl,
+            'refundedForPayment' => round($refundedForPayment, 2),
+            'remainingForPayment' => round($remainingForPayment, 2),
+        ]);
+    }
+
+    public function exportPayments()
+    {
+        $this->authorize('viewAny', Invoice::class);
+
+        $filename = 'payments-' . now()->format('Ymd_His') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['payment_id', 'invoice_id', 'patient', 'amount', 'method', 'received_at', 'reference', 'notes']);
+
+            \App\Models\Payment::with(['invoice.patient'])
+                ->orderByDesc('received_at')
+                ->chunk(1000, function ($payments) use ($out) {
+                    foreach ($payments as $p) {
+                        fputcsv($out, [
+                            $p->id,
+                            $p->invoice_id,
+                            optional(optional($p->invoice)->patient)->name,
+                            number_format((float) $p->amount, 2, '.', ''),
+                            $p->method,
+                            optional($p->received_at)->format('Y-m-d H:i:s'),
+                            $p->reference,
+                            $p->notes,
+                        ]);
+                    }
+                });
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function refundPayment(Request $request, Invoice $invoice, \App\Models\Payment $payment)
+    {
+        // Ensure user is allowed
+        $this->authorize('update', $invoice);
+        if (!auth()->user() || !auth()->user()->hasRole('admin')) {
+            abort(403, 'Only admins can issue refunds.');
+        }
+
+        // Ensure the payment belongs to the provided invoice
+        if ($payment->invoice_id !== $invoice->id) {
+            abort(404);
+        }
+
+        $data = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'reason' => 'required|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        // Enforce cutoff window (30 days since payment receipt)
+        if ($payment->received_at && \Carbon\Carbon::parse($payment->received_at)->lt(\Carbon\Carbon::now()->subDays(30))) {
+            return back()->withErrors(['amount' => 'Refund window has expired for this payment (30 days).']);
+        }
+
+        // Prevent over-refund: cap to remaining refundable on this payment and invoice
+        $refundedSoFar = (float) \App\Models\PaymentRefund::where('payment_id', $payment->id)->sum('amount');
+        $maxRefundable = max(0, (float) $payment->amount - $refundedSoFar);
+        $invoicePaid = (float) $invoice->payments()->sum('amount');
+        $invoiceRefunded = (float) \App\Models\PaymentRefund::where('invoice_id', $invoice->id)->sum('amount');
+        $invoiceRemainingRefundable = max(0, $invoicePaid - $invoiceRefunded);
+
+        $cap = min($maxRefundable, $invoiceRemainingRefundable);
+        if ((float) $data['amount'] > $cap + 0.0001) {
+            return back()->withErrors(['amount' => 'Refund exceeds remaining refundable amount for this payment/invoice.']);
+        }
+
+        $refund = \App\Models\PaymentRefund::create([
+            'invoice_id' => $invoice->id,
+            'payment_id' => $payment->id,
+            'amount' => (float) $data['amount'],
+            'reason' => $data['reason'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'refunded_at' => now(),
+            'refunded_by' => optional($request->user())->id,
+        ]);
+
+        // Enforce active session for cash refunds (original payment by cash)
+        if ($payment->method === 'cash') {
+            $userId = optional($request->user())->id;
+            $session = $userId ? \App\Models\CashSession::activeForUser((int) $userId) : null;
+            if (!$session) {
+                return back()->withErrors(['amount' => 'You must open a cash drawer session before issuing a cash refund.']);
+            }
+        }
+
+        // Audit log for refund
+        try {
+            \App\Models\AuditLog::create([
+                'user_id' => optional($request->user())->id,
+                'action' => 'refund.create',
+                'subject_type' => \App\Models\PaymentRefund::class,
+                'subject_id' => $refund->id,
+                'metadata' => [
+                    'invoice_id' => $invoice->id,
+                    'payment_id' => $payment->id,
+                    'amount' => (float) $refund->amount,
+                    'reason' => $refund->reason,
+                ],
+                'ip_address' => $request->ip(),
+                'user_agent' => (string) $request->header('User-Agent'),
+            ]);
+        } catch (\Throwable $e) {}
+
+        // Log refund as cash outflow in active session (if any)
+        try {
+            $userId = optional($request->user())->id;
+            if ($userId) {
+                $session = \App\Models\CashSession::activeForUser((int) $userId);
+                \App\Models\CashMovement::create([
+                    'cash_session_id' => optional($session)->id,
+                    'type' => 'outflow',
+                    'method' => $payment->method,
+                    'amount' => (float) $refund->amount,
+                    'reason' => 'Payment refund',
+                    'refund_id' => $refund->id,
+                    'created_by' => $userId,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to log cash movement for refund ID '.$refund->id.': '.$e->getMessage());
+        }
+
+        // Re-evaluate invoice status after refund
+        $paid = (float) $invoice->payments()->sum('amount');
+        $refunded = (float) \App\Models\PaymentRefund::where('invoice_id', $invoice->id)->sum('amount');
+        $netPaid = $paid - $refunded;
+        if ($netPaid <= 0) {
+            $invoice->update(['status' => 'pending']);
+        } elseif ($netPaid < (float) $invoice->amount) {
+            // Use 'pending' for partially paid to match allowed enum statuses
+            $invoice->update(['status' => 'pending']);
+        } else {
+            $invoice->update(['status' => 'paid']);
+        }
+
+        return back()->with('success', 'Refund recorded.');
     }
 }
