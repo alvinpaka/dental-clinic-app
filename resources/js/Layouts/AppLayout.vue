@@ -22,7 +22,17 @@ const props = defineProps<{
   title: string;
 }>();
 
-const page = usePage();
+interface PageProps {
+  auth: {
+    user: {
+      name: string;
+      email: string;
+    } | null;
+  };
+  [key: string]: any;
+}
+
+const page = usePage<PageProps>();
 
 usePage().props.jetstream ?? {}; // For Breeze dark mode compat
 
