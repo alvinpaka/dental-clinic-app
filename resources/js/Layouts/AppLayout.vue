@@ -63,19 +63,19 @@ const activeTab = computed(() => {
 <template>
   <div class="min-h-screen bg-background">
     <!-- Fixed Header -->
-    <nav class="fixed top-0 left-0 right-0 bg-primary text-primary-foreground shadow-lg z-50 border-b border-primary-foreground/10 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800">
+    <nav class="fixed top-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-cyan-600 text-primary-foreground shadow-lg z-50 border-b border-primary-foreground/10 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800">
       <div class="flex items-center justify-between px-4 py-3">
         <!-- Logo and Title Section -->
         <div class="flex items-center space-x-3">
           <!-- Logo/Icon -->
-          <div class="flex items-center justify-center w-10 h-10 bg-white/10 dark:bg-white/5 rounded-lg backdrop-blur-sm">
-            <i class="fas fa-tooth text-xl text-white dark:text-slate-200"></i>
+          <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-white/5 rounded-lg backdrop-blur-sm">
+            <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
           </div>
           <div>
             <Link href="/dashboard" class="text-2xl font-bold hover:text-white/90 dark:hover:text-slate-200 transition-colors">
-              DentalPro
+              Victoria Dental Care
             </Link>
-            <p class="text-xs text-primary-foreground/70 dark:text-slate-300 hidden sm:block">Professional Dental Care</p>
+            <p class="text-xs text-primary-foreground/70 dark:text-slate-300 hidden sm:block">You Smile We Smile</p>
           </div>
         </div>
 

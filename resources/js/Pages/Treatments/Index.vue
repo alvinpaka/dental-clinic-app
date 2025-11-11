@@ -278,20 +278,22 @@ const openEdit = (treatment: Treatment) => {
     alert('This treatment has an invoice and cannot be edited.');
     return;
   }
+  
   editingTreatment.value = treatment;
-  editForm.set({
-    patient_id: treatment.patient?.id || null,
-    procedure: treatment.procedure,
-    cost: treatment.cost.toString(),
-    notes: treatment.notes || '',
-    prescriptions: treatment.prescriptions?.map(pres => ({
-      id: pres.id,
-      medicine_id: pres.medicine_id,
-      dosage: pres.dosage,
-      quantity: pres.quantity,
-      prescription_amount: pres.prescription_amount,
-    })) || [],
-  });
+  
+  // Update the form fields directly
+  editForm.patient_id = treatment.patient?.id || null;
+  editForm.procedure = treatment.procedure;
+  editForm.cost = treatment.cost.toString();
+  editForm.notes = treatment.notes || '';
+  editForm.prescriptions = treatment.prescriptions?.map(pres => ({
+    id: pres.id,
+    medicine_id: pres.medicine_id,
+    dosage: pres.dosage,
+    quantity: pres.quantity,
+    prescription_amount: pres.prescription_amount,
+  })) || [];
+  
   isEditOpen.value = true;
 };
 

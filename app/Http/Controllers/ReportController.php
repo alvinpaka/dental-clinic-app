@@ -34,26 +34,36 @@ class ReportController extends Controller
         $now = Carbon::now();
         
         // Determine date range and grouping
+        $isSQLite = config('database.default') === 'sqlite';
+        
         switch ($period) {
             case 'daily':
                 $startDate = $now->copy()->subDays(30);
-                $groupBy = "DATE(created_at)";
+                $groupBy = $isSQLite 
+                    ? "strftime('%Y-%m-%d', created_at)" 
+                    : "DATE(created_at)";
                 $labelFormat = 'M d';
                 break;
             case 'weekly':
                 $startDate = $now->copy()->subWeeks(12);
-                $groupBy = "YEARWEEK(created_at, 1)";
+                $groupBy = $isSQLite
+                    ? "strftime('%Y-%W', created_at)"
+                    : "YEARWEEK(created_at, 1)";
                 $labelFormat = 'W';
                 break;
             case 'annually':
                 $startDate = $now->copy()->subYears(5);
-                $groupBy = "YEAR(created_at)";
+                $groupBy = $isSQLite
+                    ? "strftime('%Y', created_at)"
+                    : "YEAR(created_at)";
                 $labelFormat = 'Y';
                 break;
             case 'monthly':
             default:
                 $startDate = $now->copy()->subMonths(12);
-                $groupBy = "DATE_FORMAT(created_at, '%Y-%m')";
+                $groupBy = $isSQLite
+                    ? "strftime('%Y-%m', created_at)"
+                    : "DATE_FORMAT(created_at, '%Y-%m')";
                 $labelFormat = 'M Y';
                 break;
         }
