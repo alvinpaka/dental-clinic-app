@@ -104,19 +104,34 @@ class ConsentController extends Controller
                     $b64 = $raw;
                 }
                 $bin = base64_decode($b64);
-                $dir = 'public/consents/'.date('Y/m/d');
+                $dir = 'consents/'.date('Y/m/d');
                 $name = uniqid('sig_').'.png';
-                \Storage::put($dir.'/'.$name, $bin);
-                $signaturePath = 'storage/consents/'.date('Y/m/d').'/'.$name;
+                \Storage::disk('public')->put($dir.'/'.$name, $bin);
+                $signaturePath = 'storage/'.$dir.'/'.$name;
             } catch (\Throwable $e) {}
         }
+
+        $clinicName = config('app.name', 'DentalPro');
+        $user = $request->user();
+        $dentistName = null;
+        if ($user && method_exists($user, 'hasRole') && $user->hasRole('dentist')) {
+            $dentistName = $user->name;
+        }
+
+        $renderedBody = $this->renderConsentHtml($template->body, $patient, [
+            'clinic_name' => $clinicName,
+            'dentist_name' => $dentistName,
+            'signed_by_name' => $data['signed_by_name'],
+            'date' => now()->timezone(config('app.timezone'))->toDateString(),
+            'time' => now()->timezone(config('app.timezone'))->format('H:i'),
+        ]);
 
         $consent = Consent::create([
             'patient_id' => $patient->id,
             'template_id' => $template->id,
             'template_version' => $template->version,
             'title' => $template->title,
-            'content_snapshot' => $template->body,
+            'content_snapshot' => $renderedBody,
             'signed_by_name' => $data['signed_by_name'],
             'signed_by_user_id' => optional($request->user())->id,
             'signed_at' => now(),
@@ -150,12 +165,43 @@ class ConsentController extends Controller
             abort(404);
         }
         $signaturePath = $consent->signature_path ? public_path($consent->signature_path) : null;
+        $contentHtml = $this->renderConsentHtml($consent->content_snapshot ?? '', $patient, [
+            'clinic_name' => config('app.name', 'DentalPro'),
+            'signed_by_name' => $consent->signed_by_name,
+            'dentist_name' => optional($consent->signer)->name ?? null,
+            'date' => optional($consent->signed_at)->timezone(config('app.timezone'))?->toDateString(),
+            'time' => optional($consent->signed_at)->timezone(config('app.timezone'))?->format('H:i'),
+        ]);
         $pdf = Pdf::loadView('consents.pdf', [
             'patient' => $patient,
             'consent' => $consent,
             'signature_path' => $signaturePath,
+            'content_html' => $contentHtml,
         ])->setPaper('a4');
 
         return $pdf->download('consent-'.$patient->id.'-'.$consent->id.'.pdf');
+    }
+
+    protected function renderConsentHtml(string $body, Patient $patient, array $variables = []): string
+    {
+        $defaults = [
+            'patient_name' => $patient->name,
+            'patient_email' => $patient->email ?? '',
+            'date' => now()->timezone(config('app.timezone'))->toDateString(),
+            'time' => now()->timezone(config('app.timezone'))->format('H:i'),
+            'clinic_name' => config('app.name', 'DentalPro'),
+            'dentist_name' => '',
+            'appointment_date' => '',
+            'signed_by_name' => '',
+        ];
+
+        $vars = array_merge($defaults, array_filter($variables, fn ($value) => $value !== null));
+
+        $rendered = preg_replace_callback('/\{\{\s*(\w+)\s*\}\}/', function ($matches) use ($vars) {
+            $key = $matches[1];
+            return $vars[$key] ?? '';
+        }, $body);
+
+        return trim($rendered ?? '');
     }
 }

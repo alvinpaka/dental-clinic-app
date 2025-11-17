@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
@@ -143,5 +144,22 @@ class StaffController extends Controller
         $staff->delete();
 
         return back()->with('success', 'Staff member deleted successfully');
+    }
+
+    public function sendResetLink(Request $request, User $staff)
+    {
+        $this->authorize('update', $staff);
+
+        if (!$staff->email) {
+            return back()->with('error', 'User has no email address');
+        }
+
+        $status = Password::sendResetLink(['email' => $staff->email]);
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return back()->with('success', 'Password reset link sent to '.$staff->email);
+        }
+
+        return back()->with('error', __($status));
     }
 }

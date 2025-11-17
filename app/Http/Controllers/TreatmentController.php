@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Treatment;
 use App\Models\Patient;
+use App\Models\DentalMedicine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -28,13 +29,15 @@ class TreatmentController extends Controller
         }
 
         // Build query with filters and sorting
-        $query = Treatment::with(['patient:id,name,email', 'appointment', 'invoice.payments', 'prescriptions.medicine'])
+        $query = Treatment::with(['patient:id,name,email', 'appointment', 'invoice.payments', 'prescriptions.medicine', 'procedures'])
             ->latest('created_at');
 
         // Apply search filter
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
-                $q->where('procedure', 'like', "%{$search}%")
+                $q->whereHas('procedures', function ($qp) use ($search) {
+                      $qp->where('name', 'like', "%{$search}%");
+                  })
                   ->orWhereHas('patient', function ($q) use ($search) {
                       $q->where('name', 'like', "%{$search}%");
                   })
@@ -70,6 +73,11 @@ class TreatmentController extends Controller
                 $query->join('patients', 'treatments.patient_id', '=', 'patients.id')
                       ->orderBy('patients.name', $sortOrder)
                       ->select('treatments.*');
+            } elseif ($sortBy === 'procedure') {
+                $query->join('treatment_procedures', 'treatment_procedures.treatment_id', '=', 'treatments.id')
+                      ->orderBy('treatment_procedures.name', $sortOrder)
+                      ->select('treatments.*')
+                      ->groupBy('treatments.id');
             } else {
                 $query->orderBy($sortBy, $sortOrder);
             }
@@ -77,6 +85,8 @@ class TreatmentController extends Controller
 
         // Paginate results
         $treatments = $query->paginate($perPage, ['*'], 'page', $page)->withQueryString();
+
+        $procedureTemplates = $this->getProcedureTemplates();
 
         return Inertia::render('Treatments/Index', [
             'auth' => [
@@ -103,29 +113,35 @@ class TreatmentController extends Controller
                 'sort_order' => $sortOrder,
             ],
             'patients' => Patient::select('id', 'name', 'email')->get(),
-            'medicines' => \App\Models\DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get(),
-            'appointmentTypes' => [
-                'Dental Cleaning',
-                'Tooth Extraction',
-                'Root Canal',
-                'Dental Filling',
-                'Dental Crown',
-                'Dental Bridge',
-                'Dental Implant',
-                'Teeth Whitening',
-                'Orthodontic Treatment',
-                'Periodontal Treatment',
-                'Dental X-Ray',
-                'Oral Surgery',
-                'Emergency Dental Care',
-                'Dental Consultation',
-            ],
+            'medicines' => DentalMedicine::select('medicine_id', 'medicine_name', 'category', 'dosage_form', 'prescription_required')->get(),
+            'procedureTemplates' => $procedureTemplates,
+            'appointmentTypes' => array_column($procedureTemplates, 'name'),
             'stats' => [
                 'total_treatments' => Treatment::count(),
                 'total_revenue' => Treatment::sum('cost'),
                 'this_month_treatments' => Treatment::whereMonth('created_at', now()->month)->count(),
             ],
         ]);
+    }
+
+    private function getProcedureTemplates(): array
+    {
+        return [
+            ['name' => 'Dental Cleaning', 'cost' => 60000],
+            ['name' => 'Tooth Extraction', 'cost' => 30000],
+            ['name' => 'Root Canal', 'cost' => 350000],
+            ['name' => 'Dental Filling', 'cost' => 90000],
+            ['name' => 'Dental Crown', 'cost' => 450000],
+            ['name' => 'Dental Bridge', 'cost' => 500000],
+            ['name' => 'Dental Implant', 'cost' => 2500000],
+            ['name' => 'Teeth Whitening', 'cost' => 300000],
+            ['name' => 'Orthodontic Treatment', 'cost' => 1500000],
+            ['name' => 'Periodontal Treatment', 'cost' => 200000],
+            ['name' => 'Dental X-Ray', 'cost' => 50000],
+            ['name' => 'Oral Surgery', 'cost' => 300000],
+            ['name' => 'Emergency Dental Care', 'cost' => 150000],
+            ['name' => 'Dental Consultation', 'cost' => 40000],
+        ];
     }
 
     public function show(Treatment $treatment)
@@ -141,91 +157,47 @@ class TreatmentController extends Controller
 
     public function store(Request $request)
     {
-        // Check if using new prescriptions array or old single fields
-        $hasPrescriptionsArray = $request->has('prescriptions') && is_array($request->prescriptions) && !empty($request->prescriptions);
-        
-        // NEW: Check for medications array from frontend
-        $hasMedicationsArray = $request->has('medications') && is_array($request->medications) && !empty($request->medications);
+        $validated = $request->validate([
+            'patient_id' => 'required|exists:patients,id',
+            'appointment_id' => 'nullable|exists:appointments,id',
+            'notes' => 'nullable|string',
+            'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
+            'procedures' => 'required|array|min:1',
+            'procedures.*.name' => 'required|string|max:255',
+            'procedures.*.cost' => 'required|numeric|min:0',
+            'prescriptions' => 'nullable|array',
+            'prescriptions.*.medicine_id' => 'nullable|exists:dental_medicines,medicine_id',
+            'prescriptions.*.medication' => 'nullable|string',
+            'prescriptions.*.dosage' => 'nullable|string',
+            'prescriptions.*.frequency' => 'nullable|string',
+            'prescriptions.*.duration' => 'nullable|string',
+            'prescriptions.*.prescription_amount' => 'nullable|numeric|min:0',
+            'prescriptions.*.prescription_issue_date' => 'nullable|date',
+            'prescriptions.*.prescription_expiry_date' => 'nullable|date',
+            'prescriptions.*.prescription_instructions' => 'nullable|string',
+            'prescriptions.*.max_refills' => 'nullable|integer|min:0',
+        ]);
 
-        if ($hasPrescriptionsArray) {
-            // New format: multiple prescriptions
-            $validated = $request->validate([
-                'patient_id' => 'required|exists:patients,id',
-                'appointment_id' => 'nullable|exists:appointments,id',
-                'procedure' => 'required|string',
-                'cost' => 'required|numeric|min:0',
-                'notes' => 'nullable|string',
-                'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
-                // Prescriptions as array
-                'prescriptions' => 'nullable|array',
-                'prescriptions.*.medicine_id' => 'nullable|exists:dental_medicines,medicine_id',
-                'prescriptions.*.medication' => 'nullable|string',
-                'prescriptions.*.dosage' => 'nullable|string',
-                'prescriptions.*.frequency' => 'nullable|string',
-                'prescriptions.*.duration' => 'nullable|string',
-                'prescriptions.*.prescription_amount' => 'nullable|numeric|min:0',
-                'prescriptions.*.prescription_issue_date' => 'nullable|date',
-                'prescriptions.*.prescription_expiry_date' => 'nullable|date',
-                'prescriptions.*.prescription_instructions' => 'nullable|string',
-                'prescriptions.*.max_refills' => 'nullable|integer|min:0',
+        $procedureRows = collect($validated['procedures'])
+            ->map(fn ($procedure) => [
+                'name' => $procedure['name'],
+                'cost' => $procedure['cost'],
             ]);
 
-            $prescriptionData = $validated['prescriptions'] ?? [];
-            unset($validated['prescriptions']);
-        } else if ($hasMedicationsArray) {
-            // Handle medications array from frontend
-            $validated = $request->validate([
-                'patient_id' => 'required|exists:patients,id',
-                'appointment_id' => 'nullable|exists:appointments,id',
-                'procedure' => 'required|string',
-                'cost' => 'required|numeric|min:0',
-                'notes' => 'nullable|string',
-                'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
-                'medications' => 'required|array',
-                'medications.*.medicine_id' => 'required|exists:dental_medicines,medicine_id',
-                'medications.*.cost' => 'required|numeric|min:0',
-            ]);
+        $validated['cost'] = $procedureRows->sum('cost');
 
-            $prescriptionData = [];
-            foreach ($validated['medications'] as $med) {
-                $prescriptionData[] = [
-                    'medicine_id' => $med['medicine_id'],
-                    'prescription_amount' => $med['cost'],
-                    'prescription_issue_date' => now()->toDateString(),
-                    'prescription_status' => 'active',
-                ];
-            }
-            unset($validated['medications']);
-        } else {
-            // Old format: validate without prescription fields
-            $validated = $request->validate([
-                'patient_id' => 'required|exists:patients,id',
-                'appointment_id' => 'nullable|exists:appointments,id',
-                'procedure' => 'required|string',
-                'cost' => 'required|numeric|min:0',
-                'notes' => 'nullable|string',
-                'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
-            ]);
-
-            // Check for old prescription fields and build a single prescription
-            $prescriptionFields = ['medicine_id', 'medication', 'dosage', 'frequency', 'duration', 'prescription_amount', 'prescription_issue_date', 'prescription_expiry_date', 'prescription_instructions', 'max_refills'];
-            $prescriptionData = [];
-            $singlePrescription = [];
-            foreach ($prescriptionFields as $field) {
-                if ($request->has($field)) {
-                    $singlePrescription[$field] = $request->input($field);
-                }
-            }
-            if (!empty($singlePrescription)) {
-                $prescriptionData[] = $singlePrescription;
-            }
-        }
+        $prescriptionData = $validated['prescriptions'] ?? [];
+        unset($validated['procedures'], $validated['prescriptions']);
 
         if ($request->hasFile('file')) {
             $validated['file_path'] = $request->file('file')->store('treatments', 'public');
         }
 
         $treatment = Treatment::create($validated);
+
+        foreach ($procedureRows as $procedure) {
+            $treatment->procedures()->create($procedure);
+        }
 
         // Create prescriptions
         foreach ($prescriptionData as $prescription) {
@@ -246,104 +218,41 @@ class TreatmentController extends Controller
             return redirect()->route('treatments.index')->with('error', 'This treatment has an invoice and cannot be edited.');
         }
 
-        // Check if using new prescriptions array or old single fields
-        $hasPrescriptionsArray = $request->has('prescriptions') && is_array($request->prescriptions);
-        
-        // NEW: Check for medications array from frontend
-        $hasMedicationsArray = $request->has('medications') && is_array($request->medications);
+        $validated = $request->validate([
+            'patient_id' => 'required|exists:patients,id',
+            'appointment_id' => 'nullable|exists:appointments,id',
+            'notes' => 'nullable|string',
+            'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
+            'procedures' => 'required|array|min:1',
+            'procedures.*.id' => 'nullable|exists:treatment_procedures,id',
+            'procedures.*.name' => 'required|string|max:255',
+            'procedures.*.cost' => 'required|numeric|min:0',
+            'prescriptions' => 'nullable|array',
+            'prescriptions.*.id' => 'nullable|exists:prescriptions,id',
+            'prescriptions.*.medicine_id' => 'nullable|exists:dental_medicines,medicine_id',
+            'prescriptions.*.medication' => 'nullable|string',
+            'prescriptions.*.dosage' => 'nullable|string',
+            'prescriptions.*.frequency' => 'nullable|string',
+            'prescriptions.*.duration' => 'nullable|string',
+            'prescriptions.*.prescription_amount' => 'nullable|numeric|min:0',
+            'prescriptions.*.prescription_issue_date' => 'nullable|date',
+            'prescriptions.*.prescription_expiry_date' => 'nullable|date',
+            'prescriptions.*.prescription_instructions' => 'nullable|string',
+            'prescriptions.*.max_refills' => 'nullable|integer|min:0',
+            'prescriptions.*.prescription_status' => 'nullable|in:active,completed,expired,cancelled',
+        ]);
 
-        if ($hasPrescriptionsArray) {
-            // New format: multiple prescriptions
-            $validated = $request->validate([
-                'patient_id' => 'required|exists:patients,id',
-                'appointment_id' => 'nullable|exists:appointments,id',
-                'procedure' => 'required|string',
-                'cost' => 'required|numeric|min:0',
-                'notes' => 'nullable|string',
-                'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
-                // Prescriptions as array
-                'prescriptions' => 'nullable|array',
-                'prescriptions.*.id' => 'nullable|exists:prescriptions,id',
-                'prescriptions.*.medicine_id' => 'nullable|exists:dental_medicines,medicine_id',
-                'prescriptions.*.medication' => 'nullable|string',
-                'prescriptions.*.dosage' => 'nullable|string',
-                'prescriptions.*.frequency' => 'nullable|string',
-                'prescriptions.*.duration' => 'nullable|string',
-                'prescriptions.*.prescription_amount' => 'nullable|numeric|min:0',
-                'prescriptions.*.prescription_issue_date' => 'nullable|date',
-                'prescriptions.*.prescription_expiry_date' => 'nullable|date',
-                'prescriptions.*.prescription_instructions' => 'nullable|string',
-                'prescriptions.*.max_refills' => 'nullable|integer|min:0',
-                'prescriptions.*.prescription_status' => 'nullable|in:active,completed,expired,cancelled',
-            ]);
-        } else if ($hasMedicationsArray) {
-            // Handle medications array from frontend
-            $validated = $request->validate([
-                'patient_id' => 'required|exists:patients,id',
-                'appointment_id' => 'nullable|exists:appointments,id',
-                'procedure' => 'required|string',
-                'cost' => 'required|numeric|min:0',
-                'notes' => 'nullable|string',
-                'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
-                'medications' => 'required|array',
-                'medications.*.id' => 'nullable|exists:prescriptions,id',
-                'medications.*.medicine_id' => 'required|exists:dental_medicines,medicine_id',
-                'medications.*.cost' => 'required|numeric|min:0',
+        $procedureRows = collect($validated['procedures'])
+            ->map(fn ($procedure) => [
+                'id' => $procedure['id'] ?? null,
+                'name' => $procedure['name'],
+                'cost' => $procedure['cost'],
             ]);
 
-            $prescriptionData = [];
-            foreach ($validated['medications'] as $med) {
-                $prescription = [
-                    'medicine_id' => $med['medicine_id'],
-                    'prescription_amount' => $med['cost'],
-                ];
-                
-                if (isset($med['id'])) {
-                    $prescription['id'] = $med['id'];
-                }
-                
-                $prescriptionData[] = $prescription;
-            }
-            $validated['prescriptions'] = $prescriptionData;
-            unset($validated['medications']);
-        } else {
-            // Old format: single prescription fields, convert to prescriptions array
-            $validated = $request->validate([
-                'patient_id' => 'required|exists:patients,id',
-                'appointment_id' => 'nullable|exists:appointments,id',
-                'procedure' => 'required|string',
-                'cost' => 'required|numeric|min:0',
-                'notes' => 'nullable|string',
-                'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
-                // Single prescription fields
-                'medicine_id' => 'nullable|exists:dental_medicines,medicine_id',
-                'medication' => 'nullable|string',
-                'dosage' => 'nullable|string',
-                'frequency' => 'nullable|string',
-                'duration' => 'nullable|string',
-                'prescription_amount' => 'nullable|numeric|min:0',
-                'prescription_issue_date' => 'nullable|date',
-                'prescription_expiry_date' => 'nullable|date',
-                'prescription_instructions' => 'nullable|string',
-                'max_refills' => 'nullable|integer|min:0',
-                'prescription_status' => 'nullable|in:active,completed,expired,cancelled',
-            ]);
+        $validated['cost'] = $procedureRows->sum('cost');
 
-            // Convert to prescriptions array
-            $prescriptionFields = ['id', 'medicine_id', 'medication', 'dosage', 'frequency', 'duration', 'prescription_amount', 'prescription_issue_date', 'prescription_expiry_date', 'prescription_instructions', 'max_refills', 'prescription_status'];
-            $prescriptionData = [];
-            foreach ($prescriptionFields as $field) {
-                if (isset($validated[$field])) {
-                    $prescriptionData[$field] = $validated[$field];
-                    unset($validated[$field]);
-                }
-            }
-            if (!empty($prescriptionData)) {
-                $validated['prescriptions'] = [$prescriptionData];
-            } else {
-                $validated['prescriptions'] = [];
-            }
-        }
+        $prescriptionData = $validated['prescriptions'] ?? [];
+        unset($validated['procedures'], $validated['prescriptions']);
 
         if ($request->hasFile('file')) {
             // Delete old file if exists
@@ -353,11 +262,31 @@ class TreatmentController extends Controller
             $validated['file_path'] = $request->file('file')->store('treatments', 'public');
         }
 
-        // Remove prescriptions from validated for treatment update
-        $prescriptionData = $validated['prescriptions'] ?? [];
-        unset($validated['prescriptions']);
-
         $treatment->update($validated);
+
+        $existingProcedureIds = $treatment->procedures()->pluck('id')->toArray();
+        $updatedProcedureIds = [];
+
+        foreach ($procedureRows as $procedure) {
+            if ($procedure['id'] && in_array($procedure['id'], $existingProcedureIds)) {
+                $treatment->procedures()->where('id', $procedure['id'])->update([
+                    'name' => $procedure['name'],
+                    'cost' => $procedure['cost'],
+                ]);
+                $updatedProcedureIds[] = $procedure['id'];
+            } else {
+                $newProcedure = $treatment->procedures()->create([
+                    'name' => $procedure['name'],
+                    'cost' => $procedure['cost'],
+                ]);
+                $updatedProcedureIds[] = $newProcedure->id;
+            }
+        }
+
+        $toDeleteProcedures = array_diff($existingProcedureIds, $updatedProcedureIds);
+        if (! empty($toDeleteProcedures)) {
+            $treatment->procedures()->whereIn('id', $toDeleteProcedures)->delete();
+        }
 
         // Handle prescriptions: update existing, create new, delete removed
         $existingIds = $treatment->prescriptions()->pluck('id')->toArray();

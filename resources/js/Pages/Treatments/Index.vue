@@ -3,12 +3,14 @@ import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { formatUGX } from '@/Composables/useCurrency';
 import { route } from 'ziggy-js';
 import { ref, computed, watch } from 'vue';
+import debounce from 'lodash.debounce';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
+import { AlertCircle } from 'lucide-vue-next';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Plus, Search, MoreVertical, Stethoscope, FileText, Calendar, Upload, Receipt } from 'lucide-vue-next';
@@ -20,6 +22,11 @@ interface Patient {
   id: number;
   name: string;
   email: string;
+}
+
+interface ProcedureEntry {
+  name: string;
+  cost: number | '';
 }
 
 interface Treatment {
@@ -79,7 +86,14 @@ interface Props {
   auth: { user: { id: number; name: string } | null };
   treatments: {
     data: Treatment[];
-    meta?: PaginationMeta;
+    meta: {
+      current_page: number;
+      last_page: number;
+      per_page: number;
+      total: number;
+      from: number;
+      to: number;
+    };
   };
   patients: Patient[];
   stats?: {
@@ -90,6 +104,7 @@ interface Props {
   appointmentTypes: string[];
   medicines: DentalMedicine[];
   filters?: Filters;
+  procedureTemplates?: Array<{ name: string; cost: number }>;
 }
 
 const props = defineProps<Props>();
@@ -115,8 +130,13 @@ if (props.filters) {
 }
 
 // Computed properties
-const totalTreatments = computed(() => props.treatments?.meta?.total ?? props.treatments?.data.length ?? 0);
-const lastPage = computed(() => props.treatments?.meta?.last_page ?? 1);
+const totalTreatments = computed(() => props.treatments.meta?.total ?? 0);
+const lastPage = computed(() => props.treatments.meta?.last_page ?? 1);
+
+const templateCostMap = computed<Record<string, number>>(() => {
+  const entries = (props.procedureTemplates || []).map((template) => [template.name, Number(template.cost) || 0]);
+  return Object.fromEntries(entries);
+});
 
 const paginationLinks = computed(() => {
   const links: Array<{ url: string | null; label: string; active: boolean }> = [];
@@ -146,21 +166,126 @@ const paginationLinks = computed(() => {
     label: 'Next &raquo;',
     active: current === last,
   });
-
-  console.log('Generated Pagination Links:', links); // Debug
+  
   return links;
 });
+
+const patientSearchQuery = ref("")
+
+const filteredPatientsForSelect = computed(() => {
+  const query = patientSearchQuery.value.trim().toLowerCase()
+  const patients = Array.isArray(props.patients) ? props.patients : []
+
+  if (!query) {
+    return patients
+  }
+
+  return patients.filter((patient) => {
+    const parts = [
+      patient.id,
+      patient.name,
+      patient.email,
+      (patient as any).phone,
+      `${patient.name ?? ""} ${(patient as any).phone ?? ""}`,
+    ]
+
+    return parts.some((part) => {
+      if (part === undefined || part === null) {
+        return false
+      }
+      return String(part).toLowerCase().includes(query)
+    })
+  })
+})
+
+const ensureCreateProcedureRow = () => {
+  if (!Array.isArray(createForm.procedures) || createForm.procedures.length === 0) {
+    createForm.procedures = [{ name: '', cost: 0 }]
+  }
+}
+
+const ensureEditProcedureRow = () => {
+  if (!Array.isArray(editForm.procedures) || editForm.procedures.length === 0) {
+    editForm.procedures = [{ name: '', cost: 0 }]
+  }
+}
+
+const addProcedureRow = () => {
+  createForm.procedures.push({ name: '', cost: 0 })
+}
+
+const addEditProcedureRow = () => {
+  editForm.procedures.push({ name: '', cost: 0 })
+}
+
+const updateCreateProcedureField = (index: number, field: keyof ProcedureEntry, value: any) => {
+  const next = { ...createForm.procedures[index], [field]: value } as ProcedureEntry
+  if (field === 'name') {
+    const cost = templateCostMap.value[value]
+    if (typeof cost === 'number' && !Number.isNaN(cost)) {
+      next.cost = cost
+    }
+  }
+  createForm.procedures.splice(index, 1, next)
+}
+
+const updateEditProcedureField = (index: number, field: keyof ProcedureEntry, value: any) => {
+  const next = { ...editForm.procedures[index], [field]: value } as ProcedureEntry
+  if (field === 'name') {
+    const cost = templateCostMap.value[value]
+    if (typeof cost === 'number' && !Number.isNaN(cost)) {
+      next.cost = cost
+    }
+  }
+  editForm.procedures.splice(index, 1, next)
+}
+
+const removeProcedureRow = (index: number) => {
+  if (createForm.procedures.length === 1) {
+    createForm.procedures[0] = { name: '', cost: 0 }
+    return
+  }
+  createForm.procedures.splice(index, 1)
+}
+
+const removeEditProcedureRow = (index: number) => {
+  if (editForm.procedures.length === 1) {
+    editForm.procedures[0] = { name: '', cost: 0 }
+    return
+  }
+  editForm.procedures.splice(index, 1)
+}
+
+const createProceduresTotal = computed(() => {
+  return (createForm.procedures || []).reduce((sum, entry) => {
+    const value = Number(entry.cost)
+    return sum + (Number.isFinite(value) ? value : 0)
+  }, 0)
+})
+
+const editProceduresTotal = computed(() => {
+  return (editForm.procedures || []).reduce((sum, entry) => {
+    const value = Number(entry.cost)
+    return sum + (Number.isFinite(value) ? value : 0)
+  }, 0)
+})
+
 
 const filteredTreatments = computed(() => {
   let treatments = [...(props.treatments?.data || [])];
 
   // Apply search filter
   if (searchQuery.value) {
-    treatments = treatments.filter(treatment =>
-      [treatment.procedure, treatment.patient?.name, treatment.notes]
-        .some(field => field?.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
-      treatment.prescriptions?.some(pres => pres.medicine_id?.toString().includes(searchQuery.value.toLowerCase()))
-    );
+    treatments = treatments.filter(treatment => {
+      const matchesProcedures = (treatment as any).procedures?.some((procedure: any) =>
+        procedure?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      )
+      const matchesPatient = treatment.patient?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      const matchesNotes = treatment.notes?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      const matchesPrescriptions = treatment.prescriptions?.some(pres => pres.medicine_id?.toString().includes(searchQuery.value.toLowerCase()))
+
+      return matchesProcedures || matchesPatient || matchesNotes || matchesPrescriptions
+    });
   }
 
   // Apply patient filter
@@ -181,8 +306,8 @@ const filteredTreatments = computed(() => {
 
     switch (key) {
       case 'procedure':
-        aValue = a.procedure.toLowerCase();
-        bValue = b.procedure.toLowerCase();
+        aValue = ((a as any).procedures?.[0]?.name || '').toLowerCase();
+        bValue = ((b as any).procedures?.[0]?.name || '').toLowerCase();
         break;
       case 'cost':
         aValue = a.cost;
@@ -207,7 +332,6 @@ const filteredTreatments = computed(() => {
 
 const paginationSummary = computed(() => {
   const meta = props.treatments?.meta;
-  console.log('Pagination Meta:', meta); // Debug
   if (meta) {
     return { from: meta.from ?? 0, to: meta.to ?? 0, total: meta.total ?? totalTreatments.value };
   }
@@ -215,22 +339,81 @@ const paginationSummary = computed(() => {
   return { from: count ? 1 : 0, to: count, total: totalTreatments.value };
 });
 
-// Watchers
-watch([searchQuery, filterPatient, filterInvoiceStatus, sortBy, sortOrder, listViewPerPage], () => {
-  currentPage.value = 1; // Reset to page 1 on filter change
-  router.post(route('treatments.index'), {
-    page: currentPage.value,
-    per_page: Number(listViewPerPage.value),
-    search: searchQuery.value,
-    patient: filterPatient.value,
-    invoice_status: filterInvoiceStatus.value,
-    sort_by: sortBy.value,
-    sort_order: sortOrder.value,
-  }, {
+const buildFiltersPayload = () => ({
+  page: currentPage.value,
+  per_page: Number(listViewPerPage.value),
+  search: searchQuery.value,
+  patient: filterPatient.value,
+  invoice_status: filterInvoiceStatus.value,
+  sort_by: sortBy.value,
+  sort_order: sortOrder.value,
+});
+
+const fetchTreatments = (overrides: Partial<Filters> = {}, { replace = true } = {}) => {
+  const payload = {
+    ...buildFiltersPayload(),
+    ...overrides,
+  };
+
+  const pageNumber = Number(payload.page);
+  if (Number.isFinite(pageNumber) && pageNumber > 0) {
+    currentPage.value = pageNumber;
+    payload.page = pageNumber;
+  } else {
+    payload.page = currentPage.value;
+  }
+
+  payload.per_page = Number(payload.per_page ?? Number(listViewPerPage.value));
+
+  router.get(route('treatments.index'), payload, {
     preserveState: true,
     preserveScroll: true,
-    replace: true,
+    replace,
+    only: ['treatments', 'filters'],
   });
+};
+
+const debouncedFetchTreatments = debounce((overrides: Partial<Filters> = {}) => {
+  fetchTreatments(overrides);
+}, 300);
+
+watch(listViewPerPage, (value, oldValue) => {
+  if (value === oldValue) return;
+  const perPage = Number(value);
+  if (!Number.isFinite(perPage) || perPage <= 0) return;
+
+  currentPage.value = 1;
+  fetchTreatments({ per_page: perPage, page: 1 });
+});
+
+watch(searchQuery, (value, oldValue) => {
+  if (value === oldValue) return;
+  currentPage.value = 1;
+  debouncedFetchTreatments({ search: value, page: 1 });
+});
+
+watch(filterPatient, (value, oldValue) => {
+  if (value === oldValue) return;
+  currentPage.value = 1;
+  debouncedFetchTreatments({ patient: value, page: 1 });
+});
+
+watch(filterInvoiceStatus, (value, oldValue) => {
+  if (value === oldValue) return;
+  currentPage.value = 1;
+  debouncedFetchTreatments({ invoice_status: value, page: 1 });
+});
+
+watch(sortBy, (value, oldValue) => {
+  if (value === oldValue) return;
+  currentPage.value = 1;
+  fetchTreatments({ sort_by: value, page: 1 });
+});
+
+watch(sortOrder, (value, oldValue) => {
+  if (value === oldValue) return;
+  currentPage.value = 1;
+  fetchTreatments({ sort_order: value, page: 1 });
 });
 
 watch(() => props.treatments?.meta?.per_page, (value) => {
@@ -261,21 +444,7 @@ const goToPage = (link: { url: string | null; label: string; active: boolean }) 
   }
 
   if (newPage >= 1 && newPage <= lastPage.value) {
-    // Use GET instead of POST for pagination
-    router.get(route('treatments.index'), {
-      page: newPage,
-      per_page: Number(listViewPerPage.value),
-      search: searchQuery.value,
-      patient: filterPatient.value,
-      invoice_status: filterInvoiceStatus.value,
-      sort_by: sortBy.value,
-      sort_order: sortOrder.value,
-    }, {
-      preserveState: true,
-      preserveScroll: true,
-      replace: true,
-      only: ['treatments', 'filters']
-    });
+    fetchTreatments({ page: newPage }, { replace: true });
   }
 };
 
@@ -283,19 +452,22 @@ const goToPage = (link: { url: string | null; label: string; active: boolean }) 
 const createForm = useForm({
   patient_id: null as number | null,
   appointment_id: null as number | null,
-  procedure: '',
   cost: 0,
   notes: '',
   file: null as File | null,
+  procedures: [
+    { name: '', cost: 0 } as ProcedureEntry,
+  ],
   prescriptions: [] as Array<{ id?: number | null; medicine_id: number | null; dosage: string; quantity: number; prescription_amount: number }>,
 });
 
 const editForm = useForm({
   patient_id: null as number | null,
-  procedure: '',
-  cost: '',
+  appointment_id: null as number | null,
+  cost: 0,
   notes: '',
   file: null as File | null,
+  procedures: [] as ProcedureEntry[],
   prescriptions: [] as Array<{ id?: number | null; medicine_id: number | null; dosage: string; quantity: number; prescription_amount: number }>,
 });
 
@@ -304,9 +476,28 @@ const isEditOpen = ref(false);
 const isDeleteOpen = ref(false);
 const isViewOpen = ref(false);
 const isPaymentOpen = ref(false);
+const showCashSessionDialog = ref(false);
+const showErrorDialog = ref(false);
 const editingTreatment = ref<Treatment | null>(null);
 const viewingTreatment = ref<Treatment | null>(null);
 const payingTreatment = ref<Treatment | null>(null);
+
+watch([isCreateOpen, isEditOpen], ([createOpen, editOpen]) => {
+  if (!createOpen && !editOpen) {
+    patientSearchQuery.value = ""
+  }
+})
+
+watch(patientSearchQuery, (newQuery) => {
+  if (!newQuery.trim()) {
+    if (isCreateOpen.value) {
+      createForm.patient_id = null
+    }
+    if (isEditOpen.value) {
+      editForm.patient_id = null
+    }
+  }
+})
 
 // Permissions: admin or receptionist can take payments
 const page = usePage<any>();
@@ -317,6 +508,11 @@ const canTakePayments = computed(() => {
 
 const openCreate = () => {
   isCreateOpen.value = true;
+  patientSearchQuery.value = ''
+  createForm.reset()
+  createForm.procedures = [{ name: '', cost: 0 }]
+  createForm.prescriptions = []
+  createForm.cost = 0
 };
 
 const openEdit = (treatment: Treatment) => {
@@ -329,8 +525,15 @@ const openEdit = (treatment: Treatment) => {
   // Reset form and set values directly
   editForm.reset();
   editForm.patient_id = treatment.patient?.id || null;
-  editForm.procedure = treatment.procedure;
-  editForm.cost = treatment.cost.toString();
+  editForm.procedures = (treatment as any).procedures?.length
+    ? (treatment as any).procedures.map((procedure: any) => ({
+        id: procedure.id,
+        name: procedure.name,
+        cost: Number(procedure.cost ?? 0),
+      }))
+    : [{ name: treatment.procedure || '', cost: Number(treatment.cost ?? 0) }];
+  ensureEditProcedureRow()
+  editForm.cost = editProceduresTotal.value;
   editForm.notes = treatment.notes || '';
   editForm.prescriptions = treatment.prescriptions?.map(pres => ({
     id: pres.id,
@@ -398,14 +601,18 @@ const submitPayment = async () => {
       const res = await fetch(route('cash-drawer.active'), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const data = await res.json();
       if (!data?.active) {
-        if (confirm('No active cash session. Open a session now?')) {
-          window.location.href = route('cash-drawer.index');
-          return;
-        }
-        return;
+        showCashSessionDialog.value = true;
+        return new Promise((resolve) => {
+          const unwatch = watch(showCashSessionDialog, (newVal) => {
+            if (!newVal) {
+              unwatch();
+              resolve(false);
+            }
+          });
+        });
       }
     } catch (e) {
-      alert('Unable to verify cash drawer status. Please open a cash session first.');
+      showErrorDialog.value = true;
       return;
     }
   }
@@ -420,15 +627,16 @@ const submitPayment = async () => {
 };
 
 const submitCreate = () => {
-  if (
-    !createForm.patient_id ||
-    !createForm.procedure ||
-    createForm.cost <= 0 ||
-    createForm.prescriptions.some(pres => !pres.medicine_id || !pres.dosage || (pres.quantity ?? 0) <= 0)
-  ) {
+  if (!createForm.patient_id) {
+    alert('Please select a patient.');
     alert('Please fill all required fields correctly.');
     return;
   }
+  if (!createForm.procedures.length || createProceduresTotal.value <= 0) {
+    alert('Add at least one procedure with a cost greater than zero.');
+    return;
+  }
+  createForm.cost = createProceduresTotal.value;
   createForm.post(route('treatments.store'), {
     forceFormData: true,
     onSuccess: () => {
@@ -440,15 +648,16 @@ const submitCreate = () => {
 
 const submitEdit = () => {
   // Client-side validation
-  if (
-    !editForm.patient_id ||
-    !editForm.procedure ||
-    parseFloat(editForm.cost) <= 0 ||
-    editForm.prescriptions.some(pres => !pres.medicine_id || !pres.dosage || (pres.quantity ?? 0) <= 0)
-  ) {
+  if (!editForm.patient_id) {
+    alert('Please select a patient.');
+    return;
+  }
+  if (!editForm.procedures.length || editProceduresTotal.value <= 0) {
+    alert('Add at least one procedure with a cost greater than zero.');
     alert('Please fill all required fields correctly.');
     return;
   }
+  editForm.cost = editProceduresTotal.value;
   
   if (editingTreatment.value) {
     editForm.put(route('treatments.update', editingTreatment.value.id), {
@@ -507,10 +716,17 @@ const getTreatmentIcon = (procedure: string) => {
 };
 
 
+const navigateToCashDrawer = () => {
+  window.location.href = route('cash-drawer.index');
+};
+
 const calculateTotalCost = (treatment: Treatment) => {
-  const baseCost = Number(treatment.cost) || 0;
-  const prescriptionsTotal = treatment.prescriptions?.reduce((sum, pres) => sum + (Number(pres.prescription_amount) || 0), 0) ?? 0;
-  return baseCost + prescriptionsTotal;
+  const procedureCost = Number(treatment.cost) || 0;
+  const prescriptionCost = treatment.prescriptions?.reduce((total: number, prescription: any) => {
+    return total + (Number(prescription.prescription_amount) || 0);
+  }, 0) || 0;
+
+  return procedureCost + prescriptionCost;
 };
 </script>
 
@@ -634,14 +850,12 @@ const calculateTotalCost = (treatment: Treatment) => {
               <table class="w-full">
                 <thead class="bg-gray-50 dark:bg-gray-800">
                   <tr>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Patient</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Procedure</th>
-                    <!-- <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Prescriptions</th> -->
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Notes</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Date</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Status</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Total</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300">Actions</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">PATIENT</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">PROCEDURE & PRESCRIPTIONS</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">STATUS</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300">TOTAL COST</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">DATE</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -657,52 +871,77 @@ const calculateTotalCost = (treatment: Treatment) => {
                         </div>
                       </div>
                     </td>
-                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
-                      <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-teeth-open text-blue-400"></i>
-                        {{ treatment.procedure }}
-                      </div>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatUGX(treatment.cost) }}</p>
-                    </td>
-                    <!-- <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
-                      <div v-if="treatment.prescriptions?.length" class="space-y-1">
-                        <div v-for="prescription in treatment.prescriptions" :key="prescription.id || prescription.medicine_id" class="flex items-center gap-2">
-                          <i class="fas fa-pills text-blue-400"></i>
-                          <span>{{ prescription.medicine?.medicine_name || prescription.medicine_id }}</span>
-                          <span class="text-xs text-green-600 dark:text-green-400">{{ formatUGX(prescription.prescription_amount) }}</span>
+                    <td class="px-4 py-3">
+                      <div class="space-y-2">
+                        <!-- Procedure -->
+                        <div class="flex items-center gap-2">
+                          <span class="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+                            <i :class="[getTreatmentIcon(treatment.procedure), 'text-blue-500 dark:text-blue-300 text-xs']"></i>
+                          </span>
+                          <div class="font-medium text-gray-900 dark:text-white flex-1">{{ treatment.procedure || 'N/A' }}</div>
+                          <span class="text-sm font-medium text-blue-600 dark:text-blue-400">{{ formatUGX(treatment.cost) }}</span>
+                        </div>
+                        
+                        <!-- Prescriptions -->
+                        <div v-if="treatment.prescriptions?.length" class="pl-8 space-y-2">
+                          <div v-for="prescription in treatment.prescriptions" :key="prescription.id" class="flex items-center gap-2 text-sm">
+                            <span class="w-5 h-5 rounded-md bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                              <i class="fas fa-pills text-green-500 dark:text-green-400 text-xs"></i>
+                            </span>
+                            <span class="text-gray-700 dark:text-gray-300 flex-1">
+                              {{ prescription.medicine?.medicine_name || 'Prescription' }}
+                              <span v-if="prescription.dosage" class="text-xs text-gray-500 dark:text-gray-400">({{ prescription.dosage }})</span>
+                            </span>
+                            <span class="text-blue-600 dark:text-blue-400 font-medium">
+                              {{ formatUGX(Number(prescription.prescription_amount || 0)) }}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <span v-else class="text-gray-500 italic">None</span>
-                    </td> -->
-                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">{{ treatment.notes || '—' }}</td>
-                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
-                      <div class="flex items-center gap-2">
-                        <Calendar class="w-4 h-4 text-gray-400" />
-                        {{ treatment.created_at ? new Date(treatment.created_at).toLocaleDateString() : '—' }}
-                      </div>
                     </td>
+                    
+                    <!-- Status -->
                     <td class="px-4 py-3">
                       <Badge v-if="!treatment.invoice" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Not Invoiced</Badge>
                       <Badge v-else :class="{
                         'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400': treatment.invoice.payment_status === 'pending',
-                        'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400': treatment.invoice.payment_status === 'partial',
-                        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': treatment.invoice.payment_status === 'paid',
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': treatment.invoice.payment_status === 'partial',
+                        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': treatment.invoice.payment_status === 'paid'
                       }">
                         {{ treatment.invoice.payment_status === 'paid' ? 'Paid' : treatment.invoice.payment_status === 'partial' ? 'Partially Paid' : 'Pending' }}
+                        <template v-if="treatment.invoice.payment_status === 'paid' && treatment.invoice.amount_paid">
+                          : {{ formatUGX(treatment.invoice.amount_paid) }}
+                        </template>
+                        <template v-else-if="treatment.invoice.payment_status === 'partial' && treatment.invoice.amount_paid">
+                          : {{ formatUGX(treatment.invoice.amount_paid) }}
+                        </template>
                       </Badge>
                     </td>
-                    <td class="px-4 py-3 font-semibold">
-                      <div :class="[
-                        !treatment.invoice ? 'text-green-600 dark:text-green-400' :
-                        (treatment.invoice.payment_status === 'paid' ? 'text-green-600 dark:text-green-400' :
-                        treatment.invoice.payment_status === 'partial' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400')
-                      ]">
-                        {{ formatUGX(calculateTotalCost(treatment)) }}
+                    
+                    <!-- Total Cost -->
+                    <td class="px-4 py-3">
+                      <div class="text-right">
+                        <div class="text-base font-semibold text-blue-600 dark:text-blue-400">
+                          {{ formatUGX(calculateTotalCost(treatment)) }}
+                        </div>
+                        <div v-if="treatment.prescriptions?.length" class="text-xs text-gray-500 dark:text-gray-400">
+                          ({{ formatUGX(treatment.cost) }} + {{ formatUGX(treatment.prescriptions.reduce((sum, p) => sum + Number(p.prescription_amount || 0), 0)) }})
+                        </div>
                       </div>
-                      <div v-if="treatment.invoice" class="text-xs text-gray-600 dark:text-gray-400">
-                        <span>Paid: {{ formatUGX(Number(treatment.invoice.paid_total || 0)) }}</span>
-                        <span class="mx-1">•</span>
-                        <span>Due: {{ formatUGX(Number(treatment.invoice.balance || 0)) }}</span>
+                    </td>
+                    
+                    <!-- Date -->
+                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      <div class="flex flex-col gap-1">
+                        <div class="flex items-center gap-2">
+                          <Calendar class="w-4 h-4 text-gray-400" />
+                          {{ treatment.created_at ? new Date(treatment.created_at).toLocaleDateString() : '—' }}
+                        </div>
+                        <div v-if="treatment.invoice" class="text-xs text-gray-500 dark:text-gray-400">
+                          <span>Paid: {{ formatUGX(Number(treatment.invoice.paid_total || 0)) }}</span>
+                          <span class="mx-1">•</span>
+                          <span>Due: {{ formatUGX(Number(treatment.invoice.balance || 0)) }}</span>
+                        </div>
                       </div>
                     </td>
                     <td class="px-4 py-3 text-right" @click.stop>
@@ -795,7 +1034,7 @@ const calculateTotalCost = (treatment: Treatment) => {
       </div>
 
       <!-- Modals -->
-      <Dialog v-model:open="isCreateOpen">
+      <Dialog :open="isCreateOpen" @update:open="val => isCreateOpen = val">
         <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Add New Treatment</DialogTitle>
@@ -807,30 +1046,90 @@ const calculateTotalCost = (treatment: Treatment) => {
               <Select v-model="createForm.patient_id">
                 <SelectTrigger><SelectValue placeholder="Select a patient" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="patient in props.patients" :key="patient.id" :value="patient.id">
-                    {{ patient.name }} ({{ patient.email }})
-                  </SelectItem>
+                  <div class="p-2">
+                    <Input
+                      v-model="patientSearchQuery"
+                      type="text"
+                      placeholder="Search patients..."
+                      class="h-9"
+                      autocomplete="off"
+                      @keydown.stop
+                      @keyup.stop
+                      @keypress.stop
+                    />
+                  </div>
+                  <template v-if="filteredPatientsForSelect.length">
+                    <SelectItem v-for="patient in filteredPatientsForSelect" :key="patient.id" :value="patient.id">
+                      {{ patient.name }} ({{ patient.email }})
+                    </SelectItem>
+                  </template>
+                  <div v-else class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                    No patients found.
+                  </div>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Procedure</Label>
-              <Select v-model="createForm.procedure">
-                <SelectTrigger><SelectValue placeholder="Select a procedure" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="type in props.appointmentTypes" :key="type" :value="type">{{ type }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Cost (UGX)</Label>
-              <Input v-model="createForm.cost" type="number" placeholder="0.00" step="0.01" min="0" required />
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <Label class="text-lg font-medium">Procedures</Label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Add one or more procedures for this treatment.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" @click="addProcedureRow">
+                  <Plus class="w-4 h-4 mr-2" />Add Procedure
+                </Button>
+              </div>
+
+              <div class="space-y-3">
+                <div
+                  v-for="(procedure, index) in createForm.procedures"
+                  :key="`create-procedure-${index}`"
+                  class="grid grid-cols-12 gap-3 items-end border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/40"
+                >
+                  <div class="col-span-7">
+                    <Label class="text-sm text-gray-600 dark:text-gray-300">Procedure</Label>
+                    <Select
+                      :model-value="procedure.name"
+                      @update:modelValue="(value) => updateCreateProcedureField(index, 'name', value)"
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select or enter procedure" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="type in props.appointmentTypes" :key="type" :value="type">{{ type }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                  </div>
+                  <div class="col-span-4">
+                    <Label class="text-sm text-gray-600 dark:text-gray-300">Cost (UGX)</Label>
+                    <Input
+                      :model-value="procedure.cost"
+                      type="number"
+                      placeholder="0.00"
+                      step="0.01"
+                      min="0"
+                      @update:modelValue="(value) => updateCreateProcedureField(index, 'cost', value === '' ? '' : Number(value))"
+                    />
+                  </div>
+                  <div class="col-span-1 flex items-center justify-end">
+                    <Button type="button" variant="ghost" size="icon" class="text-red-500" @click="removeProcedureRow(index)">
+                      <i class="fas fa-trash"></i>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-md px-3 py-2 text-sm">
+                <span class="font-medium text-gray-700 dark:text-gray-300">Total Cost</span>
+                <span class="font-semibold text-blue-600 dark:text-blue-400">{{ formatUGX(createProceduresTotal) }}</span>
+              </div>
             </div>
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <Label class="text-lg font-medium">Prescriptions</Label>
                 <Button type="button" variant="outline" size="sm" @click="createForm.prescriptions.push({ id: null, medicine_id: null, dosage: '', quantity: 1, prescription_amount: 0 })">
-                  <Plus class="w-4 h-4 mr-2" />Add
+                  <Plus class="w-4 h-4 mr-2" />Add Prescription
                 </Button>
               </div>
               <div v-for="(prescription, index) in createForm.prescriptions" :key="index" class="grid grid-cols-12 gap-2 items-end">
@@ -881,7 +1180,7 @@ const calculateTotalCost = (treatment: Treatment) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog v-model:open="isPaymentOpen">
+      <Dialog :open="isPaymentOpen" @update:open="val => isPaymentOpen = val">
         <DialogContent class="max-w-md">
           <DialogHeader>
             <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Record Payment</DialogTitle>
@@ -933,7 +1232,7 @@ const calculateTotalCost = (treatment: Treatment) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog v-model:open="isEditOpen">
+      <Dialog :open="isEditOpen" @update:open="val => isEditOpen = val">
         <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Edit Treatment</DialogTitle>
@@ -945,30 +1244,89 @@ const calculateTotalCost = (treatment: Treatment) => {
               <Select v-model="editForm.patient_id">
                 <SelectTrigger><SelectValue placeholder="Select a patient" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="patient in props.patients" :key="patient.id" :value="patient.id">
-                    {{ patient.name }} ({{ patient.email }})
-                  </SelectItem>
+                  <div class="p-2">
+                    <Input
+                      v-model="patientSearchQuery"
+                      type="text"
+                      placeholder="Search patients..."
+                      class="h-9"
+                      autocomplete="off"
+                      @keydown.stop
+                      @keyup.stop
+                      @keypress.stop
+                    />
+                  </div>
+                  <template v-if="filteredPatientsForSelect.length">
+                    <SelectItem v-for="patient in filteredPatientsForSelect" :key="patient.id" :value="patient.id">
+                      {{ patient.name }} ({{ patient.email }})
+                    </SelectItem>
+                  </template>
+                  <div v-else class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                    No patients found.
+                  </div>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Procedure</Label>
-              <Select v-model="editForm.procedure">
-                <SelectTrigger><SelectValue placeholder="Select a procedure" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="type in props.appointmentTypes" :key="type" :value="type">{{ type }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Cost (UGX)</Label>
-              <Input v-model="editForm.cost" type="number" placeholder="0.00" step="0.01" min="0" required />
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <Label class="text-lg font-medium">Procedures</Label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Update the procedures for this treatment.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" @click="addEditProcedureRow">
+                  <Plus class="w-4 h-4 mr-2" />Add Procedure
+                </Button>
+              </div>
+
+              <div class="space-y-3">
+                <div
+                  v-for="(procedure, index) in editForm.procedures"
+                  :key="`edit-procedure-${index}`"
+                  class="grid grid-cols-12 gap-3 items-end border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/40"
+                >
+                  <div class="col-span-7">
+                    <Label class="text-sm text-gray-600 dark:text-gray-300">Procedure</Label>
+                    <Select
+                      :model-value="procedure.name"
+                      @update:modelValue="(value) => updateEditProcedureField(index, 'name', value)"
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select or enter procedure" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="type in props.appointmentTypes" :key="type" :value="type">{{ type }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div class="col-span-4">
+                    <Label class="text-sm text-gray-600 dark:text-gray-300">Cost (UGX)</Label>
+                    <Input
+                      :model-value="procedure.cost"
+                      type="number"
+                      placeholder="0.00"
+                      step="0.01"
+                      min="0"
+                      @update:modelValue="(value) => updateEditProcedureField(index, 'cost', value === '' ? '' : Number(value))"
+                    />
+                  </div>
+                  <div class="col-span-1 flex items-center justify-end">
+                    <Button type="button" variant="ghost" size="icon" class="text-red-500" @click="removeEditProcedureRow(index)">
+                      <i class="fas fa-trash"></i>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-md px-3 py-2 text-sm">
+                <span class="font-medium text-gray-700 dark:text-gray-300">Total Cost</span>
+                <span class="font-semibold text-blue-600 dark:text-blue-400">{{ formatUGX(editProceduresTotal) }}</span>
+              </div>
             </div>
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <Label class="text-lg font-medium">Prescriptions</Label>
                 <Button type="button" variant="outline" size="sm" @click="editForm.prescriptions.push({ id: null, medicine_id: null, dosage: '', quantity: 0, prescription_amount: 0 })">
-                  <Plus class="w-4 h-4 mr-2" />Add
+                  <Plus class="w-4 h-4 mr-2" />Add Prescription
                 </Button>
               </div>
               <div v-for="(prescription, index) in editForm.prescriptions" :key="index" class="grid grid-cols-12 gap-2 items-end">
@@ -1020,7 +1378,7 @@ const calculateTotalCost = (treatment: Treatment) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog v-model:open="isDeleteOpen">
+      <Dialog :open="isDeleteOpen" @update:open="val => isDeleteOpen = val">
         <DialogContent class="max-w-md">
           <DialogHeader>
             <DialogTitle class="text-xl font-bold text-red-600">Delete Treatment</DialogTitle>
@@ -1037,23 +1395,54 @@ const calculateTotalCost = (treatment: Treatment) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog v-model:open="isViewOpen">
+      <Dialog :open="isViewOpen" @update:open="val => isViewOpen = val">
         <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Treatment Details</DialogTitle>
             <DialogDescription>View complete treatment information</DialogDescription>
           </DialogHeader>
           <div v-if="viewingTreatment" class="space-y-4">
-            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-start gap-4">
-              <div class="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
-                <i :class="[getTreatmentIcon(viewingTreatment.procedure), 'text-white text-lg']"></i>
+            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3">
+              <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
+                  <i :class="[getTreatmentIcon(((viewingTreatment as any).procedures?.[0]?.name || viewingTreatment.procedure || '')), 'text-white text-lg']"></i>
+                </div>
+                <div class="space-y-1">
+                  <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Treatment Procedures</h3>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">
+                    Recorded on: {{ viewingTreatment.created_at ? new Date(viewingTreatment.created_at).toLocaleString() : 'N/A' }}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p class="font-semibold text-gray-900 dark:text-white">{{ viewingTreatment.patient?.name || 'N/A' }}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Treatment ID: {{ viewingTreatment.id }}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                  Created: {{ viewingTreatment.created_at ? new Date(viewingTreatment.created_at).toLocaleDateString() : '—' }}
-                </p>
+
+              <div class="space-y-2">
+                <div
+                  v-if="(viewingTreatment as any).procedures?.length"
+                  class="space-y-2"
+                >
+                  <div
+                    v-for="(procedure, index) in (viewingTreatment as any).procedures"
+                    :key="`viewing-procedure-${index}`"
+                    class="flex items-center justify-between bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
+                        <i :class="[getTreatmentIcon(procedure.name || ''), 'text-blue-500 dark:text-blue-300']"></i>
+                      </span>
+                      <div>
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ procedure.name }}</p>
+                      </div>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ formatUGX(Number(procedure.cost || 0)) }}</span>
+                  </div>
+                </div>
+                <div v-else class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ viewingTreatment.procedure || 'No procedures recorded.' }}
+                </div>
+                <div class="flex items-center justify-between bg-gray-100 dark:bg-gray-700/60 rounded-md px-3 py-2 text-sm font-semibold">
+                  <span>Total Cost</span>
+                  <span class="text-blue-600 dark:text-blue-300">{{ formatUGX(Number(viewingTreatment.cost || 0)) }}</span>
+                </div>
               </div>
             </div>
             <div>
@@ -1176,6 +1565,55 @@ const calculateTotalCost = (treatment: Treatment) => {
           <DialogFooter>
             <Button variant="outline" @click="isViewOpen = false">Close</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Cash Session Required Dialog -->
+      <Dialog :open="showCashSessionDialog" @update:open="(val) => {
+        showCashSessionDialog = val;
+        if (!val) isPaymentOpen = false;
+      }">
+        <DialogContent class="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle class="text-lg font-semibold flex items-center gap-2">
+              <AlertCircle class="h-5 w-5 text-amber-500" />
+              Cash Session Required
+            </DialogTitle>
+            <DialogDescription class="pt-2">
+              You need to open a cash drawer session before processing cash payments.
+            </DialogDescription>
+          </DialogHeader>
+          <div class="flex justify-end gap-2 pt-4">
+            <Button variant="outline" @click="showCashSessionDialog = false">
+              Cancel
+            </Button>
+            <Button 
+              @click="navigateToCashDrawer"
+              class="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Open Cash Drawer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Error Dialog -->
+      <Dialog :open="showErrorDialog" @update:open="showErrorDialog = $event">
+        <DialogContent class="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle class="text-lg font-semibold flex items-center gap-2">
+              <AlertCircle class="h-5 w-5 text-red-500" />
+              Unable to Verify Cash Drawer
+            </DialogTitle>
+            <DialogDescription class="pt-2">
+              There was an error verifying the cash drawer status. Please open a cash session first.
+            </DialogDescription>
+          </DialogHeader>
+          <div class="flex justify-end gap-2 pt-4">
+            <Button @click="showErrorDialog = false">
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

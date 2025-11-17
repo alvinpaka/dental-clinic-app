@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Invoice;
+use App\Models\TreatmentProcedure;
 
 class Treatment extends Model
 {
@@ -13,7 +14,6 @@ class Treatment extends Model
     protected $fillable = [
         'patient_id',
         'appointment_id',
-        'procedure',
         'cost',
         'notes',
         'file_path',
@@ -31,6 +31,8 @@ class Treatment extends Model
         'prescription_status',
         'refill_count'
     ];
+
+    protected $appends = ['procedure'];
 
     public function patient()
     {
@@ -52,8 +54,25 @@ class Treatment extends Model
         return $this->hasMany(Prescription::class);
     }
 
+    public function procedures()
+    {
+        return $this->hasMany(TreatmentProcedure::class);
+    }
+
     public function invoice()
     {
         return $this->hasOne(Invoice::class);
+    }
+
+    public function getProcedureAttribute(): string
+    {
+        if (! $this->relationLoaded('procedures')) {
+            $this->load('procedures');
+        }
+
+        return $this->procedures
+            ->pluck('name')
+            ->filter()
+            ->implode(', ');
     }
 }

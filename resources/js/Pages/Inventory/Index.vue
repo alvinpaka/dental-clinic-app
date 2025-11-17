@@ -950,6 +950,14 @@ const confirmDelete = () => {
     <!-- View Item Modal -->
     <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
       <DialogContent class="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Inventory Item Details: {{ viewingItem?.name }}
+          </DialogTitle>
+          <DialogDescription class="text-gray-600 dark:text-gray-400">
+            Complete information about this inventory item.
+          </DialogDescription>
+        </DialogHeader>
         <div v-if="viewingItem" class="space-y-4">
           <!-- Basic Information -->
           <Card class="border-0 shadow-lg">
