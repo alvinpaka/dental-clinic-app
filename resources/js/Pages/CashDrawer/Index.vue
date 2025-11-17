@@ -51,14 +51,23 @@ const canManage = computed(() => {
   return Array.isArray(roles) && (roles.includes('admin') || roles.includes('receptionist'))
 })
 
-const openForm = useForm({ opening_amount: 0, notes: '' })
+// Initialize form with active session's data if available
+const openForm = useForm({ 
+  opening_amount: props.active_session?.opening_amount || 0, 
+  notes: props.active_session?.notes || '' 
+})
 const closeForm = useForm({ closing_amount: 0, notes: '' })
 const adjustForm = useForm({ type: 'inflow' as 'inflow'|'outflow', method: 'cash' as 'cash'|'card'|'mobile_money'|'bank_transfer', amount: 0, reason: '' })
 
 const openSession = () => {
-  if (openForm.opening_amount < 0) return alert('Opening amount must be >= 0')
+  if (openForm.opening_amount < 0) return// Store the opening amount in a variable before the form submission
+  const openingAmount = openForm.opening_amount
   openForm.post(route('cash-drawer.open'), {
-    onSuccess: () => router.reload(),
+    preserveScroll: true,
+    onSuccess: () => {
+      // The page will reload, and the form will be initialized with the active session's amount
+      router.reload()
+    },
     onError: (errors) => {
       const first = errors.opening_amount || errors.notes || Object.values(errors)[0]
       if (first) alert(String(first))
@@ -122,12 +131,26 @@ const net = computed(() => Number((props.totals && (props.totals as any).inflow)
             <div class="space-y-3">
               <div>
                 <Label>Opening Amount</Label>
-                <Input v-model.number="openForm.opening_amount" type="number" min="0" step="0.01" :disabled="!!props.active_session" />
+                <Input 
+                  v-model.number="openForm.opening_amount" 
+                  type="number" 
+                  min="0" 
+                  step="0.01" 
+                  :disabled="!!props.active_session"
+                  :class="{'bg-gray-100 dark:bg-gray-800': !!props.active_session}"
+                />
                 <div v-if="openForm.errors.opening_amount" class="text-red-600 text-xs mt-1">{{ openForm.errors.opening_amount }}</div>
+                <p v-if="props.active_session" class="text-xs text-gray-500 mt-1">
+                  Current session's opening amount
+                </p>
               </div>
               <div>
                 <Label>Notes</Label>
-                <Input v-model="openForm.notes" :disabled="!!props.active_session" />
+                <Input 
+                  v-model="openForm.notes" 
+                  :disabled="!!props.active_session" 
+                  :class="{'bg-gray-100 dark:bg-gray-800': !!props.active_session}"
+                />
                 <div v-if="openForm.errors.notes" class="text-red-600 text-xs mt-1">{{ openForm.errors.notes }}</div>
               </div>
               <Button class="bg-blue-600 hover:bg-blue-700" :disabled="openForm.processing || !!props.active_session || !canManage" @click="openSession">{{ openForm.processing ? 'Opening...' : 'Open Session' }}</Button>
@@ -152,7 +175,14 @@ const net = computed(() => Number((props.totals && (props.totals as any).inflow)
                 <Input v-model="closeForm.notes" :disabled="!props.active_session" />
                 <div v-if="closeForm.errors.notes" class="text-red-600 text-xs mt-1">{{ closeForm.errors.notes }}</div>
               </div>
-              <Button variant="destructive" :disabled="closeForm.processing || !props.active_session || !canManage" @click="closeSession">{{ closeForm.processing ? 'Closing...' : 'Close Session' }}</Button>
+              <Button 
+                variant="destructive" 
+                class="bg-red-600 hover:bg-red-700 text-white font-semibold" 
+                :disabled="closeForm.processing || !props.active_session || !canManage" 
+                @click="closeSession"
+              >
+                {{ closeForm.processing ? 'Closing...' : 'Close Session' }}
+              </Button>
             </div>
           </CardContent>
         </Card>

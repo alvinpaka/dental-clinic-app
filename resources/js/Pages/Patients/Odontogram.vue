@@ -95,16 +95,20 @@ const getToothForDisplay = (displayCode: string) => getTooth(toFdi(displayCode))
     <Head :title="`Odontogram - ${props.patient.name}`" />
 
     <div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Odontogram</h1>
+          <p class="text-gray-500 dark:text-gray-400">{{ props.patient.name }}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <Button variant="outline" @click="$inertia.visit(route('patients.show', props.patient.id))">
+            Back to Patient
+          </Button>
+        </div>
+      </div>
       <Card class="border-0 shadow-lg">
         <CardHeader>
-          <div class="flex items-center justify-between mb-2">
-            <Button variant="ghost" @click="$inertia.visit(route('patients.show', props.patient.id))">
-              <ArrowLeft class="mr-2 h-4 w-4" />
-              Back to Patient
-            </Button>
-          </div>
           <CardTitle class="flex items-center justify-between">
-            <span>Odontogram for {{ props.patient.name }}</span>
             <div class="flex items-center gap-3">
               <div class="hidden md:flex items-center gap-2">
                 <div v-for="key in statusOrder" :key="key" class="flex items-center gap-1 text-xs">
@@ -112,8 +116,8 @@ const getToothForDisplay = (displayCode: string) => getTooth(toFdi(displayCode))
                   <span class="text-gray-600 dark:text-gray-300">{{ statusMeta[key].label }}</span>
                 </div>
               </div>
-              <div>
-                <Label class="text-xs">Scheme</Label>
+              <div class="flex items-center gap-2">
+                <Label class="text-xs text-gray-600 dark:text-gray-300">Scheme</Label>
                 <Select v-model="scheme">
                   <SelectTrigger class="w-36 h-9">
                     <SelectValue placeholder="Select scheme" />

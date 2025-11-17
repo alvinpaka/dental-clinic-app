@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\DemoController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\AppointmentController;
@@ -19,8 +20,46 @@ use App\Http\Controllers\ClinicalNotesController;
 use App\Http\Controllers\CashSessionsAdminController;
 use App\Http\Controllers\ClinicalNoteTemplatesAdminController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
+
+// Public Demo scheduling page
+Route::get('/demo', [DemoController::class, 'index'])->name('demo');
+Route::post('/demo', [DemoController::class, 'store'])->name('demo.store');
+
+// Marketing pages
+Route::get('/features', function () {
+    return Inertia::render('Marketing/Features');
+})->name('features');
+
+Route::get('/pricing', function () {
+    return Inertia::render('Marketing/Pricing');
+})->name('pricing');
+
+Route::get('/about', function () {
+    return Inertia::render('Marketing/About');
+})->name('about');
+
+Route::get('/contact', function () {
+    return Inertia::render('Marketing/Contact');
+})->name('contact');
+
+Route::get('/careers', function () {
+    return Inertia::render('Marketing/Careers');
+})->name('careers');
+
+Route::get('/privacy', function () {
+    return Inertia::render('Marketing/Privacy');
+})->name('privacy');
+
+Route::get('/terms', function () {
+    return Inertia::render('Marketing/Terms');
+})->name('terms');
+
+Route::get('/security', function () {
+    return Inertia::render('Marketing/Security');
+})->name('security');
 
 // Auth routes (Breeze)
 require __DIR__.'/auth.php';
@@ -62,6 +101,10 @@ Route::middleware('auth')->group(function () {
     Route::put('staff/{staff}/update-roles', [StaffController::class, 'updateRoles'])
         ->middleware('can:update,staff')
         ->name('staff.update-roles');
+
+    Route::post('staff/{staff}/send-reset-link', [StaffController::class, 'sendResetLink'])
+        ->middleware('can:update,staff')
+        ->name('staff.send-reset-link');
 
     Route::resource('inventory', InventoryController::class)
         ->parameters(['inventory' => 'id'])

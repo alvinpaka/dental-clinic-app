@@ -235,13 +235,13 @@ const submit = () => {
                   </Label>
                 </div>
 
-                <Link
+                <a
                   v-if="canResetPassword"
                   :href="route('password.request')"
                   class="text-sm text-blue-600 hover:text-blue-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-medium"
                 >
                   Forgot password?
-                </Link>
+                </a>
               </div>
 
               <!-- Submit Button -->
@@ -255,8 +255,8 @@ const submit = () => {
                 {{ form.processing ? 'Signing in...' : 'Sign In' }}
               </Button>
 
-              <!-- Divider -->
-              <div class="relative my-6">
+              <!-- Divider (hidden) -->
+              <div class="relative my-6" v-if="false">
                 <div class="absolute inset-0 flex items-center">
                   <div class="w-full border-t border-gray-300 dark:border-gray-700"></div>
                 </div>
@@ -267,8 +267,8 @@ const submit = () => {
                 </div>
               </div>
 
-              <!-- Register Link -->
-              <div class="text-center">
+              <!-- Register Link (hidden) -->
+              <div class="text-center" v-if="false">
                 <Link
                   :href="route('register')"
                   class="text-blue-600 hover:text-blue-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-medium inline-flex items-center"

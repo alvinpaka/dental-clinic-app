@@ -2,6 +2,7 @@
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import { ref, computed, watch } from 'vue';
+import debounce from 'lodash.debounce';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -57,8 +58,8 @@ const props = defineProps<Props>();
 
 // State
 const searchQuery = ref('');
-const sortBy = ref('created_at');
-const sortOrder = ref('desc');
+const sortBy = ref('name');
+const sortOrder = ref('asc');
 const listViewPerPage = ref((props.patients?.meta?.per_page ?? 10).toString());
 const currentPage = ref(props.patients?.meta?.current_page ?? 1);
 const listPerPageOptions = [10, 20, 30, 50];
@@ -67,95 +68,80 @@ const listPerPageOptions = [10, 20, 30, 50];
 const totalPatients = computed(() => props.patients?.meta?.total ?? props.patients?.data.length ?? 0);
 const lastPage = computed(() => props.patients?.meta?.last_page ?? 1);
 
-const paginationLinks = computed(() => {
-  const links: Array<{ url: string | null; label: string; active: boolean }> = [];
-  const current = currentPage.value;
-  const last = lastPage.value;
+const patientsFromServer = computed(() => props.patients?.data ?? []);
 
-  // Previous link
-  links.push({
-    url: current > 1 ? '#' : null,
-    label: '&laquo; Previous',
-    active: current === 1,
-  });
-
-  // Page numbers (show current ± 2 pages)
-  const startPage = Math.max(1, current - 2);
-  const endPage = Math.min(last, current + 2);
-  for (let i = startPage; i <= endPage; i++) {
-    links.push({
-      url: i === current ? null : '#',
-      label: i.toString(),
-      active: i === current,
-    });
-  }
-
-  // Next link
-  links.push({
-    url: current < last ? '#' : null,
-    label: 'Next &raquo;',
-    active: current === last,
-  });
-
-  console.log('Generated Pagination Links:', links); // Debug
-  return links;
-});
+const paginationLinks = computed(() => props.patients?.meta?.links ?? []);
 
 const paginationSummary = computed(() => {
   const meta = props.patients?.meta;
-  console.log('Pagination Meta:', meta); // Debug
   if (meta) {
     return { from: meta.from ?? 0, to: meta.to ?? 0, total: meta.total ?? totalPatients.value };
   }
-  const count = filteredPatients.value.length;
+  const count = patientsFromServer.value.length;
   return { from: count ? 1 : 0, to: count, total: totalPatients.value };
 });
 
-const filteredPatients = computed(() => {
-  let patients = [...(props.patients?.data || [])];
-
-  // Apply search filter
-  if (searchQuery.value) {
-    patients = patients.filter(patient =>
-      patient.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      patient.email.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      patient.phone.includes(searchQuery.value.toLowerCase())
-    );
-  }
-
-  // Sort patients
-  patients.sort((a, b) => {
-    let aValue = a[sortBy.value as keyof Patient];
-    let bValue = b[sortBy.value as keyof Patient];
-
-    if (sortBy.value === 'name' || sortBy.value === 'email') {
-      aValue = aValue.toString().toLowerCase();
-      bValue = bValue.toString().toLowerCase();
-    } else if (sortBy.value === 'dob' || sortBy.value === 'created_at') {
-      aValue = new Date(aValue || 0).getTime();
-      bValue = new Date(bValue || 0).getTime();
-    }
-
-    return sortOrder.value === 'asc' ? (aValue < bValue ? -1 : 1) : (aValue < bValue ? 1 : -1);
-  });
-
-  return patients;
+const buildFiltersPayload = () => ({
+  page: currentPage.value,
+  per_page: Number(listViewPerPage.value),
+  search: searchQuery.value,
+  sort_by: sortBy.value,
+  sort_order: sortOrder.value,
 });
 
-// Watchers
-watch([searchQuery, sortBy, sortOrder, listViewPerPage], () => {
-  currentPage.value = 1; // Reset to page 1 on filter change
-  router.post(route('patients.index'), {
-    page: currentPage.value,
-    per_page: Number(listViewPerPage.value),
-    search: searchQuery.value,
-    sort_by: sortBy.value,
-    sort_order: sortOrder.value,
-  }, {
+const fetchPatients = (overrides: Partial<{ page: number; per_page: number; search: string; sort_by: string; sort_order: string }> = {}, { replace = true } = {}) => {
+  const payload = {
+    ...buildFiltersPayload(),
+    ...overrides,
+  };
+
+  const pageNumber = Number(payload.page);
+  if (Number.isFinite(pageNumber) && pageNumber > 0) {
+    currentPage.value = pageNumber;
+    payload.page = pageNumber;
+  } else {
+    payload.page = currentPage.value;
+  }
+
+  payload.per_page = Number(payload.per_page ?? Number(listViewPerPage.value));
+
+  router.get(route('patients.index'), payload, {
     preserveState: true,
     preserveScroll: true,
-    replace: true,
+    replace,
+    only: ['patients', 'filters']
   });
+};
+
+const debouncedFetchPatients = debounce((overrides = {}) => {
+  fetchPatients(overrides);
+}, 300);
+
+watch(listViewPerPage, (value, oldValue) => {
+  if (value === oldValue) return;
+  const perPage = Number(value);
+  if (!Number.isFinite(perPage) || perPage <= 0) return;
+
+  currentPage.value = 1;
+  fetchPatients({ per_page: perPage, page: 1 });
+});
+
+watch(searchQuery, (value, oldValue) => {
+  if (value === oldValue) return;
+  currentPage.value = 1;
+  debouncedFetchPatients({ search: value, page: 1 });
+});
+
+watch(sortBy, (value, oldValue) => {
+  if (value === oldValue) return;
+  currentPage.value = 1;
+  fetchPatients({ sort_by: value, page: 1 });
+});
+
+watch(sortOrder, (value, oldValue) => {
+  if (value === oldValue) return;
+  currentPage.value = 1;
+  fetchPatients({ sort_order: value, page: 1 });
 });
 
 watch(() => props.patients?.meta?.per_page, (value) => {
@@ -186,19 +172,7 @@ const goToPage = (link: { url: string | null; label: string; active: boolean }) 
   }
 
   if (newPage >= 1 && newPage <= lastPage.value) {
-    // Use GET instead of POST for pagination
-    router.get(route('patients.index'), {
-      page: newPage,
-      per_page: Number(listViewPerPage.value),
-      search: searchQuery.value,
-      sort_by: sortBy.value,
-      sort_order: sortOrder.value,
-    }, {
-      preserveState: true,
-      preserveScroll: true,
-      replace: true,
-      only: ['patients', 'filters']
-    });
+    fetchPatients({ page: newPage }, { replace: true });
   }
 };
 
@@ -251,8 +225,7 @@ const openDelete = (patient: Patient) => {
 };
 
 const openView = (patient: Patient) => {
-  viewingPatient.value = patient;
-  isViewOpen.value = true;
+  router.visit(route('patients.show', patient.id));
 };
 
 const submitCreate = () => {
@@ -542,7 +515,7 @@ watch(() => editForm.dob, (newDOB) => {
                   </thead>
                   <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
                     <tr
-                      v-for="patient in filteredPatients"
+                      v-for="patient in patientsFromServer"
                       :key="patient.id"
                       class="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer"
                       @click="openView(patient)"
@@ -609,7 +582,7 @@ watch(() => editForm.dob, (newDOB) => {
                         </div>
                       </td>
                     </tr>
-                    <tr v-if="filteredPatients.length === 0">
+                    <tr v-if="patientsFromServer.length === 0">
                       <td colspan="6" class="px-6 py-12 text-center">
                         <div class="flex flex-col items-center gap-4 text-gray-600 dark:text-gray-400">
                           <Users class="w-10 h-10 text-gray-400" />
@@ -655,7 +628,7 @@ watch(() => editForm.dob, (newDOB) => {
                 </div>
                 <div class="flex items-center gap-2">
                   <Label for="per-page" class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Per page:</Label>
-                  <Select v-model="listViewPerPage" @update:model-value="() => fetchPatients()">
+                  <Select v-model="listViewPerPage">
                     <SelectTrigger class="h-8 w-20">
                       <SelectValue />
                     </SelectTrigger>
