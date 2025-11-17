@@ -139,7 +139,7 @@ const iconMap: Record<string, string> = {
           <!-- Desktop Navigation -->
           <nav class="hidden md:flex items-center space-x-8">
             <a href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Features</a>
-            <a href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Pricing</a>
+            <!-- <a href="/pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Pricing</a> -->
             <a href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Testimonials</a>
           </nav>
 
@@ -152,7 +152,8 @@ const iconMap: Record<string, string> = {
               <Link href="/login">Login</Link>
             </Button>
             
-            <Button class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hidden md:inline-flex" as-child>
+            <!-- Signup button (hidden) -->
+            <Button v-if="false" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hidden md:inline-flex" as-child>
               <Link href="/register" class="flex items-center">
                 Get Started
                 <i class="fas fa-arrow-right ml-2"></i>
@@ -169,12 +170,13 @@ const iconMap: Record<string, string> = {
         <div v-if="mobileMenuOpen" class="md:hidden mt-4 py-4 border-t border-gray-200 dark:border-gray-800">
           <nav class="flex flex-col space-y-4">
             <a href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Features</a>
-            <a href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Pricing</a>
+            <a href="/pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Pricing</a>
             <a href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Testimonials</a>
             <Button variant="outline" class="w-full" as-child>
               <Link href="/login">Login</Link>
             </Button>
-            <Button class="w-full bg-gradient-to-r from-blue-600 to-cyan-600" as-child>
+            <!-- Mobile signup button (hidden) -->
+            <Button v-if="false" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600" as-child>
               <Link href="/register">Get Started</Link>
             </Button>
           </nav>
@@ -204,7 +206,8 @@ const iconMap: Record<string, string> = {
         </p>
 
         <div class="flex flex-col sm:flex-row justify-center gap-4 mb-16">
-          <Button size="lg" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 group text-lg px-8 py-6" as-child>
+          <!-- Hero signup CTA (hidden) -->
+          <Button v-if="false" size="lg" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 group text-lg px-8 py-6" as-child>
             <Link href="/register" class="flex items-center">
               Start Free Trial
               <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
@@ -320,7 +323,8 @@ const iconMap: Record<string, string> = {
               Join thousands of dental professionals who trust our platform to streamline operations and focus on patient care.
             </p>
             <div class="flex flex-col sm:flex-row justify-center gap-4">
-              <Button size="lg" class="bg-white text-blue-600 hover:bg-gray-100 shadow-xl text-lg px-8 py-6" as-child>
+              <!-- Bottom CTA signup (hidden) -->
+              <Button v-if="false" size="lg" class="bg-white text-blue-600 hover:bg-gray-100 shadow-xl text-lg px-8 py-6" as-child>
                 <Link href="/register" class="flex items-center">
                   Start Free Trial
                   <i class="fas fa-arrow-right ml-2"></i>
@@ -342,8 +346,8 @@ const iconMap: Record<string, string> = {
         <div class="grid md:grid-cols-4 gap-8 mb-8">
           <div>
             <div class="flex items-center space-x-3 mb-4">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center">
-                <i class="fas fa-sparkles text-white"></i>
+              <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+                <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
               </div>
               <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                 DentalPro
@@ -357,27 +361,27 @@ const iconMap: Record<string, string> = {
           <div>
             <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Product</h3>
             <ul class="space-y-2">
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Features</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Pricing</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Demo</a></li>
+              <li><a href="/features" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Features</a></li>
+              <!-- <li><a href="/pricing" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Pricing</a></li> -->
+              <li><a href="/demo" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Demo</a></li>
             </ul>
           </div>
           
           <div>
             <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Company</h3>
             <ul class="space-y-2">
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">About</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Contact</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Careers</a></li>
+              <li><a href="/about" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">About</a></li>
+              <li><a href="/contact" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Contact</a></li>
+              <!-- <li><a href="/careers" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Careers</a></li> -->
             </ul>
           </div>
           
           <div>
             <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Legal</h3>
             <ul class="space-y-2">
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Privacy</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Terms</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Security</a></li>
+              <li><a href="/privacy" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Privacy</a></li>
+              <li><a href="/terms" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Terms</a></li>
+              <li><a href="/security" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Security</a></li>
             </ul>
           </div>
         </div>

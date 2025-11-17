@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { Head, useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card'
@@ -102,60 +103,79 @@ const confirmDelete = () => {
     <div class="container mx-auto px-4 py-8 space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold">Clinical Notes</h1>
-          <p class="text-gray-500">{{ props.patient.name }}</p>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Clinical Notes</h1>
+          <p class="text-gray-500 dark:text-gray-400">{{ props.patient.name }}</p>
         </div>
         <Button variant="outline" as-child>
           <a :href="route('patients.show', props.patient.id)">Back to Patient</a>
         </Button>
       </div>
 
-      <Card>
+      <Card class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm">
         <CardHeader>
-          <CardTitle>New Note (SOAP)</CardTitle>
-          <CardDescription>Enter clinical note sections. You can sign later.</CardDescription>
+          <CardTitle class="text-gray-900 dark:text-white">New Note (SOAP)</CardTitle>
+          <CardDescription class="text-gray-600 dark:text-gray-400">Enter clinical note sections. You can sign later.</CardDescription>
         </CardHeader>
         <CardContent>
           <form @submit.prevent="submit" class="grid md:grid-cols-2 gap-4">
             <div class="md:col-span-2 flex items-end gap-3">
               <div>
-                <Label>Templates</Label>
-                <select class="border rounded-md p-2" @change="(e:any)=> applyTemplate(e.target.value)">
+                <Label class="text-gray-700 dark:text-gray-300">Templates</Label>
+                <select
+                  class="border border-gray-200 dark:border-gray-700 rounded-md p-2 bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  @change="(e:any)=> applyTemplate(e.target.value)"
+                >
                   <option value="">Select template…</option>
                   <option v-for="t in props.templates" :key="t.id" :value="t.id">{{ t.name }}</option>
                 </select>
               </div>
             </div>
             <div>
-              <Label>Subjective</Label>
-              <textarea v-model="form.subjective" class="w-full border rounded-md p-2 min-h-[100px]" placeholder="Patient-reported symptoms, history"></textarea>
+              <Label class="text-gray-700 dark:text-gray-300">Subjective</Label>
+              <textarea
+                v-model="form.subjective"
+                class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[100px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Patient-reported symptoms, history"
+              ></textarea>
               <div class="flex flex-wrap gap-2 mt-2">
                 <Button v-for="s in subjectiveSnippets" :key="s" type="button" size="sm" variant="outline" @click="addSnippet('subjective', s)">{{ s }}</Button>
               </div>
             </div>
             <div>
-              <Label>Objective</Label>
-              <textarea v-model="form.objective" class="w-full border rounded-md p-2 min-h-[100px]" placeholder="Observations, vitals, exam findings"></textarea>
+              <Label class="text-gray-700 dark:text-gray-300">Objective</Label>
+              <textarea
+                v-model="form.objective"
+                class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[100px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Observations, vitals, exam findings"
+              ></textarea>
               <div class="flex flex-wrap gap-2 mt-2">
                 <Button v-for="s in objectiveSnippets" :key="s" type="button" size="sm" variant="outline" @click="addSnippet('objective', s)">{{ s }}</Button>
               </div>
             </div>
             <div>
-              <Label>Assessment</Label>
-              <textarea v-model="form.assessment" class="w-full border rounded-md p-2 min-h-[100px]" placeholder="Diagnosis/impression"></textarea>
+              <Label class="text-gray-700 dark:text-gray-300">Assessment</Label>
+              <textarea
+                v-model="form.assessment"
+                class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[100px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Diagnosis/impression"
+              ></textarea>
               <div class="flex flex-wrap gap-2 mt-2">
                 <Button v-for="s in assessmentSnippets" :key="s" type="button" size="sm" variant="outline" @click="addSnippet('assessment', s)">{{ s }}</Button>
               </div>
             </div>
             <div>
-              <Label>Plan</Label>
-              <textarea v-model="form.plan" class="w-full border rounded-md p-2 min-h-[100px]" placeholder="Treatment plan, follow-up"></textarea>
+              <Label class="text-gray-700 dark:text-gray-300">Plan</Label>
+              <textarea
+                v-model="form.plan"
+                class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[100px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Treatment plan, follow-up"
+              ></textarea>
               <div class="flex flex-wrap gap-2 mt-2">
                 <Button v-for="s in planSnippets" :key="s" type="button" size="sm" variant="outline" @click="addSnippet('plan', s)">{{ s }}</Button>
               </div>
             </div>
             <div class="md:col-span-2 flex justify-end">
-              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700">Save Note</Button>
+              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">Save Note</Button>
             </div>
           </form>
         </CardContent>
@@ -183,17 +203,17 @@ const confirmDelete = () => {
         </DialogContent>
       </Dialog>
 
-      <Card>
+      <Card class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm">
         <CardHeader>
-          <CardTitle>Existing Notes</CardTitle>
-          <CardDescription>Latest first</CardDescription>
+          <CardTitle class="text-gray-900 dark:text-white">Existing Notes</CardTitle>
+          <CardDescription class="text-gray-600 dark:text-gray-400">Latest first</CardDescription>
         </CardHeader>
         <CardContent>
-          <div v-if="!props.notes.length" class="text-sm text-gray-500">No notes yet.</div>
+          <div v-if="!props.notes.length" class="text-sm text-gray-500 dark:text-gray-400">No notes yet.</div>
           <div v-else class="space-y-4">
-            <div v-for="n in props.notes" :key="n.id" class="border rounded-md p-3">
+            <div v-for="n in props.notes" :key="n.id" class="border border-gray-200 dark:border-gray-800 rounded-md p-3 bg-white dark:bg-gray-950">
               <div class="flex items-center justify-between">
-                <div class="text-sm text-gray-600">
+                <div class="text-sm text-gray-600 dark:text-gray-400">
                   <span class="mr-2">Created: {{ new Date(n.created_at).toLocaleString() }}</span>
                   <span v-if="n.status === 'signed'"> • Signed: {{ n.signed_at ? new Date(n.signed_at).toLocaleString() : '' }}</span>
                 </div>
@@ -224,7 +244,7 @@ const confirmDelete = () => {
                   </DropdownMenu>
                 </div>
               </div>
-              <div class="grid md:grid-cols-2 gap-3 mt-3 text-sm">
+              <div class="grid md:grid-cols-2 gap-3 mt-3 text-sm text-gray-800 dark:text-gray-200">
                 <div>
                   <div class="font-semibold">Subjective</div>
                   <div class="whitespace-pre-wrap">{{ n.subjective || '—' }}</div>

@@ -48,43 +48,59 @@ const submit = () => {
     <div class="container mx-auto px-4 py-8 space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold">Medical History</h1>
-          <p class="text-gray-500">{{ props.patient.name }}</p>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Medical History</h1>
+          <p class="text-gray-500 dark:text-gray-400">{{ props.patient.name }}</p>
         </div>
         <Button variant="outline" as-child>
           <a :href="route('patients.show', props.patient.id)">Back to Patient</a>
         </Button>
       </div>
 
-      <Card>
+      <Card class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm">
         <CardHeader>
-          <CardTitle>Clinical Background</CardTitle>
-          <CardDescription>Record conditions, medications, allergies, and critical alerts</CardDescription>
+          <CardTitle class="text-gray-900 dark:text-white">Clinical Background</CardTitle>
+          <CardDescription class="text-gray-600 dark:text-gray-400">Record conditions, medications, allergies, and critical alerts</CardDescription>
         </CardHeader>
         <CardContent>
           <form @submit.prevent="submit" class="space-y-4">
             <div>
-              <Label>Conditions</Label>
-              <textarea v-model="form.conditions" class="w-full border rounded-md p-2 min-h-[90px]" placeholder="e.g., Hypertension, Diabetes"></textarea>
+              <Label class="text-gray-700 dark:text-gray-300">Conditions</Label>
+              <textarea
+                v-model="form.conditions"
+                class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[90px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., Hypertension, Diabetes"
+              ></textarea>
             </div>
             <div>
-              <Label>Medications</Label>
-              <textarea v-model="form.medications" class="w-full border rounded-md p-2 min-h-[90px]" placeholder="e.g., Metformin 500mg, Lisinopril 10mg"></textarea>
+              <Label class="text-gray-700 dark:text-gray-300">Medications</Label>
+              <textarea
+                v-model="form.medications"
+                class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[90px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., Metformin 500mg, Lisinopril 10mg"
+              ></textarea>
             </div>
             <div>
-              <Label>Allergies</Label>
-              <textarea v-model="form.allergies" class="w-full border rounded-md p-2 min-h-[90px]" placeholder="e.g., Penicillin, Latex"></textarea>
+              <Label class="text-gray-700 dark:text-gray-300">Allergies</Label>
+              <textarea
+                v-model="form.allergies"
+                class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[90px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., Penicillin, Latex"
+              ></textarea>
             </div>
             <div>
-              <Label>Critical Alerts</Label>
-              <textarea v-model="form.alerts" class="w-full border rounded-md p-2 min-h-[90px]" placeholder="e.g., Premedication required, bleeding disorder"></textarea>
+              <Label class="text-gray-700 dark:text-gray-300">Critical Alerts</Label>
+              <textarea
+                v-model="form.alerts"
+                class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[90px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., Premedication required, bleeding disorder"
+              ></textarea>
             </div>
             <div class="flex items-center justify-between pt-2">
-              <div class="text-xs text-gray-500">
+              <div class="text-xs text-gray-500 dark:text-gray-400">
                 <span v-if="lastReviewed">Last reviewed: {{ lastReviewed }}</span>
                 <span v-else>Not reviewed yet</span>
               </div>
-              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
                 {{ form.processing ? 'Saving...' : 'Save' }}
               </Button>
             </div>

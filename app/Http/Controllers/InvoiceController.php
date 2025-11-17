@@ -42,7 +42,12 @@ class InvoiceController extends Controller
             $sortOrder = 'desc';
         }
 
-        $invoicesQuery = Invoice::with(['patient', 'treatment.prescriptions.medicine', 'payments']);
+        $invoicesQuery = Invoice::with([
+            'patient', 
+            'treatment.procedures',
+            'treatment.prescriptions.medicine', 
+            'payments'
+        ]);
 
         if ($search !== '') {
             $invoicesQuery->where(function ($query) use ($search) {
@@ -51,8 +56,8 @@ class InvoiceController extends Controller
                         $patientQuery->where('name', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%");
                     })
-                    ->orWhereHas('treatment', function ($treatmentQuery) use ($search) {
-                        $treatmentQuery->where('procedure', 'like', "%{$search}%");
+                    ->orWhereHas('treatment.procedures', function ($query) use ($search) {
+                        $query->where('name', 'like', "%{$search}%");
                     })
                     ->orWhereHas('prescription', function ($prescriptionQuery) use ($search) {
                         $prescriptionQuery->where('medication', 'like', "%{$search}%");
@@ -101,23 +106,23 @@ class InvoiceController extends Controller
         // Get patients who have treatments with costs or prescriptions
         $patients = Patient::where(function ($query) {
             $query->whereHas('treatments', function ($q) {
-                $q->where('cost', '>', 0)
-                  ->whereDoesntHave('invoice'); // Exclude treatments that already have invoices
-            })->orWhereHas('prescriptions', function ($q) {
-                // Include prescriptions that belong to treatments that haven't been invoiced
-                $q->whereHas('treatment', function ($treatmentQuery) {
-                    $treatmentQuery->where('cost', '>', 0)
-                                   ->whereDoesntHave('invoice');
-                });
+                $q->whereDoesntHave('invoice') // Exclude treatments that already have invoices
+                  ->where(function($q) {
+                      $q->whereHas('procedures')
+                        ->orWhereHas('prescriptions');
+                  });
             });
         })->with([
             'treatments' => function ($query) {
-                $query->select('id', 'patient_id', 'procedure', 'cost')
-                      ->where('cost', '>', 0)
+                $query->select('id', 'patient_id', 'cost')
                       ->whereDoesntHave('invoice') // Exclude treatments that already have invoices
-                      ->with(['prescriptions' => function ($q) {
-                          $q->select('prescriptions.id', 'prescriptions.treatment_id', 'prescriptions.medicine_id', 'prescriptions.medication', 'prescriptions.dosage', 'prescriptions.frequency', 'prescriptions.duration', 'prescriptions.prescription_amount as amount')->with('medicine');
-                      }]);
+                      ->with([
+                          'procedures',
+                          'prescriptions' => function ($q) {
+                              $q->select('prescriptions.id', 'prescriptions.treatment_id', 'prescriptions.medicine_id', 'prescriptions.medication', 'prescriptions.dosage', 'prescriptions.frequency', 'prescriptions.duration', 'prescriptions.prescription_amount as amount')
+                                ->with('medicine');
+                          }
+                      ]);
             },
             'prescriptions' => function ($query) {
                 $query->select('prescriptions.id', 'prescriptions.treatment_id', 'prescriptions.medicine_id', 'prescriptions.medication', 'prescriptions.dosage', 'prescriptions.frequency', 'prescriptions.duration', 'prescriptions.prescription_amount as amount')

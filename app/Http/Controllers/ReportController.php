@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Treatment;
+use App\Models\TreatmentProcedure;
 use App\Models\Invoice;
 use App\Models\InventoryItem;
 use App\Models\Expense;
@@ -111,12 +112,21 @@ class ReportController extends Controller
             });
 
         // Get treatment trends
-        $treatmentTrends = Treatment::where('created_at', '>=', $startDate)
-            ->selectRaw('`procedure`, COUNT(*) as count')
-            ->groupBy('procedure')
-            ->orderByDesc('count')
+        $treatmentTrends = TreatmentProcedure::query()
+            ->select('treatment_procedures.name')
+            ->selectRaw('COUNT(*) as total_count')
+            ->join('treatments', 'treatment_procedures.treatment_id', '=', 'treatments.id')
+            ->where('treatments.created_at', '>=', $startDate)
+            ->groupBy('treatment_procedures.name')
+            ->orderByDesc('total_count')
             ->limit(10)
-            ->get();
+            ->get()
+            ->map(function ($trend) {
+                return [
+                    'procedure' => $trend->name,
+                    'count' => (int) $trend->total_count,
+                ];
+            });
 
         // Calculate statistics
         $totalRevenue = Invoice::where('status', 'paid')

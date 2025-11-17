@@ -19,6 +19,7 @@ class Consent extends Model
         'signed_by_user_id',
         'signed_at',
         'ip_address',
+        'signature_path',
     ];
 
     protected $casts = [

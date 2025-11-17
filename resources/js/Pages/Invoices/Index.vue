@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { formatUGX } from '@/Composables/useCurrency';
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue';
+import debounce from 'lodash.debounce';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import Pagination from '@/Components/ui/Pagination.vue';
-import { Receipt, Plus, FileText, CreditCard, Calendar, Search, MoreVertical, Eye, Download, Pill } from 'lucide-vue-next';
+import { Receipt, Plus, FileText, CreditCard, Calendar, Search, MoreVertical, Eye, Download, Pill, AlertCircle, Trash2 } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Checkbox from '@/Components/ui/checkbox/Checkbox.vue';
 
@@ -157,6 +158,10 @@ const listPerPageOptions = [10, 20, 30, 50];
 const listViewPerPage = ref((props.filters?.per_page ?? props.invoices?.meta?.per_page ?? 10).toString());
 const currentPage = ref(props.filters?.page ?? props.invoices?.meta?.current_page ?? 1);
 
+const debouncedFetchInvoices = debounce((overrides: Partial<InvoiceFilters> = {}) => {
+  fetchInvoices(overrides);
+}, 300);
+
 watch(listViewPerPage, (value, oldValue) => {
   if (value === oldValue) return;
   const perPage = Number(value);
@@ -169,25 +174,25 @@ watch(listViewPerPage, (value, oldValue) => {
 watch(searchQuery, (value, oldValue) => {
   if (value === oldValue) return;
   currentPage.value = 1;
-  fetchInvoices({ search: value, page: 1 });
+  debouncedFetchInvoices({ search: value, page: 1 });
 });
 
 watch(statusFilter, (value, oldValue) => {
   if (value === oldValue) return;
   currentPage.value = 1;
-  fetchInvoices({ status: value, page: 1 });
+  debouncedFetchInvoices({ status: value, page: 1 });
 });
 
 watch(sortBy, (value, oldValue) => {
   if (value === oldValue) return;
   currentPage.value = 1;
-  fetchInvoices({ sort_by: value, page: 1 });
+  debouncedFetchInvoices({ sort_by: value, page: 1 });
 });
 
 watch(sortOrder, (value, oldValue) => {
   if (value === oldValue) return;
   currentPage.value = 1;
-  fetchInvoices({ sort_order: value, page: 1 });
+  debouncedFetchInvoices({ sort_order: value, page: 1 });
 });
 
 watch(() => props.filters, (value) => {
@@ -266,6 +271,8 @@ const isEditOpen = ref(false);
 const isDeleteOpen = ref(false);
 const editingInvoice = ref<Invoice | null>(null);
 const isPaymentOpen = ref(false);
+const showCashSessionDialog = ref(false);
+const showErrorDialog = ref(false);
 const payingInvoice = ref<Invoice | null>(null);
 
 const paymentForm = useForm({
@@ -276,12 +283,32 @@ const paymentForm = useForm({
   notes: '',
 });
 
+const paymentAmountInput = ref<{ focus: () => void } | null>(null);
+
+const isAnyModalOpen = computed(() =>
+  isCreateOpen.value ||
+  isEditOpen.value ||
+  isDeleteOpen.value ||
+  isPaymentOpen.value
+);
+
+watch(isAnyModalOpen, (open) => {
+  document.body.classList.toggle('modal-open', open);
+});
+
 const openPayment = (invoice: Invoice) => {
   payingInvoice.value = invoice;
   paymentForm.reset();
   paymentForm.amount = Number(invoice.balance || 0) || Math.max(invoice.amount, 0);
   paymentForm.received_at = new Date().toISOString().slice(0, 10);
   isPaymentOpen.value = true;
+  nextTick(() => {
+    paymentAmountInput.value?.focus();
+  });
+};
+
+const navigateToCashDrawer = () => {
+  window.location.href = route('cash-drawer.index');
 };
 
 const submitPayment = async () => {
@@ -295,24 +322,41 @@ const submitPayment = async () => {
     alert(`Amount cannot exceed current balance of ${formatUGX(maxBalance)}`);
     return;
   }
+  
   // If method is cash, ensure an active cash session
   if (paymentForm.method === 'cash') {
     try {
-      const res = await fetch(route('cash-drawer.active'), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const res = await fetch(route('cash-drawer.active'), { 
+        headers: { 
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        } 
+      });
+      
+      if (!res.ok) throw new Error('Failed to verify cash drawer status');
+      
       const data = await res.json();
       if (!data?.active) {
-        if (confirm('No active cash session. Open a session now?')) {
-          window.location.href = route('cash-drawer.index');
-          return;
-        }
-        return;
+        showCashSessionDialog.value = true;
+        // Wait for the dialog to be closed
+        await new Promise<void>((resolve) => {
+          const unwatch = watch(showCashSessionDialog, (newVal) => {
+            if (!newVal) {
+              unwatch();
+              resolve();
+            }
+          });
+        });
+        return; // Stop execution if dialog was shown
       }
     } catch (e) {
-      // If check fails, block to be safe
-      alert('Unable to verify cash drawer status. Please open a cash session first.');
+      console.error('Error checking cash drawer status:', e);
+      showErrorDialog.value = true;
       return;
     }
   }
+  
+  // Proceed with payment submission
   paymentForm.post(route('invoices.payments.store', payingInvoice.value.id), {
     preserveScroll: true,
     onSuccess: () => {
@@ -695,15 +739,6 @@ const downloadPDF = (invoice: Invoice) => {
   }
 };
 
-const markAsPaid = (invoice: Invoice) => {
-  router.put(route('invoices.mark-paid', invoice.id), {
-    onSuccess: () => {
-      // Refresh the page to show updated status
-      window.location.reload();
-    },
-  });
-};
-
 onMounted(() => {
   if (props.prefill) {
     selectedPatient.value = props.patients.find(p => p.id === props.prefill!.patient_id) || null;
@@ -790,7 +825,10 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
   <AppLayout title="Invoices">
     <Head title="Invoices" />
 
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
+    <div
+      class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900"
+      :inert="isAnyModalOpen"
+    >
       <div class="container mx-auto px-4 py-8">
         <!-- Header Section -->
         <div class="mb-8">
@@ -969,43 +1007,40 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
               </div>
 
               <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                  <thead class="bg-gray-50 dark:bg-gray-800/70">
+                <table class="w-full">
+                  <thead class="bg-gray-50 dark:bg-gray-800">
                     <tr>
-                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Invoice</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Patient</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Treatment / Prescription</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Due Date</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Amount</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Balance</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Status</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Actions</th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">INVOICE</th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">PATIENT</th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">TREATMENT</th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">DATE</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300">AMOUNT</th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">STATUS</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300">ACTIONS</th>
                     </tr>
                   </thead>
-                  <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                  <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                     <tr
                       v-for="invoice in filteredInvoices"
                       :key="invoice.id"
                       class="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer"
                       @click="openView(invoice)">
-                      <td class="px-4 py-4 align-top">
+                      <td class="px-4 py-3">
                         <div class="flex items-center gap-3">
-                          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                            <Receipt class="w-5 h-5 text-white" />
+                          <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                            <FileText class="text-white text-sm h-4 w-4" />
                           </div>
                           <div>
-                            <p class="font-semibold text-gray-900 dark:text-white">Invoice #{{ invoice.id }}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Created {{ formatDate(invoice.created_at || invoice.due_date) }}</p>
+                            <p class="font-semibold text-gray-900 dark:text-white">#{{ invoice.id }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(invoice.created_at) }}</p>
                           </div>
                         </div>
                       </td>
-                      <td class="px-4 py-4 align-top text-gray-700 dark:text-gray-300">
-                        <div class="flex flex-col">
-                          <span class="font-medium">{{ invoice.patient?.name || 'Unknown' }}</span>
-                          <span class="text-xs text-gray-500 dark:text-gray-400">{{ invoice.patient?.id ? `ID: ${invoice.patient.id}` : 'No ID' }}</span>
-                        </div>
+                      <td class="px-4 py-3">
+                        <p class="font-semibold text-gray-900 dark:text-white">{{ invoice.patient?.name || 'N/A' }}</p>
+                        <p v-if="invoice.patient?.email" class="text-xs text-gray-500 dark:text-gray-400">{{ invoice.patient.email }}</p>
                       </td>
-                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                      <td class="px-4 py-3">
                         <div class="space-y-1">
                           <span v-if="invoice.treatment" class="flex items-center gap-2">
                             <i class="fas fa-tooth text-blue-400"></i>
@@ -1032,41 +1067,42 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                           <span v-if="!invoice.treatment && !invoice.prescription" class="text-xs text-gray-500">N/A</span>
                         </div>
                       </td>
-                      <td class="px-4 py-4 align-top text-gray-700 dark:text-gray-300">
-                        <div class="flex items-center gap-2">
-                          <Calendar class="w-4 h-4 text-gray-400" />
-                          <span>{{ formatDate(invoice.due_date) }}</span>
-                        </div>
-                        <span v-if="isOverdue(invoice.due_date, invoice.status) && invoice.status !== 'paid'" class="text-xs text-red-500 font-semibold">Overdue</span>
-                      </td>
-                      <td class="px-4 py-4 align-top text-gray-700 dark:text-gray-300">
-                        <span class="font-semibold text-red-600 dark:text-red-400">{{ formatUGX(invoice.amount) }}</span>
-                      </td>
-                      <!-- Paid column removed as per spec (use Amount and Balance only) -->
-                      <td class="px-4 py-4 align-top">
-                        <Badge :class="[
-                          'px-2 py-0.5 text-xs font-semibold border',
-                          Number(invoice.balance || 0) > 0
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/60'
-                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200/60 dark:border-green-800/60'
-                        ]">
-                          {{ formatUGX(Number(invoice.balance || 0)) }}
-                        </Badge>
-                      </td>
-                      <td class="px-4 py-4 align-top">
-                        <div class="space-y-1">
-                          <Badge :variant="getStatusBadgeVariant(invoice.status)" class="px-3 py-1 text-xs font-medium">
-                            {{ invoice.status }}
-                          </Badge>
-                          <div v-if="sumPayments(invoice) > Number(invoice.paid_total || 0) && Number(invoice.paid_total || 0) < Number(invoice.amount || 0)">
-                            <Badge class="px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-                              Partially Refunded
-                            </Badge>
+                      <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
+                        <div class="flex flex-col gap-1">
+                          <div class="flex items-center gap-2">
+                            <Calendar class="w-4 h-4 text-gray-400" />
+                            {{ invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '—' }}
+                          </div>
+                          <div v-if="isOverdue(invoice.due_date, invoice.status) && invoice.status !== 'paid'" class="text-xs text-red-500 dark:text-red-400">
+                            Overdue
                           </div>
                         </div>
                       </td>
-                      <td class="px-4 py-4 align-top" @click.stop>
-                        <div class="flex items-center justify-end">
+                      <td class="px-4 py-3 text-right">
+                        <span class="font-semibold text-red-600 dark:text-red-400">{{ formatUGX(invoice.amount) }}</span>
+                      </td>
+                      <td class="px-4 py-3">
+                        <div class="flex flex-col gap-1">
+                          <Badge v-if="!invoice.paid_at" class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            {{ invoice.status }}
+                          </Badge>
+                          <Badge v-else :class="{
+                            'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': invoice.status === 'paid',
+                            'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': invoice.status === 'partial',
+                            'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400': invoice.status === 'overdue' || invoice.status === 'pending'
+                          }">
+                            {{ invoice.status === 'paid' ? 'Paid' : invoice.status === 'partial' ? 'Partially Paid' : 'Pending' }}
+                            <template v-if="invoice.paid_total">
+                              : {{ formatCurrency(invoice.paid_total) }}
+                            </template>
+                          </Badge>
+                          <div v-if="invoice.paid_at" class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ new Date(invoice.paid_at).toLocaleDateString() }}
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 text-right" @click.stop>
+                        <div class="flex justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger as-child>
                               <Button variant="ghost" size="sm" class="h-8 w-8 p-0">
@@ -1078,75 +1114,27 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                                 <Eye class="w-4 h-4 mr-2" />
                                 View
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                v-if="invoice.status !== 'paid'" 
-                                @click="openEdit(invoice)"
-                              >
-                                <i class="fas fa-edit mr-2"></i>
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                v-if="invoice.pdf_path" 
-                                @click="downloadPDF(invoice)"
-                              >
+                              <DropdownMenuItem @click="downloadPDF(invoice)">
                                 <Download class="w-4 h-4 mr-2" />
                                 Download PDF
                               </DropdownMenuItem>
-
-                              <DropdownMenuItem 
-                                v-if="(page.props.auth.user.roles || []).some((r: any) => (r.name ?? r) === 'admin') && invoice.status !== 'paid'" 
-                                @click="markAsPaid(invoice)"
-                              >
-                                <i class="fas fa-check mr-2"></i>
-                                Mark as Paid
-                              </DropdownMenuItem>
-                              <div
-                                v-else-if="invoice.status !== 'paid'"
-                                class="px-2 py-1.5 text-sm text-gray-400 dark:text-gray-500 opacity-60 cursor-not-allowed"
-                                title="Only admins can mark invoices as paid"
-                              >
-                                <div class="flex items-center">
-                                  <i class="fas fa-check mr-2"></i>
-                                  Mark as Paid
-                                </div>
-                              </div>
-                              <template v-if="invoice.payments && invoice.payments.length">
-                                <div class="px-2 pt-1 text-[11px] uppercase tracking-wide text-gray-400">Receipts</div>
-                                <div v-for="p in invoice.payments" :key="p.id" class="px-2 py-1 text-sm">
-                                  <a :href="route('invoices.payments.receipt', [invoice.id, p.id])" class="flex items-center text-blue-600 hover:underline">
-                                    <i class="fas fa-receipt w-4 h-4 mr-2"></i>
-                                    #{{ p.id }} • {{ p.received_at ? new Date(p.received_at).toLocaleDateString() : '—' }} • {{ formatUGX(Number(p.amount || 0)) }}
-                                  </a>
-                                </div>
+                              <template v-if="invoice.status !== 'paid' && invoice.status !== 'cancelled'">
+                                <DropdownMenuItem @click="openEdit(invoice)">
+                                  <FileText class="w-4 h-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click="openPayment(invoice)" class="text-green-600 dark:text-green-400">
+                                  <CreditCard class="w-4 h-4 mr-2" />
+                                  Record Payment
+                                </DropdownMenuItem>
                               </template>
-                              <div
-                                v-else-if="!canTakePayments && invoice.status !== 'paid'"
-                                class="px-2 py-1.5 text-sm text-gray-400 dark:text-gray-500 opacity-60 cursor-not-allowed"
-                                title="You don't have permission to mark invoices as paid"
-                              >
-                                <div class="flex items-center">
-                                  <i class="fas fa-check mr-2"></i>
-                                  Mark as Paid
-                                </div>
-                              </div>
-                              <DropdownMenuItem 
-                                v-if="canDeleteInvoices && invoice.status !== 'paid'" 
-                                @click="openDelete(invoice)" 
-                                class="text-red-600"
-                              >
-                                <i class="fas fa-trash mr-2"></i>
-                                Delete
+                              <DropdownMenuItem
+                                v-if="invoice.status !== 'cancelled'"
+                                @click="openDelete(invoice)"
+                                class="text-red-600 dark:text-red-400">
+                                <Trash2 class="w-4 h-4 mr-2" />
+                                Cancel
                               </DropdownMenuItem>
-                              <div
-                                v-else-if="!canDeleteInvoices && invoice.status !== 'paid'"
-                                class="px-2 py-1.5 text-sm text-gray-400 dark:text-gray-500 opacity-60 cursor-not-allowed"
-                                title="Only admins can delete invoices"
-                              >
-                                <div class="flex items-center">
-                                  <i class="fas fa-trash mr-2"></i>
-                                  Delete
-                                </div>
-                              </div>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -1359,7 +1347,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                 <div v-if="selectedTreatmentOption">
                   <div>Treatment: {{ formatCurrency(selectedTreatmentOption.cost) }}</div>
                   <div v-if="selectedTreatmentPrescriptionIds.length > 0" class="mt-1 space-y-1">
-                    <div v-for="id in selectedTreatmentPrescriptionIds" :key="`selected-treatment-${id}`" class="text-xs text-gray-500">
+                    <div class="text-xs text-gray-500" v-for="id in selectedTreatmentPrescriptionIds" :key="`selected-treatment-${id}`">
                       + Prescription #{{ id }}: {{ formatCurrency(Number(availableTreatmentPrescriptions.find(p => p.id === id)?.amount || 0)) }}
                     </div>
                   </div>
@@ -1624,9 +1612,58 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
       </DialogContent>
     </Dialog>
 
+    <!-- Cash Session Required Dialog -->
+    <Dialog :open="showCashSessionDialog" @update:open="(val) => {
+      showCashSessionDialog = val;
+      if (!val) isPaymentOpen = false;
+    }">
+      <DialogContent class="sm:max-w-md z-[1000] transition-all duration-300 ease-in-out" :class="{ 'scale-105': showCashSessionDialog }">
+        <DialogHeader>
+          <DialogTitle class="text-lg font-semibold flex items-center gap-2">
+            <AlertCircle class="h-5 w-5 text-amber-500" />
+            Cash Session Required
+          </DialogTitle>
+          <DialogDescription class="pt-2">
+            You need to open a cash drawer session before processing cash payments.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="flex justify-end gap-2 pt-4">
+          <Button variant="outline" @click="showCashSessionDialog = false">
+            Cancel
+          </Button>
+          <Button 
+            @click="navigateToCashDrawer"
+            class="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            Open Cash Drawer
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Error Dialog -->
+    <Dialog :open="showErrorDialog" @update:open="showErrorDialog = $event">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle class="text-lg font-semibold flex items-center gap-2">
+            <AlertCircle class="h-5 w-5 text-red-500" />
+            Unable to Verify Cash Drawer
+          </DialogTitle>
+          <DialogDescription class="pt-2">
+            There was an error verifying the cash drawer status. Please open a cash session first.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="flex justify-end gap-2 pt-4">
+          <Button @click="showErrorDialog = false">
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     <!-- Record Payment Modal -->
     <Dialog :open="isPaymentOpen" @update:open="(value) => isPaymentOpen = value">
-      <DialogContent class="max-w-md">
+      <DialogContent class="max-w-md transition-opacity duration-300" :class="{ 'opacity-50': showCashSessionDialog }">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Record Payment</DialogTitle>
           <DialogDescription>Add a payment to this invoice</DialogDescription>
@@ -1634,7 +1671,14 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
         <form @submit.prevent="submitPayment" class="space-y-4">
           <div>
             <Label>Amount (UGX)</Label>
-            <Input v-model.number="paymentForm.amount" type="number" step="0.01" min="0.01" required />
+            <Input
+              ref="paymentAmountInput"
+              v-model.number="paymentForm.amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+            />
             <p v-if="payingInvoice?.balance" class="text-xs text-gray-500 mt-1">Balance: {{ formatCurrency(Number(payingInvoice?.balance || 0)) }}</p>
           </div>
           <div class="grid grid-cols-2 gap-3">
