@@ -520,6 +520,7 @@ const openEdit = (treatment: Treatment) => {
     alert('This treatment has an invoice and cannot be edited.');
     return;
   }
+  
   editingTreatment.value = treatment;
   
   // Reset form and set values directly

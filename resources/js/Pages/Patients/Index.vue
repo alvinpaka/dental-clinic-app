@@ -208,13 +208,17 @@ const openCreate = () => {
 const openEdit = (patient: Patient) => {
   if (!props.can.updatePatient) return;
   editingPatient.value = patient;
-  editForm.set({
-    name: patient.name,
-    email: patient.email,
-    phone: patient.phone,
-    dob: patient.dob_formatted_edit || patient.dob,
-    age: calculateAgeFromDOB(patient.dob),
-  });
+  
+  // Reset the form first
+  editForm.reset();
+  
+  // Set the form values
+  editForm.name = patient.name;
+  editForm.email = patient.email;
+  editForm.phone = patient.phone;
+  editForm.dob = patient.dob_formatted_edit || patient.dob;
+  editForm.age = calculateAgeFromDOB(patient.dob);
+  
   isEditOpen.value = true;
 };
 

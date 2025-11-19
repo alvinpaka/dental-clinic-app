@@ -130,9 +130,9 @@ const iconMap: Record<string, string> = {
             </div>
             <div>
               <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                DentalPro
+                Victoria Dental Care
               </span>
-              <p class="text-xs text-gray-600 dark:text-slate-300 hidden sm:block">Professional Dental Care</p>
+              <p class="text-xs text-gray-600 dark:text-slate-300 hidden sm:block">You Smile We smile.</p>
             </div>
           </div>
 
