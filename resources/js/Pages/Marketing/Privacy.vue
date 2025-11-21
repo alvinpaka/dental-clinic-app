@@ -70,7 +70,7 @@ const privacySections = [
       <div class="mx-auto max-w-4xl px-6 py-16 sm:py-20 lg:px-8">
         <div class="prose dark:prose-invert prose-lg max-w-none">
           <p class="text-gray-600 dark:text-gray-400">
-            At DentalPro, we take your privacy seriously. This Privacy Policy describes how we collect, use, and share your personal information when you use our website and services.
+            At Victoria Dental Lounge, we take your privacy seriously. This Privacy Policy describes how we collect, use, and share your personal information when you use our website and services.
           </p>
           
           <div v-for="(section, index) in privacySections" :key="index" class="mt-12 first:mt-0">
@@ -103,7 +103,7 @@ const privacySections = [
               <div class="ml-3">
                 <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Questions about our privacy practices?</h3>
                 <div class="mt-2 text-sm text-blue-700 dark:text-blue-400">
-                  <p>If you have any questions about this Privacy Policy, please contact us at <a href="mailto:privacy@dentalpro.com" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-400">privacy@dentalpro.com</a>.</p>
+                  <p>If you have any questions about this Privacy Policy, please contact us at <a href="mailto:privacy@Victoria Dental Lounge.com" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-400">privacy@Victoria Dental Lounge.com</a>.</p>
                 </div>
               </div>
             </div>

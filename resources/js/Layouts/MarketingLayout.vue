@@ -18,7 +18,7 @@ defineProps({
   },
   description: {
     type: String,
-    default: 'DentalPro - Streamlining dental practices with cutting-edge technology',
+    default: 'Victoria Dental Lounge - Streamlining dental practices with cutting-edge technology',
   },
 });
 </script>

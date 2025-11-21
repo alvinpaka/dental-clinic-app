@@ -384,12 +384,43 @@ class InvoiceController extends Controller
 
     public function download(Invoice $invoice)
     {
-        $this->authorize('view', $invoice);
+        try {
+            $this->authorize('view', $invoice);
 
-        if ($invoice->pdf_path) {
-            return response()->file(storage_path('app/public/' . $invoice->pdf_path));
+            // Eager load only the necessary relationships
+            $invoice->load([
+                'patient',
+                'treatment.prescriptions.medicine', // Load treatment with its prescriptions and related medicine
+                'prescription',
+                'payments.refunds'
+            ]);
+
+            // Calculate total payments and refunds
+            $totalPayments = $invoice->payments->sum('amount');
+            $totalRefunded = $invoice->payments->sum(function($payment) {
+                return $payment->refunds->sum('amount');
+            });
+            
+            // Calculate the net amount after refunds
+            $netAmount = $invoice->amount - $totalRefunded;
+            
+            // Calculate the balance (net amount minus payments made)
+            $invoice->paid_total = $totalPayments;
+            $invoice->balance = max(0, $netAmount - $totalPayments); // Ensure balance doesn't go negative
+
+            // Generate PDF
+            $pdf = Pdf::loadView('invoices.pdf', [
+                'invoice' => $invoice,
+                'totalRefunded' => $totalRefunded,
+                'date' => now()->format('F j, Y'),
+            ]);
+
+            return $pdf->download("invoice-{$invoice->id}.pdf");
+
+        } catch (\Exception $e) {
+            \Log::error('Error generating PDF for invoice ' . $invoice->id . ': ' . $e->getMessage());
+            return back()->with('error', 'Failed to generate PDF: ' . $e->getMessage());
         }
-        abort(404);
     }
 
     public function destroy(Invoice $invoice)

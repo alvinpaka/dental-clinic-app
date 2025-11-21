@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Treatment;
+use App\Models\Prescription;
 use App\Models\Patient;
 use App\Models\DentalMedicine;
 use Illuminate\Http\Request;
@@ -170,6 +171,7 @@ class TreatmentController extends Controller
             'prescriptions.*.medication' => 'nullable|string',
             'prescriptions.*.dosage' => 'nullable|string',
             'prescriptions.*.frequency' => 'nullable|string',
+            'prescriptions.*.quantity' => 'required|integer|min:1',
             'prescriptions.*.duration' => 'nullable|string',
             'prescriptions.*.prescription_amount' => 'nullable|numeric|min:0',
             'prescriptions.*.prescription_issue_date' => 'nullable|date',
@@ -213,25 +215,31 @@ class TreatmentController extends Controller
 
     public function update(Request $request, Treatment $treatment)
     {
-        // Prevent editing a treatment that already has an associated invoice
+        // Prevent editing if invoice exists
         if ($treatment->invoice()->exists()) {
-            return redirect()->route('treatments.index')->with('error', 'This treatment has an invoice and cannot be edited.');
+            return redirect()
+                ->route('treatments.index')
+                ->with('error', 'This treatment has an invoice and cannot be edited.');
         }
-
+    
         $validated = $request->validate([
             'patient_id' => 'required|exists:patients,id',
             'appointment_id' => 'nullable|exists:appointments,id',
             'notes' => 'nullable|string',
             'file' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
+        
+            // Procedures
             'procedures' => 'required|array|min:1',
             'procedures.*.id' => 'nullable|exists:treatment_procedures,id',
             'procedures.*.name' => 'required|string|max:255',
             'procedures.*.cost' => 'required|numeric|min:0',
+        
+            // Prescriptions
             'prescriptions' => 'nullable|array',
             'prescriptions.*.id' => 'nullable|exists:prescriptions,id',
-            'prescriptions.*.medicine_id' => 'nullable|exists:dental_medicines,medicine_id',
-            'prescriptions.*.medication' => 'nullable|string',
+            'prescriptions.*.medicine_id' => 'required|exists:dental_medicines,medicine_id',
             'prescriptions.*.dosage' => 'nullable|string',
+            'prescriptions.*.quantity' => 'required|integer|min:1',
             'prescriptions.*.frequency' => 'nullable|string',
             'prescriptions.*.duration' => 'nullable|string',
             'prescriptions.*.prescription_amount' => 'nullable|numeric|min:0',
@@ -241,78 +249,100 @@ class TreatmentController extends Controller
             'prescriptions.*.max_refills' => 'nullable|integer|min:0',
             'prescriptions.*.prescription_status' => 'nullable|in:active,completed,expired,cancelled',
         ]);
-
-        $procedureRows = collect($validated['procedures'])
-            ->map(fn ($procedure) => [
-                'id' => $procedure['id'] ?? null,
-                'name' => $procedure['name'],
-                'cost' => $procedure['cost'],
-            ]);
-
+    
+        // -----------------------
+        // 1. Procedures
+        // -----------------------
+        $procedureRows = collect($validated['procedures'])->map(fn($p) => [
+            'id' => $p['id'] ?? null,
+            'name' => $p['name'],
+            'cost' => $p['cost'],
+        ]);
+    
         $validated['cost'] = $procedureRows->sum('cost');
-
-        $prescriptionData = $validated['prescriptions'] ?? [];
+    
+        // Remove non-treatments fields
+        $prescriptionRows = $validated['prescriptions'] ?? [];
         unset($validated['procedures'], $validated['prescriptions']);
-
+    
+        // Handle file upload
         if ($request->hasFile('file')) {
-            // Delete old file if exists
             if ($treatment->file_path) {
                 Storage::disk('public')->delete($treatment->file_path);
             }
             $validated['file_path'] = $request->file('file')->store('treatments', 'public');
         }
-
+    
+        // Update treatment
         $treatment->update($validated);
-
+    
+        // -----------------------
+        // UPDATE PROCEDURES
+        // -----------------------
         $existingProcedureIds = $treatment->procedures()->pluck('id')->toArray();
         $updatedProcedureIds = [];
-
+    
         foreach ($procedureRows as $procedure) {
             if ($procedure['id'] && in_array($procedure['id'], $existingProcedureIds)) {
+                // update
                 $treatment->procedures()->where('id', $procedure['id'])->update([
                     'name' => $procedure['name'],
                     'cost' => $procedure['cost'],
                 ]);
                 $updatedProcedureIds[] = $procedure['id'];
             } else {
-                $newProcedure = $treatment->procedures()->create([
+                // create
+                $new = $treatment->procedures()->create([
                     'name' => $procedure['name'],
                     'cost' => $procedure['cost'],
                 ]);
-                $updatedProcedureIds[] = $newProcedure->id;
+                $updatedProcedureIds[] = $new->id;
             }
         }
-
-        $toDeleteProcedures = array_diff($existingProcedureIds, $updatedProcedureIds);
-        if (! empty($toDeleteProcedures)) {
-            $treatment->procedures()->whereIn('id', $toDeleteProcedures)->delete();
+    
+        // Delete removed
+        $toDelete = array_diff($existingProcedureIds, $updatedProcedureIds);
+        if (!empty($toDelete)) {
+            $treatment->procedures()->whereIn('id', $toDelete)->delete();
         }
-
-        // Handle prescriptions: update existing, create new, delete removed
-        $existingIds = $treatment->prescriptions()->pluck('id')->toArray();
-        $updatedIds = [];
-
-        foreach ($prescriptionData as $prescription) {
-            if (isset($prescription['id']) && in_array($prescription['id'], $existingIds)) {
+    
+        // -----------------------
+        // UPDATE PRESCRIPTIONS
+        // -----------------------
+        $existingPrescriptionIds = $treatment->prescriptions()->pluck('id')->toArray();
+        $updatedPrescriptionIds = [];
+    
+        foreach ($prescriptionRows as $p) {
+        
+            if (isset($p['id']) && in_array($p['id'], $existingPrescriptionIds)) {
+            
                 // Update existing
-                $treatment->prescriptions()->where('id', $prescription['id'])->update($prescription);
-                $updatedIds[] = $prescription['id'];
+                $treatment->prescriptions()->where('id', $p['id'])->update($p);
+                $updatedPrescriptionIds[] = $p['id'];
+            
             } else {
+            
                 // Create new
-                $prescription['treatment_id'] = $treatment->id;
-                $prescription['prescription_issue_date'] = $prescription['prescription_issue_date'] ?? now()->toDateString();
-                $prescription['prescription_status'] = $prescription['prescription_status'] ?? 'active';
-                $prescription['refill_count'] = $prescription['refill_count'] ?? 0;
-                Prescription::create($prescription);
+                $p['treatment_id'] = $treatment->id;
+                $p['prescription_issue_date'] = $p['prescription_issue_date'] ?? now()->toDateString();
+                $p['prescription_status'] = $p['prescription_status'] ?? 'active';
+                $p['refill_count'] = $p['refill_count'] ?? 0;
+            
+                Prescription::create($p);
             }
         }
-
+    
         // Delete removed prescriptions
-        $toDelete = array_diff($existingIds, $updatedIds);
-        $treatment->prescriptions()->whereIn('id', $toDelete)->delete();
-
-        return redirect()->route('treatments.index')->with('success', 'Treatment and prescriptions updated.');
+        $toDeletePrescription = array_diff($existingPrescriptionIds, $updatedPrescriptionIds);
+        if (!empty($toDeletePrescription)) {
+            $treatment->prescriptions()->whereIn('id', $toDeletePrescription)->delete();
+        }
+    
+        return redirect()
+            ->route('treatments.index')
+            ->with('success', 'Treatment updated successfully.');
     }
+
 
     public function createInvoice(Treatment $treatment)
     {

@@ -76,17 +76,30 @@ const formatDate = (val?: string | null) => {
           <div class="grid md:grid-cols-5 gap-3 items-end">
             <div>
               <Label>Status</Label>
-              <select v-model="props.filters.status" class="w-full border rounded-md p-2 bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700">
-                <option :value="undefined">All</option>
+              <select 
+                v-model="props.filters.status"
+                class="w-full border rounded-md p-2 bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700"
+              >
+                <option :value="null">All</option>
                 <option value="open">Open</option>
                 <option value="closed">Closed</option>
               </select>
             </div>
+
             <div>
               <Label>User</Label>
-              <select v-model="props.filters.user_id" class="w-full border rounded-md p-2 bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700">
-                <option :value="undefined">All</option>
-                <option v-for="u in props.users" :key="u.id" :value="u.id">{{ u.name }}</option>
+              <select 
+                v-model="props.filters.user_id"
+                class="w-full border rounded-md p-2 bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700"
+              >
+                <option :value="null">All</option>
+                <option 
+                  v-for="u in props.users" 
+                  :key="u.id" 
+                  :value="u.id"
+                >
+                  {{ u.name }}
+                </option>
               </select>
             </div>
             <div>
@@ -98,7 +111,7 @@ const formatDate = (val?: string | null) => {
               <Input type="date" v-model="props.filters.to" class="bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
             </div>
             <div class="flex gap-2">
-              <Button @click="submitFilters" class="bg-blue-600 hover:bg-blue-700">Apply</Button>
+              <Button @click="submitFilters" class="bg-blue-600 hover:bg-blue-700 text-white">Apply</Button>
               <Button variant="outline" @click="exportCsv">Export CSV</Button>
             </div>
           </div>

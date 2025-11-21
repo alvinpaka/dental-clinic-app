@@ -51,7 +51,7 @@ function submit() {
         <div class="space-y-8">
           <div>
             <h2 class="text-4xl font-bold text-white mb-4">Schedule a Live Demo</h2>
-            <p class="text-blue-100 text-lg">See how DentalPro streamlines your daily operations in a 20–30 minute walkthrough.</p>
+            <p class="text-blue-100 text-lg">See how Victoria Dental Lounge streamlines your daily operations in a 20–30 minute walkthrough.</p>
           </div>
 
           <div class="space-y-6">

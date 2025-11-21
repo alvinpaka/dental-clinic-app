@@ -173,3 +173,19 @@
     font-family: 'Inter', sans-serif;
   }
 }
+
+/* Hide the problematic modal */
+/* div[style*="position: fixed"][style*="width: 100vw"][style*="height: 100vh"][style*="z-index: 200000"] {
+    display: none !important;
+} */
+
+/* Hide any problematic modals injected by Inertia/vite */
+/* div[style*="z-index: 200000"],
+div[style*="background-color: rgba(0, 0, 0, 0.6)"] {
+    display: none !important;
+} */
+
+/* Or be more specific */
+/* body > div[style] > iframe[style] {
+    display: none !important;
+} */

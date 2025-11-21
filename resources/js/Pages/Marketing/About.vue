@@ -59,7 +59,7 @@ const team = [
 
 <template>
   <PageTemplate
-    title="About DentalPro"
+    title="About Victoria Dental Lounge"
     description="Transforming dental practices with innovative technology solutions."
   >
     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl overflow-hidden">
@@ -70,7 +70,7 @@ const team = [
             Revolutionizing Dental Practice Management
           </h2>
           <p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-blue-100">
-            Founded in 2023, DentalPro was born out of a simple idea: to make dental practice management simpler, more efficient, and more effective.
+            Founded in 2023, Victoria Dental Lounge was born out of a simple idea: to make dental practice management simpler, more efficient, and more effective.
           </p>
         </div>
       </div>
@@ -84,10 +84,10 @@ const team = [
               Our Story
             </h2>
             <p class="text-gray-600 dark:text-gray-400">
-              DentalPro was founded by a team of dental professionals and technology experts who saw an opportunity to transform how dental practices operate. After years of experiencing the challenges of outdated practice management systems first-hand, we set out to build a solution that truly meets the needs of modern dental practices.
+              Victoria Dental Lounge was founded by a team of dental professionals and technology experts who saw an opportunity to transform how dental practices operate. After years of experiencing the challenges of outdated practice management systems first-hand, we set out to build a solution that truly meets the needs of modern dental practices.
             </p>
             <p class="text-gray-600 dark:text-gray-400">
-              Today, DentalPro serves hundreds of dental practices across the country, helping them streamline operations, improve patient care, and grow their businesses. Our platform is built on the latest technology and designed with input from dental professionals at every step.
+              Today, Victoria Dental Lounge serves hundreds of dental practices across the country, helping them streamline operations, improve patient care, and grow their businesses. Our platform is built on the latest technology and designed with input from dental professionals at every step.
             </p>
           </div>
 
@@ -124,7 +124,7 @@ const team = [
               Our Values
             </h2>
             <p class="mt-4 text-gray-600 dark:text-gray-400">
-              These principles guide everything we do at DentalPro
+              These principles guide everything we do at Victoria Dental Lounge
             </p>
           </div>
 
@@ -150,7 +150,7 @@ const team = [
               Meet Our Leadership
             </h2>
             <p class="mt-4 text-gray-600 dark:text-gray-400">
-              The passionate team behind DentalPro
+              The passionate team behind Victoria Dental Lounge
             </p>
           </div>
 
@@ -177,7 +177,7 @@ const team = [
         <div class="mt-24 text-center">
           <h2 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">Ready to transform your practice?</h2>
           <p class="mx-auto mt-4 max-w-2xl text-gray-600 dark:text-gray-400">
-            Join thousands of dental professionals who trust DentalPro to power their practice.
+            Join thousands of dental professionals who trust Victoria Dental Lounge to power their practice.
           </p>
           <div class="mt-6">
             <a href="/contact" class="inline-flex items-center rounded-md bg-blue-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">

@@ -120,7 +120,7 @@ onMounted(async () => {
           </div>
           <div>
             <Link href="/dashboard" class="text-2xl font-bold hover:text-white/90 dark:hover:text-slate-200 transition-colors">
-              Victoria Dental Care
+              Victoria Dental Lounge
             </Link>
             <p class="text-xs text-primary-foreground/70 dark:text-slate-300 hidden sm:block">You Smile We Smile</p>
           </div>

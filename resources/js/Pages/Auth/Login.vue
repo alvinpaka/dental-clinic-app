@@ -54,9 +54,9 @@ const submit = () => {
           </div>
           <div>
             <span class="text-2xl font-bold text-white">
-              DentalPro
+              Victoria Dental Lounge
             </span>
-            <p class="text-xs text-blue-100">Professional Dental Care</p>
+            <p class="text-xs text-blue-100">You Smile We Smile</p>
           </div>
         </Link>
 
@@ -132,7 +132,7 @@ const submit = () => {
               <i class="fas fa-sparkles text-white text-xl"></i>
             </div>
             <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              DentalPro
+              Victoria Dental Lounge
             </span>
           </Link>
         </div>

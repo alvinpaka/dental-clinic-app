@@ -193,7 +193,7 @@ const benefits = [
         <div class="mx-auto mt-24 max-w-4xl">
           <div class="text-center">
             <h2 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
-              Why Join DentalPro?
+              Why Join Victoria Dental Lounge?
             </h2>
             <p class="mx-auto mt-4 max-w-2xl text-gray-600 dark:text-gray-400">
               We're building a company where talented people can do their best work and help transform the dental industry.
@@ -217,7 +217,7 @@ const benefits = [
               <div class="md:flex-1">
                 <h2 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">Our Culture</h2>
                 <p class="mt-4 text-gray-600 dark:text-gray-300">
-                  At DentalPro, we value collaboration, innovation, and a strong work-life balance. Our team is distributed across different locations, and we embrace remote work while maintaining a strong company culture.
+                  At Victoria Dental Lounge, we value collaboration, innovation, and a strong work-life balance. Our team is distributed across different locations, and we embrace remote work while maintaining a strong company culture.
                 </p>
                 <div class="mt-6 flex items-center">
                   <UserGroupIcon class="h-5 w-5 text-blue-500" aria-hidden="true" />
@@ -240,9 +240,9 @@ const benefits = [
             We're always looking for talented individuals to join our team. Send us your resume and tell us how you can contribute.
           </p>
           <div class="mt-6">
-            <a href="mailto:careers@dentalpro.com" class="inline-flex items-center rounded-md bg-white px-4 py-3 text-sm font-medium text-blue-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-blue-400 dark:ring-gray-700 dark:hover:bg-gray-700">
+            <a href="mailto:careers@Victoria Dental Lounge.com" class="inline-flex items-center rounded-md bg-white px-4 py-3 text-sm font-medium text-blue-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-blue-400 dark:ring-gray-700 dark:hover:bg-gray-700">
               <EnvelopeIcon class="-ml-0.5 mr-2 h-5 w-5" aria-hidden="true" />
-              careers@dentalpro.com
+              careers@Victoria Dental Lounge.com
             </a>
           </div>
         </div>

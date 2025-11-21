@@ -259,31 +259,37 @@ class PatientController extends Controller
             'medical_history' => 'nullable|string',
             'allergies' => 'nullable|array',
         ]);
-
+    
         // Manual email uniqueness check (excluding current patient)
         if ($request->email) {
-            $existingPatient = Patient::where('email', $request->email)->where('id', '!=', $patient->id)->first();
+            $existingPatient = Patient::where('email', $request->email)
+                                    ->where('id', '!=', $patient->id)
+                                    ->first();
             if ($existingPatient) {
-                return redirect()->back()->withErrors(['email' => 'The email address is already in use.'])->withInput();
+                return redirect()->back()
+                               ->withErrors(['email' => 'The email address is already in use.'])
+                               ->withInput();
             }
         }
-
-        // If age is provided but DOB is not, calculate DOB from age
-        if ($validated['age'] && !$validated['dob']) {
-            $validated['dob'] = now()->subYears($validated['age'])->format('Y-m-d');
+    
+        // If age is provided, use it to calculate DOB (overrides any provided DOB)
+        if (isset($validated['age']) && $validated['age'] !== '') {
+            $validated['dob'] = now()->subYears((int)$validated['age'])->format('Y-m-d');
         }
-
-        // Ensure DOB is provided
-        if (!$validated['dob']) {
-            return redirect()->back()->withErrors(['dob' => 'Either date of birth or age is required'])->withInput();
+        // If no age but DOB is provided, keep the DOB
+        elseif (empty($validated['dob'])) {
+            return redirect()->back()
+                           ->withErrors(['dob' => 'Either date of birth or age is required'])
+                           ->withInput();
         }
-
+    
         // Remove age from validated data before updating patient
         unset($validated['age']);
-
+    
         $patient->update($validated);
-
-        return redirect()->route('patients.index')->with('success', 'Patient updated.');
+    
+        return redirect()->route('patients.index')
+                       ->with('success', 'Patient updated.');
     }
 
     public function destroy(Patient $patient)

@@ -108,10 +108,6 @@ interface PaginationLink {
 
 const props = defineProps<Props>();
 
-// Debug: Log treatments data
-console.log('Treatments data:', props.treatments);
-console.log('Last page:', props.treatments?.meta?.last_page);
-
 const isCreateTreatmentOpen = ref(false);
 const filters = ref({
   treatments_page: props.filters?.treatments_page || 1,
@@ -126,9 +122,8 @@ const templateCostMap = computed<Record<string, number>>(() => {
 });
 
 // Watch for changes in the treatments data
-watch(() => props.treatments, (newVal) => {
+watch(() => props.treatments, () => {
   // This will trigger a re-render when treatments data changes
-  console.log('Treatments data updated:', newVal);
 }, { deep: true });
 
 // Update filters when props change
@@ -198,7 +193,7 @@ const goToPage = (link: PaginationLink) => {
       });
     }
   } catch (error) {
-    console.error('Failed to parse pagination link:', error);
+    // Error handling for pagination
   }
 };
 
@@ -503,7 +498,7 @@ const calculateTotalCost = (treatment: Treatment) => {
               <CardDescription>Medical procedures performed</CardDescription>
             </div>
             <div class="flex items-center gap-2">
-              <Button @click="isCreateTreatmentOpen = true" size="sm">
+              <Button @click="isCreateTreatmentOpen = true" size="sm" class="bg-blue-600 hover:bg-blue-700 text-white">
                 <Plus class="h-4 w-4 mr-2" />
                 Add Treatment
               </Button>
@@ -818,9 +813,16 @@ const calculateTotalCost = (treatment: Treatment) => {
               <Button 
                 type="submit" 
                 :disabled="treatmentForm.processing"
-                class="w-full sm:w-auto"
+                class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
               >
-                Save Treatment
+                <span v-if="treatmentForm.processing" class="flex items-center">
+                  <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </span>
+                <span v-else>Save Treatment</span>
               </Button>
             </DialogFooter>
           </form>

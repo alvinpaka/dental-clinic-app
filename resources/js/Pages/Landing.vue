@@ -81,7 +81,7 @@ const stats = [
 
 const testimonials = [
   {
-    quote: "DentalPro has transformed how we manage our practice. We've reduced administrative time by 40% and improved patient satisfaction significantly.",
+    quote: "Victoria Dental Lounge has transformed how we manage our practice. We've reduced administrative time by 40% and improved patient satisfaction significantly.",
     author: "Dr. Sarah Johnson",
     role: "Owner, Bright Smile Dental",
     rating: 5
@@ -125,33 +125,35 @@ const iconMap: Record<string, string> = {
         <div class="flex justify-between items-center">
           <div class="flex items-center space-x-3">
             <!-- Logo/Icon -->
-            <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
-              <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
-            </div>
-            <div>
-              <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                Victoria Dental Care
-              </span>
-              <p class="text-xs text-gray-600 dark:text-slate-300 hidden sm:block">You Smile We smile.</p>
-            </div>
+            <Link href="/" class="flex items-center space-x-3">
+              <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+                <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
+              </div>
+              <div>
+                <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                  Victoria Dental Lounge
+                </span>
+                <p class="text-xs text-gray-600 dark:text-slate-300 hidden sm:block">You Smile We Smile</p>
+              </div>
+            </Link>
           </div>
 
           <!-- Desktop Navigation -->
           <nav class="hidden md:flex items-center space-x-8">
-            <a href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Features</a>
-            <!-- <a href="/pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Pricing</a> -->
-            <a href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Testimonials</a>
+            <Link href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Features</Link>
+            <!-- <Link href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Pricing</Link> -->
+            <Link href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Testimonials</Link>
           </nav>
 
           <div class="flex items-center space-x-3">
             <Button variant="ghost" size="icon" @click="themeStore.toggleDarkMode" class="rounded-full">
               <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon text-gray-700']"></i>
             </Button>
-            
+
             <Button variant="ghost" class="hidden md:inline-flex text-gray-700 dark:text-gray-300" as-child>
               <Link href="/login">Login</Link>
             </Button>
-            
+
             <!-- Signup button (hidden) -->
             <Button v-if="false" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hidden md:inline-flex" as-child>
               <Link href="/register" class="flex items-center">
@@ -169,9 +171,9 @@ const iconMap: Record<string, string> = {
         <!-- Mobile Menu -->
         <div v-if="mobileMenuOpen" class="md:hidden mt-4 py-4 border-t border-gray-200 dark:border-gray-800">
           <nav class="flex flex-col space-y-4">
-            <a href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Features</a>
-            <a href="/pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Pricing</a>
-            <a href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Testimonials</a>
+            <Link href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Features</Link>
+            <!-- <Link href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Pricing</Link> -->
+            <Link href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Testimonials</Link>
             <Button variant="outline" class="w-full" as-child>
               <Link href="/login">Login</Link>
             </Button>
@@ -342,52 +344,60 @@ const iconMap: Record<string, string> = {
       </section>
 
       <!-- Footer -->
-      <footer class="pt-12 border-t border-gray-200 dark:border-gray-800">
-        <div class="grid md:grid-cols-4 gap-8 mb-8">
-          <div>
-            <div class="flex items-center space-x-3 mb-4">
-              <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
-                <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
-              </div>
-              <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                DentalPro
-              </span>
+      <footer class="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+        <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div class="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <Link href="/" class="inline-block">
+                <div class="flex items-center space-x-3 mb-4">
+                  <!-- Logo/Icon -->
+                  <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+                    <i class="fa-solid fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
+                  </div>
+                  <div>
+                    <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                      Victoria Dental Lounge
+                    </span>
+                    <p class="text-xs text-gray-600 dark:text-slate-300">You Smile We Smile</p>
+                  </div>
+                </div>
+              </Link>
+              <p class="text-gray-600 dark:text-gray-400">
+                Streamlining dental practices with cutting-edge technology.
+              </p>
             </div>
-            <p class="text-gray-600 dark:text-gray-400">
-              Streamlining dental practices with cutting-edge technology.
-            </p>
+
+            <div>
+              <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Product</h3>
+              <ul class="space-y-2">
+                <li><Link href="#features" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Features</Link></li>
+                <!-- <li><Link href="#pricing" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Pricing</Link></li> -->
+                <li><Link href="/demo" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Demo</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Company</h3>
+              <ul class="space-y-2">
+                <li><Link href="/about" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">About</Link></li>
+                <li><Link href="/contact" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Contact</Link></li>
+                <!-- <li><Link href="/careers" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Careers</Link></li> -->
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Legal</h3>
+              <ul class="space-y-2">
+                <!-- <li><Link href="/privacy" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Privacy</Link></li> -->
+                <li><Link href="/terms" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Terms</Link></li>
+                <li><Link href="/security" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Security</Link></li>
+              </ul>
+            </div>
           </div>
-          
-          <div>
-            <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Product</h3>
-            <ul class="space-y-2">
-              <li><a href="/features" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Features</a></li>
-              <!-- <li><a href="/pricing" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Pricing</a></li> -->
-              <li><a href="/demo" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Demo</a></li>
-            </ul>
+
+          <div class="pt-8 border-t border-gray-200 dark:border-gray-800 text-center text-gray-600 dark:text-gray-400">
+            <p>&copy; {{ new Date().getFullYear() }} Victoria Dental Lounge. All rights reserved.</p>
           </div>
-          
-          <div>
-            <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Company</h3>
-            <ul class="space-y-2">
-              <li><a href="/about" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">About</a></li>
-              <li><a href="/contact" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Contact</a></li>
-              <!-- <li><a href="/careers" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Careers</a></li> -->
-            </ul>
-          </div>
-          
-          <div>
-            <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Legal</h3>
-            <ul class="space-y-2">
-              <li><a href="/privacy" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Privacy</a></li>
-              <li><a href="/terms" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Terms</a></li>
-              <li><a href="/security" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Security</a></li>
-            </ul>
-          </div>
-        </div>
-        
-        <div class="pt-8 border-t border-gray-200 dark:border-gray-800 text-center text-gray-600 dark:text-gray-400">
-          <p>&copy; 2025 DentalPro. All rights reserved.</p>
         </div>
       </footer>
     </div>

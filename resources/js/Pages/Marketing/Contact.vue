@@ -22,7 +22,7 @@ import PageTemplate from './PageTemplate.vue';
               </div>
               <div class="ml-4">
                 <h3 class="text-sm font-medium text-gray-900 dark:text-white">Email</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">alvinpaka@gmail.com</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">test@dentalclinic.com</p>
               </div>
             </div>
             
@@ -32,7 +32,7 @@ import PageTemplate from './PageTemplate.vue';
               </div>
               <div class="ml-4">
                 <h3 class="text-sm font-medium text-gray-900 dark:text-white">Phone</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">+256 (392) 911-652</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">+256 (392) xxx-xxx</p>
               </div>
             </div>
             
@@ -43,8 +43,8 @@ import PageTemplate from './PageTemplate.vue';
               <div class="ml-4">
                 <h3 class="text-sm font-medium text-gray-900 dark:text-white">Office</h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                  Plot 8<br>
-                  Hill Road<br>
+                  Plot x<br>
+                  xxxx xxx xxx<br>
                   Entebbe, Uganda
                 </p>
               </div>

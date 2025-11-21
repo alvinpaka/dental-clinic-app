@@ -6,7 +6,7 @@ const terms = [
   {
     icon: DocumentTextIcon,
     title: '1. Introduction',
-    content: 'Welcome to DentalPro. These Terms of Service ("Terms") govern your access to and use of our website and services (collectively, the "Service"). By accessing or using the Service, you agree to be bound by these Terms.'
+    content: 'Welcome to Victoria Dental Lounge. These Terms of Service ("Terms") govern your access to and use of our website and services (collectively, the "Service"). By accessing or using the Service, you agree to be bound by these Terms.'
   },
   {
     icon: UserCircleIcon,
@@ -21,12 +21,12 @@ const terms = [
   {
     icon: ExclamationTriangleIcon,
     title: '4. Intellectual Property',
-    content: 'The Service and its original content, features, and functionality are and will remain the exclusive property of DentalPro and its licensors. The Service is protected by copyright, trademark, and other laws of both the United States and foreign countries.'
+    content: 'The Service and its original content, features, and functionality are and will remain the exclusive property of Victoria Dental Lounge and its licensors. The Service is protected by copyright, trademark, and other laws of both the United States and foreign countries.'
   },
   {
     icon: ScaleIcon,
     title: '5. Limitation of Liability',
-    content: 'In no event shall DentalPro, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Service.'
+    content: 'In no event shall Victoria Dental Lounge, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Service.'
   },
   {
     icon: ClockIcon,
@@ -86,7 +86,7 @@ const terms = [
               <div class="ml-3">
                 <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Questions?</h3>
                 <div class="mt-2 text-sm text-blue-700 dark:text-blue-400">
-                  <p>If you have any questions about these Terms, please contact us at <a href="mailto:legal@dentalpro.com" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-400">legal@dentalpro.com</a>.</p>
+                  <p>If you have any questions about these Terms, please contact us at <a href="mailto:legal@Victoria Dental Lounge.com" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-400">legal@Victoria Dental Lounge.com</a>.</p>
                 </div>
               </div>
             </div>

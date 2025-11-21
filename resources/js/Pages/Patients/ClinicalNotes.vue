@@ -87,13 +87,29 @@ const signNote = (noteId: number) => {
 const isDeleteOpen = ref(false)
 const deletingNote = ref<Note | null>(null)
 const openDelete = (note: Note) => { deletingNote.value = note; isDeleteOpen.value = true }
-const confirmDelete = () => {
-  if (!deletingNote.value) return
-  router.delete(route('patients.notes.destroy', [props.patient.id, deletingNote.value.id]), {
-    preserveScroll: true,
-    onSuccess: () => { isDeleteOpen.value = false; deletingNote.value = null; router.reload() }
-  })
-}
+const confirmDelete = async () => {
+  if (!deletingNote.value) return;
+  
+  // Close the modal immediately
+  isDeleteOpen.value = false;
+  
+  try {
+    await router.delete(route('patients.notes.destroy', [props.patient.id, deletingNote.value.id]), {
+      preserveScroll: true,
+    });
+    
+    // Remove the deleted note from the notes array
+    const index = props.notes.findIndex(note => note.id === deletingNote.value?.id);
+    if (index !== -1) {
+      props.notes.splice(index, 1);
+    }
+  } catch (error) {
+    console.error('Error deleting note:', error);
+  } finally {
+    // Clear the reference
+    deletingNote.value = null;
+  }
+};
 </script>
 
 <template>
@@ -183,15 +199,15 @@ const confirmDelete = () => {
 
       <!-- Delete Note Dialog -->
       <Dialog :open="isDeleteOpen" @update:open="(v:boolean) => isDeleteOpen = v">
-        <DialogContent class="max-w-md">
+        <DialogContent class="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
           <DialogHeader>
-            <DialogTitle class="text-xl font-semibold">Delete Note</DialogTitle>
+            <DialogTitle class="text-xl font-semibold text-gray-900 dark:text-white">Delete Note</DialogTitle>
             <DialogDescription class="text-gray-600 dark:text-gray-400">
               This action cannot be undone. This will permanently delete the clinical note.
             </DialogDescription>
           </DialogHeader>
-          <div class="py-2 text-sm">
-            Are you sure you want to delete this note for <span class="font-medium">{{ props.patient.name }}</span>?
+          <div class="py-2 text-sm text-gray-700 dark:text-gray-300">
+            Are you sure you want to delete this note for <span class="font-medium text-gray-900 dark:text-white">{{ props.patient.name }}</span>?
           </div>
           <DialogFooter class="gap-2">
             <Button type="button" variant="outline" @click="isDeleteOpen = false">Cancel</Button>
@@ -225,21 +241,21 @@ const confirmDelete = () => {
                         <MoreVertical class="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" class="w-48">
-                      <DropdownMenuItem as-child>
-                        <a :href="route('patients.notes.pdf', [props.patient.id, n.id])" target="_blank" class="w-full flex items-center">
+                    <DropdownMenuContent align="end" class="w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                      <DropdownMenuItem as-child class="focus:bg-gray-100 dark:focus:bg-gray-800">
+                        <a :href="route('patients.notes.pdf', [props.patient.id, n.id])" target="_blank" class="w-full flex items-center text-gray-700 dark:text-gray-300">
                           <i class="fas fa-file-pdf mr-2 w-4 text-center"></i>
                           <span>Download PDF</span>
                         </a>
                       </DropdownMenuItem>
-                      <DropdownMenuItem v-if="n.status !== 'signed'" class="cursor-pointer" @click="signNote(n.id)">
+                      <DropdownMenuItem v-if="n.status !== 'signed'" class="cursor-pointer text-gray-700 dark:text-gray-300 focus:bg-gray-100 dark:focus:bg-gray-800" @click="signNote(n.id)">
                         <i class="fas fa-pen-nib mr-2 w-4 text-center"></i>
                         <span>Sign</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem class="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400" @click="openDelete(n)">
+                      <!-- <DropdownMenuItem class="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400 focus:bg-gray-100 dark:focus:bg-gray-800" @click="openDelete(n)">
                         <i class="fas fa-trash mr-2 w-4 text-center"></i>
                         <span>Delete</span>
-                      </DropdownMenuItem>
+                      </DropdownMenuItem> -->
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

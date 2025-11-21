@@ -33,7 +33,7 @@ const formError = ref<string | null>(null)
 const renderPreview = (tpl: string | undefined) => {
   if (!tpl) return ''
   const today = new Date()
-  const clinicName = (props.context_vars?.clinic_name) || (page?.props?.app?.name) || 'DentalPro'
+  const clinicName = (props.context_vars?.clinic_name) || (page?.props?.app?.name) || 'Victoria Dental Lounge'
   const dentistName = props.context_vars?.dentist_name || ''
   const apptDate = props.context_vars?.appointment_date || today.toLocaleDateString()
   const vars: Record<string,string> = {

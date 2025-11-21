@@ -65,9 +65,9 @@ const submit = () => {
           </div>
           <div>
             <span class="text-2xl font-bold text-white">
-              DentalPro
+              Victoria Dental Lounge
             </span>
-            <p class="text-xs text-blue-100">Professional Dental Care</p>
+            <p class="text-xs text-blue-100">You Smile We Smile</p>
           </div>
         </Link>
 
@@ -75,7 +75,7 @@ const submit = () => {
         <div class="space-y-8">
           <div>
             <h2 class="text-4xl font-bold text-white mb-4">
-              Join DentalPro Today
+              Join Victoria Dental Lounge Today
             </h2>
             <p class="text-blue-100 text-lg">
               Start your free trial and transform your dental practice with our comprehensive management platform.
@@ -143,7 +143,7 @@ const submit = () => {
               <i class="fas fa-sparkles text-white text-xl"></i>
             </div>
             <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              DentalPro
+              Victoria Dental Lounge
             </span>
           </Link>
         </div>

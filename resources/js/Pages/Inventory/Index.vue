@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
+import { Textarea } from '@/Components/ui/textarea';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
@@ -184,6 +185,63 @@ const goToPage = (link: PaginationLink) => {
 // Use server-side data directly
 const items = computed(() => props.items?.data || []);
 
+// Focus management
+let activeElement = null;
+
+const focusTrap = (element) => {
+  if (!element) return;
+  
+  const focusableElements = element.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  
+  if (focusableElements.length === 0) return;
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+
+  const handleKeyDown = (e) => {
+    if (e.key !== 'Tab') return;
+
+    if (e.shiftKey) {
+      if (document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      }
+    } else {
+      if (document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    }
+  };
+
+  element.addEventListener('keydown', handleKeyDown);
+  firstElement.focus();
+
+  return () => {
+    element.removeEventListener('keydown', handleKeyDown);
+  };
+};
+
+// Focus management for modals
+const setupModalFocusTrap = () => {
+  const dialogs = document.querySelectorAll('[role="dialog"]');
+  dialogs.forEach(dialog => {
+    if (dialog.getAttribute('data-focused') !== 'true') {
+      dialog.setAttribute('data-focused', 'true');
+      focusTrap(dialog);
+    }
+  });
+};
+
+// Cleanup on component unmount
+onUnmounted(() => {
+  if (activeElement && typeof activeElement.focus === 'function') {
+    activeElement.focus();
+  }
+});
+
 // Helper functions
 const getStockStatus = (item: InventoryItem) => {
   if ((item.quantity ?? 0) === 0) return { status: 'out_of_stock', label: 'Out of Stock', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
@@ -210,6 +268,7 @@ const createForm = useForm({
   name: '',
   description: '',
   quantity: 0,
+  unit: 'pcs', // Default unit
   unit_price: 0,
   low_stock_threshold: 5,
   category: '',
@@ -221,6 +280,7 @@ const editForm = useForm({
   name: '',
   description: '',
   quantity: 0,
+  unit: 'pcs', // Default unit
   unit_price: 0,
   low_stock_threshold: 5,
   category: '',
@@ -233,36 +293,62 @@ const isCreateOpen = ref(false);
 const isEditOpen = ref(false);
 const isDeleteOpen = ref(false);
 const isViewOpen = ref(false);
+const showAccessDenied = ref(false);
 const editingItem = ref<InventoryItem | null>(null);
 const viewingItem = ref<InventoryItem | null>(null);
+const deletingItem = ref<InventoryItem | null>(null);
 
 // Event handlers
 const openCreate = () => {
+  activeElement = document.activeElement;
   createForm.reset();
   isCreateOpen.value = true;
+  nextTick(() => {
+    setupModalFocusTrap();
+  });
 };
 
 const openEdit = (item: InventoryItem) => {
-  editingItem.value = item;
-  editForm.name = item.name;
+  if (!item) return;
+  
+  activeElement = document.activeElement;
+  
+  // Store the item being edited
+  editingItem.value = { ...item };
+  
+  // Set form values
+  editForm.name = item.name || '';
   editForm.description = item.description || '';
-  editForm.quantity = item.quantity;
-  editForm.unit_price = item.unit_price;
-  editForm.low_stock_threshold = item.low_stock_threshold;
+  editForm.quantity = item.quantity?.toString() || '0';
+  editForm.unit = item.unit || '';
+  editForm.unit_price = item.unit_price?.toString() || '0';
+  editForm.low_stock_threshold = item.low_stock_threshold?.toString() || '5';
   editForm.category = item.category || '';
   editForm.supplier = item.supplier || '';
-  editForm.expiry_date = item.expiry_date ? item.expiry_date.split('T')[0] : '';
+  editForm.expiry_date = item.expiry_date || '';
+  
   isEditOpen.value = true;
+  nextTick(() => {
+    setupModalFocusTrap();
+  });
 };
 
 const openDelete = (item: InventoryItem) => {
-  editingItem.value = item;
+  if (!props.can?.delete) {
+    showAccessDenied.value = true;
+    return;
+  }
+  
+  activeElement = document.activeElement;
+  deletingItem.value = { ...item };
   isDeleteOpen.value = true;
+  nextTick(() => {
+    setupModalFocusTrap();
+  });
 };
 
-const openView = (item: InventoryItem) => {
-  viewingItem.value = item;
-  isViewOpen.value = true;
+const viewItem = (item) => {
+  router.get(route('inventory.show', item.id));
 };
 
 const submitCreate = () => {
@@ -297,14 +383,80 @@ const submitEdit = () => {
 };
 
 const confirmDelete = () => {
-  if (editingItem.value?.id) {
-    router.delete(`/inventory/${editingItem.value.id}`, {
-      onSuccess: () => {
-        isDeleteOpen.value = false;
-        editingItem.value = null;
-      },
-    });
+  if (!deletingItem.value?.id) {
+    console.error('No item selected for deletion');
+    return;
   }
+  
+  router.delete(route('inventory.destroy', deletingItem.value.id), {
+    onSuccess: () => {
+      isDeleteOpen.value = false;
+      deletingItem.value = null;
+      // Refresh the inventory list
+      fetchInventory();
+    },
+    onError: (errors) => {
+      console.error('Error deleting inventory item:', errors);
+      // Show error message to user
+      alert('Failed to delete item. Please try again.');
+    }
+  });
+};
+
+const isRestockOpen = ref(false);
+const isUseItemOpen = ref(false);
+const selectedItem = ref<InventoryItem | null>(null);
+
+// Forms
+const restockForm = useForm({
+    quantity: 1,
+    notes: '',
+});
+
+const useItemForm = useForm({
+    quantity: 1,
+    notes: '',
+});
+
+// Methods
+const openRestock = (item: InventoryItem) => {
+    selectedItem.value = item;
+    restockForm.quantity = 1;
+    restockForm.notes = '';
+    isViewOpen.value = false;  // Close the view modal
+    isRestockOpen.value = true;  // Open the restock modal
+};
+
+const openUseItem = (item: InventoryItem) => {
+    selectedItem.value = item;
+    useItemForm.quantity = 1;
+    useItemForm.notes = '';
+    isViewOpen.value = false;  // Close the view modal
+    isUseItemOpen.value = true;  // Open the use item modal
+};
+
+const submitRestock = () => {
+    if (!selectedItem.value) return;
+    
+    restockForm.post(route('inventory.restock', selectedItem.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            isRestockOpen.value = false;
+            fetchInventory();
+        },
+    });
+};
+
+const submitUseItem = () => {
+    if (!selectedItem.value) return;
+    
+    useItemForm.post(route('inventory.use', selectedItem.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            isUseItemOpen.value = false;
+            fetchInventory();
+        },
+    });
 };
 </script>
 
@@ -507,7 +659,7 @@ const confirmDelete = () => {
                     </tr>
                   </thead>
                   <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
-                    <tr v-for="item in items" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer" @click="openView(item)">
+                    <tr v-for="item in items" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer" @click="viewItem(item)">
                       <td class="px-4 py-4 align-top">
                         <div class="flex items-start gap-3">
                           <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
@@ -524,7 +676,7 @@ const confirmDelete = () => {
                         <div class="space-y-1">
                           <span class="flex items-center gap-2">
                             <Layers class="w-4 h-4 text-gray-400" />
-                            Quantity: {{ item.quantity }}
+                            Quantity: {{ item.quantity }} {{ item.unit }}
                           </span>
                           <span class="flex items-center gap-2">
                             <AlertTriangle class="w-4 h-4 text-gray-400" />
@@ -567,7 +719,7 @@ const confirmDelete = () => {
                             </DropdownMenuTrigger>
                       
                             <DropdownMenuContent align="end" class="w-36">
-                              <DropdownMenuItem @click="openView(item)">
+                              <DropdownMenuItem @click="viewItem(item)">
                                 View
                               </DropdownMenuItem>
                       
@@ -577,9 +729,9 @@ const confirmDelete = () => {
                       
                               <DropdownMenuSeparator />
                       
-                              <DropdownMenuItem @click="openDelete(item)" class="text-red-600 focus:text-red-700">
+                              <!-- <DropdownMenuItem @click="openDelete(item)" class="text-red-600 focus:text-red-700">
                                 Delete Item
-                              </DropdownMenuItem>
+                              </DropdownMenuItem> -->
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -643,7 +795,11 @@ const confirmDelete = () => {
 
     <!-- Create Item Modal -->
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
-      <DialogContent class="max-w-4xl">
+      <DialogContent 
+        class="max-w-4xl max-h-[90vh] overflow-y-auto"
+        @open-auto-focus="(e) => e.preventDefault()"
+        @close-auto-focus="(e) => e.preventDefault()"
+      >
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Add Inventory Item
@@ -675,18 +831,50 @@ const confirmDelete = () => {
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="space-y-2">
               <Label for="quantity" class="text-gray-700 dark:text-gray-300">Quantity</Label>
               <Input
                 id="quantity"
+                v-model.number="createForm.quantity"
                 type="number"
-                v-model="createForm.quantity"
-                placeholder="0"
                 min="0"
+                step="0.01"
+                placeholder="Enter quantity"
                 class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                 required
               />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="unit" class="text-gray-700 dark:text-gray-300">Unit</Label>
+              <Select v-model="createForm.unit">
+                <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pcs">Pieces</SelectItem>
+                  <SelectItem value="box">Box</SelectItem>
+                  <SelectItem value="pack">Pack</SelectItem>
+                  <SelectItem value="bottle">Bottle</SelectItem>
+                  <SelectItem value="liter">Liter</SelectItem>
+                  <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                  <SelectItem value="g">Gram (g)</SelectItem>
+                  <SelectItem value="mg">Milligram (mg)</SelectItem>
+                  <SelectItem value="ml">Milliliter (ml)</SelectItem>
+                  <SelectItem value="m">Meter (m)</SelectItem>
+                  <SelectItem value="cm">Centimeter (cm)</SelectItem>
+                  <SelectItem value="set">Set</SelectItem>
+                  <SelectItem value="pair">Pair</SelectItem>
+                  <SelectItem value="dozen">Dozen</SelectItem>
+                  <SelectItem value="carton">Carton</SelectItem>
+                  <SelectItem value="roll">Roll</SelectItem>
+                  <SelectItem value="tube">Tube</SelectItem>
+                  <SelectItem value="can">Can</SelectItem>
+                  <SelectItem value="jar">Jar</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div class="space-y-2">
@@ -778,7 +966,11 @@ const confirmDelete = () => {
 
     <!-- Edit Item Modal -->
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
-      <DialogContent class="max-w-4xl">
+      <DialogContent 
+        class="max-w-4xl max-h-[90vh] overflow-y-auto"
+        @open-auto-focus="(e) => e.preventDefault()"
+        @close-auto-focus="(e) => e.preventDefault()"
+      >
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Edit Inventory Item
@@ -810,18 +1002,50 @@ const confirmDelete = () => {
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="space-y-2">
               <Label for="edit-quantity" class="text-gray-700 dark:text-gray-300">Quantity</Label>
               <Input
                 id="edit-quantity"
+                v-model.number="editForm.quantity"
                 type="number"
-                v-model="editForm.quantity"
-                placeholder="0"
                 min="0"
+                step="0.01"
+                placeholder="Enter quantity"
                 class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                 required
               />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="edit-unit" class="text-gray-700 dark:text-gray-300">Unit</Label>
+              <Select v-model="editForm.unit">
+                <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pcs">Pieces</SelectItem>
+                  <SelectItem value="box">Box</SelectItem>
+                  <SelectItem value="pack">Pack</SelectItem>
+                  <SelectItem value="bottle">Bottle</SelectItem>
+                  <SelectItem value="liter">Liter</SelectItem>
+                  <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                  <SelectItem value="g">Gram (g)</SelectItem>
+                  <SelectItem value="mg">Milligram (mg)</SelectItem>
+                  <SelectItem value="ml">Milliliter (ml)</SelectItem>
+                  <SelectItem value="m">Meter (m)</SelectItem>
+                  <SelectItem value="cm">Centimeter (cm)</SelectItem>
+                  <SelectItem value="set">Set</SelectItem>
+                  <SelectItem value="pair">Pair</SelectItem>
+                  <SelectItem value="dozen">Dozen</SelectItem>
+                  <SelectItem value="carton">Carton</SelectItem>
+                  <SelectItem value="roll">Roll</SelectItem>
+                  <SelectItem value="tube">Tube</SelectItem>
+                  <SelectItem value="can">Can</SelectItem>
+                  <SelectItem value="jar">Jar</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div class="space-y-2">
@@ -912,8 +1136,12 @@ const confirmDelete = () => {
     </Dialog>
 
     <!-- Delete Modal -->
-    <Dialog :open="isDeleteOpen" @update:open="(value) => isDeleteOpen = value">
-      <DialogContent class="max-w-4xl">
+    <Dialog :open="isDeleteOpen" @update:open="isDeleteOpen = $event">
+      <DialogContent 
+        class="max-w-md"
+        @open-auto-focus="(e) => e.preventDefault()"
+        @close-auto-focus="(e) => e.preventDefault()"
+      >
         <DialogHeader>
           <DialogTitle class="text-xl font-bold text-red-600">Delete Inventory Item</DialogTitle>
           <DialogDescription class="text-gray-600 dark:text-gray-400">
@@ -924,10 +1152,8 @@ const confirmDelete = () => {
         <div class="py-4">
           <div class="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
             <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
-            <div>
-              <p class="font-medium text-red-800 dark:text-red-200">Delete "{{ editingItem?.name }}"?</p>
-              <p class="text-sm text-red-600 dark:text-red-400">This will remove the item from inventory permanently.</p>
-            </div>
+            <p class="font-medium text-red-800 dark:text-red-200">Delete "{{ deletingItem?.name }}"?</p>
+            <p class="text-sm text-red-600 dark:text-red-400">This action cannot be undone. All data associated with this item will be permanently removed.</p>
           </div>
         </div>
 
@@ -949,7 +1175,11 @@ const confirmDelete = () => {
 
     <!-- View Item Modal -->
     <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
-      <DialogContent class="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        class="max-w-6xl max-h-[90vh] overflow-y-auto"
+        @open-auto-focus="(e) => e.preventDefault()"
+        @close-auto-focus="(e) => e.preventDefault()"
+      >
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Inventory Item Details: {{ viewingItem?.name }}
@@ -967,20 +1197,33 @@ const confirmDelete = () => {
                 Basic Information
               </CardTitle>
             </CardHeader>
-            <CardContent class="space-y-3">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
+            <CardContent class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-1">
                   <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Item Name</Label>
                   <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ viewingItem.name }}</p>
                 </div>
-                <div>
+                <div class="space-y-1">
                   <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Category</Label>
-                  <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ viewingItem.category || 'N/A' }}</p>
+                  <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ viewingItem.category || 'N/A' }}
+                  </p>
+                </div>
+                <div v-if="viewingItem.supplier" class="space-y-1">
+                  <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Supplier</Label>
+                  <p class="text-gray-900 dark:text-white">{{ viewingItem.supplier }}</p>
+                </div>
+                <div v-if="viewingItem.created_at" class="space-y-1">
+                  <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Date Added</Label>
+                  <p class="text-gray-900 dark:text-white">
+                    {{ new Date(viewingItem.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}
+                  </p>
                 </div>
               </div>
-              <div v-if="viewingItem.description">
+              
+              <div v-if="viewingItem.description" class="space-y-1">
                 <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Description</Label>
-                <p class="text-gray-700 dark:text-gray-300 mt-1">{{ viewingItem.description }}</p>
+                <p class="text-gray-700 dark:text-gray-300 mt-1 whitespace-pre-line">{{ viewingItem.description }}</p>
               </div>
             </CardContent>
           </Card>
@@ -993,64 +1236,126 @@ const confirmDelete = () => {
                 Inventory Details
               </CardTitle>
             </CardHeader>
-            <CardContent class="space-y-3">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <CardContent class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <i class="fas fa-hashtag text-2xl text-blue-600 mb-2"></i>
                   <p class="text-sm text-blue-700 dark:text-blue-300">Current Stock</p>
-                  <p class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ viewingItem.quantity }}</p>
+                  <p class="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                    {{ viewingItem.quantity }} {{ viewingItem.unit || 'units' }}
+                  </p>
                 </div>
                 <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                   <Receipt class="w-6 h-6 text-green-600 mb-2"></Receipt>
                   <p class="text-sm text-green-700 dark:text-green-300">Unit Price</p>
-                  <p class="text-2xl font-bold text-green-900 dark:text-green-100">{{ formatCurrency(viewingItem.unit_price) }}</p>
+                  <p class="text-2xl font-bold text-green-900 dark:text-green-100">
+                    {{ formatCurrency(viewingItem.unit_price) }} <span class="text-sm font-normal">/ {{ viewingItem.unit || 'unit' }}</span>
+                  </p>
                 </div>
                 <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                   <i class="fas fa-chart-line text-2xl text-purple-600 mb-2"></i>
                   <p class="text-sm text-purple-700 dark:text-purple-300">Total Value</p>
-                  <p class="text-2xl font-bold text-purple-900 dark:text-purple-100">{{ formatCurrency(getTotalValue(viewingItem)) }}</p>
+                  <p class="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                    {{ formatCurrency(getTotalValue(viewingItem)) }}
+                  </p>
+                </div>
+                <div class="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                  <i class="fas fa-bell text-2xl text-amber-600 mb-2"></i>
+                  <p class="text-sm text-amber-700 dark:text-amber-300">Stock Status</p>
+                  <Badge :class="getStockStatus(viewingItem).color" variant="secondary" class="mt-1">
+                    <i :class="['fas mr-1 text-sm', getStockStatus(viewingItem).status === 'out_of_stock' ? 'fa-times-circle' : getStockStatus(viewingItem).status === 'low_stock' ? 'fa-exclamation-triangle' : 'fa-check-circle']"></i>
+                    {{ getStockStatus(viewingItem).label }}
+                  </Badge>
                 </div>
               </div>
-              <div class="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
-                <div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div class="space-y-1">
                   <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Low Stock Threshold</Label>
-                  <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ viewingItem.low_stock_threshold }}</p>
+                  <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ viewingItem.low_stock_threshold }} {{ viewingItem.unit ? viewingItem.unit + '(s)' : 'units' }}
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ viewingItem.quantity <= viewingItem.low_stock_threshold ? 'Below threshold' : 'Above threshold' }}
+                  </p>
                 </div>
-                <Badge :class="getStockStatus(viewingItem).color" variant="secondary">
-                  <i :class="['fas mr-1', getStockStatus(viewingItem).status === 'out_of_stock' ? 'fa-times-circle' : getStockStatus(viewingItem).status === 'low_stock' ? 'fa-exclamation-triangle' : 'fa-check-circle']"></i>
-                  {{ getStockStatus(viewingItem).label }}
-                </Badge>
+                
+                <div class="space-y-1">
+                  <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Expiry Date</Label>
+                  <p v-if="viewingItem.expiry_date" 
+                     :class="['font-semibold', isExpiringSoon(viewingItem.expiry_date) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white']">
+                    {{ new Date(viewingItem.expiry_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}
+                    <span v-if="isExpiringSoon(viewingItem.expiry_date)" class="ml-2 text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">
+                      <i class="fas fa-exclamation-triangle mr-1"></i> Expiring Soon
+                    </span>
+                  </p>
+                  <p v-else class="text-gray-500 dark:text-gray-400">
+                    No expiry date set
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
     
-          <!-- Additional Information -->
+          <!-- Stock History & Actions -->
           <Card class="border-0 shadow-lg">
             <CardHeader class="pb-3">
               <CardTitle class="text-lg flex items-center">
-                <i class="fas fa-plus-circle mr-2 text-indigo-600"></i>
-                Additional Information
+                <i class="fas fa-history mr-2 text-indigo-600"></i>
+                Stock History & Actions
               </CardTitle>
             </CardHeader>
-            <CardContent class="space-y-3">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div v-if="viewingItem.supplier">
-                  <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Supplier</Label>
-                  <p class="text-gray-900 dark:text-white">{{ viewingItem.supplier }}</p>
-                </div>
-                <div v-if="viewingItem.expiry_date">
-                  <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Expiry Date</Label>
-                  <p :class="['font-medium', isExpiringSoon(viewingItem.expiry_date) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white']">
-                    {{ new Date(viewingItem.expiry_date).toLocaleDateString() }}
-                    <span v-if="isExpiringSoon(viewingItem.expiry_date)" class="text-xs text-amber-600 dark:text-amber-400 ml-2">
-                      (Expiring Soon)
-                    </span>
+            <CardContent class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Last Updated</Label>
+                  <p class="text-gray-900 dark:text-white">
+                    {{ viewingItem.updated_at ? new Date(viewingItem.updated_at).toLocaleString('en-US', { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A' }}
                   </p>
                 </div>
+                <div class="space-y-2">
+                  <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Item ID</Label>
+                  <p class="font-mono text-sm text-gray-600 dark:text-gray-400">#{{ viewingItem.id.toString().padStart(5, '0') }}</p>
+                </div>
               </div>
-              <div v-if="viewingItem.created_at">
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Date Added</Label>
-                <p class="text-gray-900 dark:text-white">{{ new Date(viewingItem.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}</p>
+              
+              <div class="pt-4 border-t border-gray-100 dark:border-gray-800">
+                <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Quick Actions</h4>
+                <div class="flex flex-wrap gap-2">
+                  <Button @click="openEdit(viewingItem); isViewOpen = false" variant="outline" size="sm" class="gap-2">
+                    <i class="fas fa-edit"></i>
+                    Edit Item
+                  </Button>
+                  <!-- <Button @click="(e) => { e.stopPropagation(); openDelete(viewingItem); isViewOpen = false; }" variant="outline" size="sm" class="gap-2 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400">
+                    <i class="fas fa-trash"></i>
+                    Delete Item
+                  </Button> -->
+                  <Button 
+                      @click.stop="openRestock(viewingItem)" 
+                      variant="outline" 
+                      size="sm" 
+                      class="gap-2 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20"
+                  >
+                      <i class="fas fa-plus"></i>
+                      Restock
+                  </Button>
+                  <Button 
+                      @click.stop="openUseItem(viewingItem)" 
+                      variant="outline" 
+                      size="sm" 
+                      class="gap-2 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20"
+                      :disabled="viewingItem.quantity <= 0"
+                  >
+                      <i class="fas fa-minus"></i>
+                      Use Item
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1064,6 +1369,145 @@ const confirmDelete = () => {
             <i class="fas fa-edit mr-2"></i>
             Edit Item
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Restock Modal -->
+    <Dialog :open="isRestockOpen" @update:open="(val) => isRestockOpen = val">
+        <DialogContent class="max-w-md">
+            <DialogHeader>
+                <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                    Restock Item
+                </DialogTitle>
+                <DialogDescription>
+                    Add stock for {{ selectedItem?.name }}
+                </DialogDescription>
+            </DialogHeader>
+
+            <form @submit.prevent="submitRestock" class="space-y-4">
+                <div class="space-y-2">
+                    <Label for="restock-quantity">Quantity to Add</Label>
+                    <Input
+                        id="restock-quantity"
+                        v-model="restockForm.quantity"
+                        type="number"
+                        min="1"
+                        required
+                    />
+                    <p v-if="restockForm.errors.quantity" class="text-sm text-red-500">
+                        {{ restockForm.errors.quantity }}
+                    </p>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="restock-notes">Notes (Optional)</Label>
+                    <Textarea
+                        id="restock-notes"
+                        v-model="restockForm.notes"
+                        placeholder="Add any notes about this restock..."
+                        rows="3"
+                    />
+                </div>
+
+                <DialogFooter class="gap-2 pt-4">
+                    <Button type="button" variant="outline" @click="isRestockOpen = false">
+                        Cancel
+                    </Button>
+                    <Button 
+                        type="submit" 
+                        :disabled="restockForm.processing"
+                        class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    >
+                        <i class="fas fa-plus mr-2"></i>
+                        {{ restockForm.processing ? 'Restocking...' : 'Restock Item' }}
+                    </Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Use Item Modal -->
+    <Dialog :open="isUseItemOpen" @update:open="(val) => isUseItemOpen = val">
+        <DialogContent class="max-w-md">
+            <DialogHeader>
+                <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                    Use Item
+                </DialogTitle>
+                <DialogDescription>
+                    Record usage of {{ selectedItem?.name }}
+                </DialogDescription>
+            </DialogHeader>
+
+            <form @submit.prevent="submitUseItem" class="space-y-4">
+                <div class="space-y-2">
+                    <Label for="use-quantity">Quantity to Use</Label>
+                    <div class="relative">
+                        <Input
+                            id="use-quantity"
+                            v-model="useItemForm.quantity"
+                            type="number"
+                            min="1"
+                            :max="selectedItem?.quantity || 1"
+                            required
+                            class="pr-20"
+                        />
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                            of {{ selectedItem?.quantity || 0 }} available
+                        </span>
+                    </div>
+                    <p v-if="useItemForm.errors.quantity" class="text-sm text-red-500">
+                        {{ useItemForm.errors.quantity }}
+                    </p>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="use-notes">Notes (Optional)</Label>
+                    <Textarea
+                        id="use-notes"
+                        v-model="useItemForm.notes"
+                        placeholder="Add any notes about this usage..."
+                        rows="3"
+                    />
+                </div>
+
+                <DialogFooter class="gap-2 pt-4">
+                    <Button type="button" variant="outline" @click="isUseItemOpen = false">
+                        Cancel
+                    </Button>
+                    <Button 
+                        type="submit" 
+                        :disabled="useItemForm.processing"
+                        class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
+                    >
+                        <i class="fas fa-minus mr-2"></i>
+                        {{ useItemForm.processing ? 'Processing...' : 'Record Usage' }}
+                    </Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Access Denied Modal -->
+    <Dialog :open="showAccessDenied" @update:open="showAccessDenied = $event">
+      <DialogContent class="max-w-md">
+        <DialogHeader>
+          <DialogTitle class="text-xl font-bold text-red-600">Access Denied</DialogTitle>
+          <DialogDescription class="text-gray-600 dark:text-gray-400">
+            You don't have permission to perform this action.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="py-4">
+          <div class="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+            <div>
+              <p class="font-medium text-red-800 dark:text-red-200">Access Denied</p>
+              <p class="text-sm text-red-600 dark:text-red-400">You do not have permission to delete inventory items.</p>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button @click="showAccessDenied = false" class="w-full">OK</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
