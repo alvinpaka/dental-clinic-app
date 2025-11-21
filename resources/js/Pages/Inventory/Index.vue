@@ -953,7 +953,7 @@ const submitUseItem = () => {
             <Button
               type="submit"
               :disabled="createForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              class="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-plus mr-2"></i>
@@ -1124,7 +1124,7 @@ const submitUseItem = () => {
             <Button
               type="submit"
               :disabled="editForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              class="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <i v-if="editForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-save mr-2"></i>

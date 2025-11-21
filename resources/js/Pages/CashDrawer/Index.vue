@@ -264,7 +264,7 @@ const net = computed(() => Number((props.totals && (props.totals as any).inflow)
               <Input v-model="adjustForm.reason" placeholder="e.g., petty cash" />
             </div>
             <div class="md:col-span-2 flex justify-end">
-              <Button @click="submitAdjustment" :disabled="adjustForm.processing" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">Save Adjustment</Button>
+              <Button @click="submitAdjustment" :disabled="adjustForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">Save Adjustment</Button>
             </div>
           </div>
         </CardContent>

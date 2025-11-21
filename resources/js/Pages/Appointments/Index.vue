@@ -1141,7 +1141,7 @@ function goToPage(link: PaginationLink) {
           <Button type="button" variant="outline" @click="isViewOpen = false">
             Close
           </Button>
-          <Button @click="openEdit(viewingAppointment!)" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+          <Button @click="openEdit(viewingAppointment!)" class="bg-blue-600 hover:bg-blue-700 text-white">
             <Edit class="w-4 h-4 mr-2" />
             Edit Appointment
           </Button>

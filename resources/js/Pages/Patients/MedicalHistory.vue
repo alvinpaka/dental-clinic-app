@@ -100,7 +100,7 @@ const submit = () => {
                 <span v-if="lastReviewed">Last reviewed: {{ lastReviewed }}</span>
                 <span v-else>Not reviewed yet</span>
               </div>
-              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
+              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
                 {{ form.processing ? 'Saving...' : 'Save' }}
               </Button>
             </div>

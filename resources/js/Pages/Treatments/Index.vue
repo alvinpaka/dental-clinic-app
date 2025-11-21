@@ -1231,7 +1231,7 @@ const calculateTotalCost = (treatment: Treatment) => {
             </div>
             <DialogFooter>
               <Button variant="outline" @click="isCreateOpen = false">Cancel</Button>
-              <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
                 <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
                 <i v-else class="fas fa-plus mr-2"></i>
                 {{ createForm.processing ? 'Creating...' : 'Create' }}
@@ -1283,7 +1283,7 @@ const calculateTotalCost = (treatment: Treatment) => {
             </div>
             <DialogFooter>
               <Button variant="outline" @click="isPaymentOpen = false">Cancel</Button>
-              <Button type="submit" :disabled="paymentForm.processing" class="bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" :disabled="paymentForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
                 <i v-if="paymentForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
                 <i v-else class="fas fa-check mr-2"></i>
                 {{ paymentForm.processing ? 'Saving...' : 'Save Payment' }}

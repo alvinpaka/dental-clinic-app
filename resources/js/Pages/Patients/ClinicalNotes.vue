@@ -191,7 +191,7 @@ const confirmDelete = async () => {
               </div>
             </div>
             <div class="md:col-span-2 flex justify-end">
-              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">Save Note</Button>
+              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 text-white">Save Note</Button>
             </div>
           </form>
         </CardContent>

@@ -128,7 +128,7 @@ const getToothForDisplay = (displayCode: string) => getTooth(toFdi(displayCode))
                   </SelectContent>
                 </Select>
               </div>
-              <Button @click="save" class="bg-gradient-to-r from-blue-600 to-cyan-600">Save</Button>
+              <Button @click="save" class="bg-blue-600 hover:bg-blue-700 text-white">Save</Button>
             </div>
           </CardTitle>
         </CardHeader>

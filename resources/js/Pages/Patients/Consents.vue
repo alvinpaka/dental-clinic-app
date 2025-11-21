@@ -254,7 +254,7 @@ const submit = () => {
               />
             </div>
             <div class="md:col-span-4 flex flex-wrap gap-2 md:justify-end items-end">
-              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 w-full md:w-auto">
+              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto">
                 {{ form.processing ? 'Saving...' : 'Record Consent' }}
               </Button>
               <Button type="button" variant="outline" :disabled="!selectedTemplate" @click="openPreview" class="w-full md:w-auto">
