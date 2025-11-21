@@ -11,10 +11,10 @@
                 <i class="fa-solid fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
               </div>
               <div>
-                <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                  DentalPro
+                <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                  Victoria Dental Lounge
                 </span>
-                <p class="text-xs text-gray-600 dark:text-slate-300">Professional Dental Care</p>
+                <p class="text-xs text-gray-600 dark:text-slate-300">You Smile We Smile</p>
               </div>
             </div>
           </Link>
@@ -22,7 +22,6 @@
             Streamlining dental practices with cutting-edge technology.
           </p>
         </div>
-        
         <div>
           <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Product</h3>
           <ul class="space-y-2">
@@ -31,7 +30,6 @@
             <li><Link href="/demo" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Demo</Link></li>
           </ul>
         </div>
-        
         <div>
           <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Company</h3>
           <ul class="space-y-2">
@@ -40,7 +38,6 @@
             <!-- <li><Link href="/careers" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Careers</Link></li> -->
           </ul>
         </div>
-        
         <div>
           <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Legal</h3>
           <ul class="space-y-2">
@@ -50,9 +47,8 @@
           </ul>
         </div>
       </div>
-      
       <div class="pt-8 border-t border-gray-200 dark:border-gray-800 text-center text-gray-600 dark:text-gray-400">
-        <p>&copy; {{ new Date().getFullYear() }} DentalPro. All rights reserved.</p>
+        <p>&copy; {{ new Date().getFullYear() }} Victoria Dental Lounge. All rights reserved.</p>
       </div>
     </div>
   </footer>

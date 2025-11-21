@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
 import { formatUGX } from '@/Composables/useCurrency';
 import { route } from 'ziggy-js';
 import { ref, computed, watch } from 'vue';
@@ -649,47 +650,106 @@ const submitCreate = () => {
 
 const submitEdit = () => {
   // Client-side validation
+  console.log('Current patient_id:', editForm.patient_id, 'Type:', typeof editForm.patient_id);
+  
   if (!editForm.patient_id) {
     alert('Please select a patient.');
     return;
   }
+  
   if (!editForm.procedures.length || editProceduresTotal.value <= 0) {
     alert('Add at least one procedure with a cost greater than zero.');
-    alert('Please fill all required fields correctly.');
     return;
   }
-  editForm.cost = editProceduresTotal.value;
+  
+  // Create a new form data object
+  const formData = new FormData();
+  
+  // Handle patient_id - ensure it's a single value
+  const patientId = Array.isArray(editForm.patient_id) 
+    ? editForm.patient_id[0] 
+    : editForm.patient_id;
+    
+  console.log('Processed patient_id:', patientId);
+  
+  // Add all form data
+  formData.append('_method', 'PUT');
+  formData.append('patient_id', patientId);
+  formData.append('cost', editProceduresTotal.value.toString());
+  formData.append('notes', editForm.notes || '');
+  
+  // Add procedures
+  editForm.procedures.forEach((proc, index) => {
+    formData.append(`procedures[${index}][name]`, proc.name);
+    formData.append(`procedures[${index}][cost]`, proc.cost.toString());
+    if (proc.id) {
+      formData.append(`procedures[${index}][id]`, proc.id.toString());
+    }
+  });
+  
+  // Add prescriptions if any
+  if (editForm.prescriptions?.length) {
+    editForm.prescriptions.forEach((presc, index) => {
+      if (presc.medicine_id) {
+        formData.append(`prescriptions[${index}][medicine_id]`, presc.medicine_id.toString());
+        formData.append(`prescriptions[${index}][dosage]`, presc.dosage || '');
+        formData.append(`prescriptions[${index}][quantity]`, (presc.quantity || 0).toString());
+        formData.append(`prescriptions[${index}][prescription_amount]`, (presc.prescription_amount || 0).toString());
+        if (presc.id) {
+          formData.append(`prescriptions[${index}][id]`, presc.id.toString());
+        }
+      }
+    });
+  }
   
   if (editingTreatment.value) {
-    editForm.put(route('treatments.update', editingTreatment.value.id), {
-      forceFormData: true,
-      preserveScroll: true,
-      onSuccess: () => {
-        // Only close modal and reset on successful update
-        editForm.reset();
-        isEditOpen.value = false;
-        editingTreatment.value = null;
+    // Use axios directly to have more control over the request
+    axios.post(route('treatments.update', editingTreatment.value.id), formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
       },
-      onError: (errors) => {
-        // Log errors for debugging
-        console.error('Error updating treatment:', errors);
+    }).then(response => {
+      // On successful update
+      console.log('Treatment updated successfully:', response.data);
+      
+      // Refresh the page to show updated data
+      window.location.reload();
+      
+    }).catch(error => {
+      console.error('Error updating treatment:', error);
+      
+      // Handle validation errors
+      if (error.response?.status === 422) {
+        const errors = error.response.data.errors || {};
+        console.log('Validation errors:', errors);
         
-        // Convert Laravel validation errors to a user-friendly message
+        // Convert errors to a user-friendly message
         const errorMessages = [];
         
-        if (errors.patient_id) errorMessages.push(errors.patient_id[0]);
-        if (errors.procedure) errorMessages.push(errors.procedure[0]);
-        if (errors.cost) errorMessages.push(errors.cost[0]);
-        if (errors.prescriptions) errorMessages.push(errors.prescriptions[0]);
+        for (const [field, messages] of Object.entries(errors)) {
+          if (Array.isArray(messages)) {
+            errorMessages.push(...messages);
+          } else if (typeof messages === 'string') {
+            errorMessages.push(messages);
+          } else if (typeof messages === 'object') {
+            errorMessages.push(...Object.values(messages).flat());
+          }
+        }
         
         // Show error message to the user
         if (errorMessages.length > 0) {
-          alert('Please fix the following errors:\n\n' + errorMessages.join('\n'));
+          alert('Please fix the following errors:\n\n' + [...new Set(errorMessages)].join('\n'));
         } else {
           alert('An error occurred while updating the treatment. Please try again.');
         }
+      } else {
+        // Handle other types of errors
+        const errorMessage = error.response?.data?.message || 
+                           error.message || 
+                           'An unknown error occurred while updating the treatment.';
+        alert(errorMessage);
       }
-      // Removed onFinish to keep modal open on error
     });
   }
 };
@@ -748,7 +808,7 @@ const calculateTotalCost = (treatment: Treatment) => {
               <Stethoscope class="w-4 h-4 mr-2" />
               {{ totalTreatments }} Treatments
             </Badge>
-            <Button @click="openCreate" class="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
               <Plus class="w-4 h-4 mr-2" />
               Add Treatment
             </Button>
@@ -1369,7 +1429,7 @@ const calculateTotalCost = (treatment: Treatment) => {
             </div>
             <DialogFooter>
               <Button variant="outline" @click="isEditOpen = false">Cancel</Button>
-              <Button type="submit" :disabled="editForm.processing" class="bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" :disabled="editForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
                 <i v-if="editForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
                 <i v-else class="fas fa-save mr-2"></i>
                 {{ editForm.processing ? 'Saving...' : 'Save' }}

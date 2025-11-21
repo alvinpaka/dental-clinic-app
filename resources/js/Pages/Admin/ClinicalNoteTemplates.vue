@@ -92,7 +92,7 @@ const removeTpl = (id: number) => {
               </select>
             </div>
             <div class="flex gap-2">
-              <Button @click="applyFilters" class="bg-blue-600 hover:bg-blue-700">Apply</Button>
+              <Button @click="applyFilters" class="bg-blue-600 hover:bg-blue-700 text-white">Apply</Button>
             </div>
           </div>
         </CardContent>
@@ -129,7 +129,7 @@ const removeTpl = (id: number) => {
               <label class="text-sm flex items-center gap-2">
                 <input type="checkbox" v-model="(createForm.active as any)" /> Active
               </label>
-              <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700">Create</Button>
+              <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">Create</Button>
             </div>
           </form>
         </CardContent>

@@ -809,7 +809,7 @@ function goToPage(link: PaginationLink) {
 
     <!-- Create Appointment Modal -->
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
-      <DialogContent class="max-w-4xl">
+      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Schedule New Appointment
@@ -904,7 +904,7 @@ function goToPage(link: PaginationLink) {
             <Button
               type="submit"
               :disabled="createForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              class="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <span v-if="createForm.processing" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
               <span v-else class="mr-2">+</span>
@@ -917,7 +917,7 @@ function goToPage(link: PaginationLink) {
 
     <!-- Edit Appointment Modal -->
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
-      <DialogContent class="max-w-4xl">
+      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Edit Appointment
@@ -1027,7 +1027,7 @@ function goToPage(link: PaginationLink) {
             <Button
               type="submit"
               :disabled="editForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              class="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <span v-if="editForm.processing" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
               <span v-else class="mr-2">💾</span>

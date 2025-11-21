@@ -42,6 +42,11 @@ class Invoice extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function items()
+    {
+        return $this->hasMany(\App\Models\InvoiceItem::class);
+    }
+
     public function getPaidTotalAttribute(): float
     {
         // Use loaded relation when available to avoid extra query and ensure accuracy

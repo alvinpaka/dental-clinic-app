@@ -45,4 +45,9 @@ class Payment extends Model
             }
         });
     }
+
+    public function refunds()
+    {
+        return $this->hasMany(\App\Models\PaymentRefund::class);
+    }
 }

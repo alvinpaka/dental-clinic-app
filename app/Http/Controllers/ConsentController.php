@@ -67,7 +67,7 @@ class ConsentController extends Controller
         $roles = collect(optional($user)->roles)->pluck('name')->all();
         $dentistName = (is_array($roles) && in_array('dentist', $roles)) ? ($user->name ?? null) : null;
         $contextVars = [
-            'clinic_name' => config('app.name', 'DentalPro'),
+            'clinic_name' => config('app.name', 'Victoria Dental Lounge'),
             'dentist_name' => $dentistName,
             'appointment_date' => null,
         ];
@@ -111,7 +111,7 @@ class ConsentController extends Controller
             } catch (\Throwable $e) {}
         }
 
-        $clinicName = config('app.name', 'DentalPro');
+        $clinicName = config('app.name', 'Victoria Dental Lounge');
         $user = $request->user();
         $dentistName = null;
         if ($user && method_exists($user, 'hasRole') && $user->hasRole('dentist')) {
@@ -166,7 +166,7 @@ class ConsentController extends Controller
         }
         $signaturePath = $consent->signature_path ? public_path($consent->signature_path) : null;
         $contentHtml = $this->renderConsentHtml($consent->content_snapshot ?? '', $patient, [
-            'clinic_name' => config('app.name', 'DentalPro'),
+            'clinic_name' => config('app.name', 'Victoria Dental Lounge'),
             'signed_by_name' => $consent->signed_by_name,
             'dentist_name' => optional($consent->signer)->name ?? null,
             'date' => optional($consent->signed_at)->timezone(config('app.timezone'))?->toDateString(),
@@ -189,7 +189,7 @@ class ConsentController extends Controller
             'patient_email' => $patient->email ?? '',
             'date' => now()->timezone(config('app.timezone'))->toDateString(),
             'time' => now()->timezone(config('app.timezone'))->format('H:i'),
-            'clinic_name' => config('app.name', 'DentalPro'),
+            'clinic_name' => config('app.name', 'Victoria Dental Lounge'),
             'dentist_name' => '',
             'appointment_date' => '',
             'signed_by_name' => '',

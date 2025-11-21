@@ -734,9 +734,35 @@ const confirmDelete = () => {
 };
 
 const downloadPDF = (invoice: Invoice) => {
-  if (invoice.pdf_path) {
-    window.open(invoice.pdf_path, '_blank');
+  if (!invoice.id) {
+    console.error('Invalid invoice ID');
+    return;
   }
+  
+  // Show loading state
+  const originalText = 'Download PDF';
+  const button = event?.target?.closest('button');
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+  }
+  
+  // Create a hidden iframe to handle the download
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  document.body.appendChild(iframe);
+  
+  // Set the iframe's src to trigger the download
+  iframe.src = route('invoices.download', { invoice: invoice.id });
+  
+  // Clean up after a short delay
+  setTimeout(() => {
+    document.body.removeChild(iframe);
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = '<Download class="w-4 h-4 mr-2" />' + originalText;
+    }
+  }, 5000);
 };
 
 onMounted(() => {
@@ -1119,10 +1145,10 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                                 Download PDF
                               </DropdownMenuItem>
                               <template v-if="invoice.status !== 'paid' && invoice.status !== 'cancelled'">
-                                <DropdownMenuItem @click="openEdit(invoice)">
+                                <!-- <DropdownMenuItem @click="openEdit(invoice)">
                                   <FileText class="w-4 h-4 mr-2" />
                                   Edit
-                                </DropdownMenuItem>
+                                </DropdownMenuItem> -->
                                 <DropdownMenuItem @click="openPayment(invoice)" class="text-green-600 dark:text-green-400">
                                   <CreditCard class="w-4 h-4 mr-2" />
                                   Record Payment

@@ -103,11 +103,50 @@ class ClinicalNotesController extends Controller
     public function pdf(Patient $patient, ClinicalNote $note)
     {
         $this->authorize('view', $patient);
-        if ($note->patient_id !== $patient->id) abort(404);
+
+        if ($note->patient_id !== $patient->id) {
+            abort(404);
+        }
+
+        $note->load(['author', 'signer', 'patient']);
+
         $pdf = Pdf::loadView('notes.pdf', [
-            'patient' => $patient,
             'note' => $note,
-        ])->setPaper('a4');
-        return $pdf->download('clinical-note-'.$patient->id.'-'.$note->id.'.pdf');
+            'patient' => $patient,
+            'date' => now()->format('F j, Y'),
+        ]);
+
+        return $pdf->stream("clinical-note-{$note->id}.pdf");
+    }
+
+    /**
+     * Remove the specified clinical note.
+     *
+     * @param  \App\Models\Patient  $patient
+     * @param  \App\Models\ClinicalNote  $note
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(Patient $patient, ClinicalNote $note)
+    {
+        $this->authorize('update', $patient);
+        
+        if ($note->patient_id !== $patient->id) {
+            abort(404);
+        }
+
+        // Log the deletion
+        \App\Models\AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'deleted',
+            'subject_type' => ClinicalNote::class,
+            'subject_id' => $note->id,
+            'model_type' => ClinicalNote::class,
+            'model_id' => $note->id,
+            'properties' => $note->toArray()
+        ]);
+
+        $note->delete();
+
+        return response()->noContent();
     }
 }

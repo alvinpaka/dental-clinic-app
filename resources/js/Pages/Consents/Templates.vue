@@ -215,7 +215,7 @@ const submit = () => {
                   <span>Signature required</span>
                 </label>
               </div>
-              <Button type="submit" :disabled="form.processing" class="gap-2 bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" :disabled="form.processing" class="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                 <i v-if="form.processing" class="fas fa-spinner fa-spin"></i>
                 {{ form.processing ? 'Saving...' : 'Save Template' }}
               </Button>
@@ -261,15 +261,18 @@ const submit = () => {
                   <td class="py-3 px-3 font-medium">{{ t.title }}</td>
                   <td class="py-3 px-3 font-mono text-xs uppercase">v{{ t.version }}</td>
                   <td class="py-3 px-3">
-                    <Badge :variant="t.active ? 'default' : 'outline'" class="px-2 py-0.5 text-xs">
-                      <i :class="['fas', t.active ? 'fa-circle-check text-green-500' : 'fa-ban text-red-500', 'mr-1']"></i>
+                    <Badge 
+                      :variant="t.active ? 'default' : 'outline'" 
+                      :class="['px-2 py-0.5 text-xs', t.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300']"
+                    >
+                      <i :class="['fas', t.active ? 'fa-circle-check' : 'fa-ban', 'mr-1']"></i>
                       {{ t.active ? 'Active' : 'Inactive' }}
                     </Badge>
                   </td>
                   <td class="py-3 px-3">
-                    <Badge class="px-2 py-0.5 text-xs" :variant="t.active ? 'default' : 'secondary'">
+                    <Badge class="px-2 py-0.5 text-xs" :variant="t.active ? 'secondary' : 'outline'">
                       <i class="fas fa-signature mr-1"></i>
-                      {{ t.active ? 'Required' : 'Optional' }}
+                      {{ t.active ? 'Optional' : 'Required' }}
                     </Badge>
                   </td>
                   <td class="py-3 px-3 text-sm text-gray-500 dark:text-gray-400">{{ new Date(t.updated_at).toLocaleString() }}</td>

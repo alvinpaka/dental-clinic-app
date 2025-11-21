@@ -70,17 +70,23 @@
         <div class="value">UGX {{ number_format((float)$invoice->amount) }}</div>
       </div>
       <div>
-        <div class="label">Received Amount</div>
-        <div class="value amount">UGX {{ number_format((float)$payment->amount) }}</div>
+        <div class="label">Original Amount</div>
+        <div class="value">UGX {{ number_format((float)$payment->amount) }}</div>
       </div>
       @if(isset($refundedForPayment) && $refundedForPayment > 0)
       <div>
-        <div class="label">Refunded (this payment)</div>
-        <div class="value" style="color:#991B1B; font-weight:700;">UGX {{ number_format((float)$refundedForPayment) }}</div>
+        <div class="label">Refunded Amount</div>
+        <div class="value" style="color:#991B1B; font-weight:700;">-UGX {{ number_format((float)$refundedForPayment) }}</div>
       </div>
+      <div class="border-t border-gray-200 my-1"></div>
       <div>
-        <div class="label">Remaining (this payment)</div>
-        <div class="value">UGX {{ number_format((float)$remainingForPayment) }}</div>
+        <div class="label font-semibold">Net Received Amount</div>
+        <div class="value amount font-bold">UGX {{ number_format((float)($payment->amount - $refundedForPayment)) }}</div>
+      </div>
+      @else
+      <div>
+        <div class="label">Net Received Amount</div>
+        <div class="value amount">UGX {{ number_format((float)$payment->amount) }}</div>
       </div>
       @endif
       <div>

@@ -148,8 +148,9 @@ function goToPage(link: PaginationLink) {
 const isCreateOpen = ref(false);
 const isEditOpen = ref(false);
 const isEditRolesOpen = ref(false);
-const isDeleteOpen = ref(false);
 const isViewOpen = ref(false);
+const selectedStaff = ref<Staff | null>(null);
+const isDeleteOpen = ref(false);
 
 // Form data
 const createForm = useForm({
@@ -244,7 +245,7 @@ const openDelete = (staff: Staff) => {
 };
 
 const openView = (staff: Staff) => {
-  viewingStaff.value = staff;
+  selectedStaff.value = staff;
   isViewOpen.value = true;
 };
 
@@ -871,6 +872,74 @@ const formatDate = (dateString: string) => {
             <i class="fas fa-user-times mr-2"></i>
             Remove Staff Member
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- View Staff Modal -->
+    <Dialog :open="isViewOpen" @update:open="(value) => isViewOpen = value">
+      <DialogContent class="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Staff Details
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div v-if="selectedStaff" class="space-y-6">
+          <div class="flex items-start gap-6">
+            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+              <span class="text-white font-semibold text-2xl">{{ getInitials(selectedStaff.name) }}</span>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">{{ selectedStaff.name }}</h3>
+              <p class="text-gray-600 dark:text-gray-400">{{ selectedStaff.email }}</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <Badge 
+                  v-for="role in selectedStaff.roles" 
+                  :key="role.id"
+                  :class="getRoleColor(role.name)"
+                >
+                  <Shield class="w-3 h-3 mr-1" />
+                  {{ role.name.charAt(0).toUpperCase() + role.name.slice(1) }}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Contact Information</h4>
+              <div class="space-y-2">
+                <p class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <Mail class="w-4 h-4 text-gray-400" />
+                  {{ selectedStaff.email }}
+                </p>
+                <p class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <UserPlus class="w-4 h-4 text-gray-400" />
+                  {{ selectedStaff.email_verified_at ? 'Email Verified' : 'Email Not Verified' }}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Account Information</h4>
+              <div class="space-y-2">
+                <p class="text-gray-700 dark:text-gray-300">
+                  <span class="font-medium">Member Since:</span> {{ formatDate(selectedStaff.created_at) }}
+                </p>
+                <p class="text-gray-700 dark:text-gray-300">
+                  <span class="font-medium">Status: </span>
+                  <span :class="selectedStaff.email_verified_at ? 'text-green-600' : 'text-yellow-600'">
+                    {{ selectedStaff.email_verified_at ? 'Active' : 'Pending Verification' }}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" @click="isViewOpen = false">Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

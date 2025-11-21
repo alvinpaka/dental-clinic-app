@@ -42,6 +42,40 @@ class InventoryController extends Controller
         ],
     ];
 
+    public function show($id)
+    {
+        $item = InventoryItem::with('transactions')
+            ->withCount('transactions')
+            ->findOrFail($id);
+
+        $this->authorize('view', $item);
+
+        // Get recent transactions
+        $recentTransactions = $item->transactions()
+            ->latest()
+            ->take(10)
+            ->get();
+
+        // Calculate stats
+        $stats = [
+            'total_transactions' => $item->transactions_count,
+            'last_restocked' => $item->transactions()
+                ->where('type', 'restock')
+                ->latest()
+                ->first()?->created_at,
+            'last_used' => $item->transactions()
+                ->where('type', 'usage')
+                ->latest()
+                ->first()?->created_at,
+        ];
+
+        return Inertia::render('Inventory/Show', [
+            'item' => $item,
+            'recentTransactions' => $recentTransactions,
+            'stats' => $stats,
+        ]);
+    }
+
     public function index(Request $request)
     {
         $this->authorize('viewAny', InventoryItem::class);
@@ -159,6 +193,7 @@ class InventoryController extends Controller
             'description' => 'nullable|string',
             'category' => 'required|string',
             'quantity' => 'required|integer|min:0',
+            'unit' => 'required|string|max:20',
             'unit_price' => 'required|numeric|min:0',
             'low_stock_threshold' => 'required|integer|min:1',
             'supplier' => 'nullable|string|max:255',
@@ -173,7 +208,6 @@ class InventoryController extends Controller
     public function update(Request $request, $id)
     {
         $inventoryItem = InventoryItem::findOrFail($id);
-
         $this->authorize('update', $inventoryItem);
 
         $validated = $request->validate([
@@ -181,13 +215,30 @@ class InventoryController extends Controller
             'description' => 'nullable|string',
             'category' => 'required|string',
             'quantity' => 'required|integer|min:0',
+            'unit' => 'required|string|max:20',
             'unit_price' => 'required|numeric|min:0',
             'low_stock_threshold' => 'required|integer|min:1',
             'supplier' => 'nullable|string|max:255',
             'expiry_date' => 'nullable|date',
         ]);
 
+        // Calculate the quantity difference before updating
+        $quantityDifference = $validated['quantity'] - $inventoryItem->quantity;
+        
+        // Update the inventory item
         $inventoryItem->update($validated);
+
+        // Only log a transaction if the quantity changed
+        if ($quantityDifference != 0) {
+            $transactionType = $quantityDifference > 0 ? 'adjustment_increase' : 'adjustment_decrease';
+            
+            $inventoryItem->transactions()->create([
+                'quantity' => $quantityDifference,
+                'type' => $transactionType,
+                'notes' => 'Manual quantity adjustment',
+                'user_id' => auth()->id(),
+            ]);
+        }
 
         return redirect()->route('inventory.index')->with('success', 'Item updated.')->setStatusCode(303);
     }
@@ -200,5 +251,63 @@ class InventoryController extends Controller
         $inventoryItem->delete();
 
         return redirect()->route('inventory.index')->with('success', 'Item deleted.')->setStatusCode(303);
+    }
+
+    // Add these methods to InventoryController.php
+
+    public function restock(Request $request, $id)
+    {
+        $inventoryItem = InventoryItem::findOrFail($id);
+        $this->authorize('update', $inventoryItem);
+    
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1',
+            'notes' => 'nullable|string|max:500',
+        ]);
+    
+        $inventoryItem->increment('quantity', $validated['quantity']);
+        
+        // Create an inventory transaction record
+        $inventoryItem->transactions()->create([
+            'quantity' => $validated['quantity'],
+            'type' => 'restock',
+            'notes' => $validated['notes'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
+    
+        return redirect()->back()->with('success', 'Item restocked successfully.');
+    }
+    
+    public function useItem(Request $request, $id)
+    {
+        $inventoryItem = InventoryItem::findOrFail($id);
+        $this->authorize('update', $inventoryItem);
+    
+        $validated = $request->validate([
+            'quantity' => [
+                'required',
+                'integer',
+                'min:1',
+                'max:' . $inventoryItem->quantity,
+                function ($attribute, $value, $fail) use ($inventoryItem) {
+                    if ($value > $inventoryItem->quantity) {
+                        $fail('Not enough stock available.');
+                    }
+                },
+            ],
+            'notes' => 'nullable|string|max:500',
+        ]);
+    
+        $inventoryItem->decrement('quantity', $validated['quantity']);
+        
+        // Log this action in the inventory_transactions table
+        $inventoryItem->transactions()->create([
+            'quantity' => $validated['quantity'] * -1, // Negative for usage
+            'type' => 'usage',
+            'notes' => $validated['notes'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
+    
+        return redirect()->back()->with('success', 'Item usage recorded successfully.');
     }
 }

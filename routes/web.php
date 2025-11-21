@@ -106,9 +106,19 @@ Route::middleware('auth')->group(function () {
         ->middleware('can:update,staff')
         ->name('staff.send-reset-link');
 
+    // Inventory routes with admin-only delete
     Route::resource('inventory', InventoryController::class)
         ->parameters(['inventory' => 'id'])
-        ->except(['create', 'edit', 'show']);
+        ->except(['create', 'edit', 'destroy'])
+        ->middleware('auth');
+
+    Route::post('/inventory/{id}/restock', [InventoryController::class, 'restock'])->name('inventory.restock');
+    Route::post('/inventory/{id}/use', [InventoryController::class, 'useItem'])->name('inventory.use');
+
+    // Explicit delete route with admin-only middleware
+    Route::delete('inventory/{id}', [InventoryController::class, 'destroy'])
+        ->name('inventory.destroy')
+        ->middleware('can:delete,App\Models\InventoryItem');
 
     Route::resource('expenses', ExpenseController::class);
 
@@ -200,6 +210,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/patients/{patient}/notes/{note}/pdf', [ClinicalNotesController::class, 'pdf'])
         ->middleware('can:view,patient')
         ->name('patients.notes.pdf');
+    Route::delete('/patients/{patient}/notes/{note}', [ClinicalNotesController::class, 'destroy'])
+        ->middleware('can:update,patient')
+        ->name('patients.notes.destroy');
 
     // Consent templates (admin/receptionist via viewReports gate)
     Route::get('/consent-templates', [ConsentController::class, 'templatesIndex'])

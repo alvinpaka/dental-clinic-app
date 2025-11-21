@@ -5,7 +5,7 @@ import PageTemplate from './PageTemplate.vue';
 <template>
   <PageTemplate
     title="Powerful Features for Modern Dental Practices"
-    description="Discover how DentalPro's comprehensive suite of tools can transform your dental practice management."
+    description="Discover how Victoria Dental Lounge's comprehensive suite of tools can transform your dental practice management."
   >
     <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

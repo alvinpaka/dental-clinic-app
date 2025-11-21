@@ -745,7 +745,7 @@ const confirmDelete = () => {
 
     <!-- Create Modal -->
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
-      <DialogContent class="max-w-4xl">
+      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Add Operational Expense
@@ -819,7 +819,7 @@ const confirmDelete = () => {
             <Button type="button" variant="outline" @click="isCreateOpen = false">
               Cancel
             </Button>
-            <Button type="submit" :disabled="createForm.processing" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+            <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
               <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-plus mr-2"></i>
               {{ createForm.processing ? 'Creating...' : 'Create Expense' }}
@@ -831,7 +831,7 @@ const confirmDelete = () => {
 
     <!-- Edit Modal -->
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
-      <DialogContent class="max-w-4xl">
+      <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Edit Operational Expense
@@ -905,7 +905,7 @@ const confirmDelete = () => {
             <Button type="button" variant="outline" @click="isEditOpen = false">
               Cancel
             </Button>
-            <Button type="submit" :disabled="editForm.processing" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+            <Button type="submit" :disabled="editForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
               <i v-if="editForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-save mr-2"></i>
               {{ editForm.processing ? 'Saving...' : 'Save Changes' }}
