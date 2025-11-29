@@ -110,15 +110,15 @@ const removeTpl = (id: number) => {
               <input v-model="createForm.name" class="w-full border rounded-md p-2 bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" placeholder="e.g., Routine Checkup" />
             </div>
             <div>
-              <Label>Subjective</Label>
+              <Label>Chief Complaint</Label>
               <textarea v-model="createForm.subjective" class="w-full border rounded-md p-2 min-h-[90px] bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
             </div>
             <div>
-              <Label>Objective</Label>
+              <Label>Diagnosis</Label>
               <textarea v-model="createForm.objective" class="w-full border rounded-md p-2 min-h-[90px] bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
             </div>
             <div>
-              <Label>Assessment</Label>
+              <Label>Oral Examination</Label>
               <textarea v-model="createForm.assessment" class="w-full border rounded-md p-2 min-h-[90px] bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
             </div>
             <div>
@@ -168,15 +168,15 @@ const removeTpl = (id: number) => {
                           <input v-model="editForms[t.id].name" class="w-full border rounded-md p-2 bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
                         </div>
                         <div>
-                          <Label>Subjective</Label>
+                          <Label>Chief Complaint</Label>
                           <textarea v-model="editForms[t.id].subjective" class="w-full border rounded-md p-2 min-h-[80px] bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
                         </div>
                         <div>
-                          <Label>Objective</Label>
+                          <Label>Diagnosis</Label>
                           <textarea v-model="editForms[t.id].objective" class="w-full border rounded-md p-2 min-h-[80px] bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
                         </div>
                         <div>
-                          <Label>Assessment</Label>
+                          <Label>Oral Examination</Label>
                           <textarea v-model="editForms[t.id].assessment" class="w-full border rounded-md p-2 min-h-[80px] bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
                         </div>
                         <div>

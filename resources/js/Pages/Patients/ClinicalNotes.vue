@@ -129,7 +129,7 @@ const confirmDelete = async () => {
 
       <Card class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm">
         <CardHeader>
-          <CardTitle class="text-gray-900 dark:text-white">New Note (SOAP)</CardTitle>
+          <CardTitle class="text-gray-900 dark:text-white">New Notes (SOAP)</CardTitle>
           <CardDescription class="text-gray-600 dark:text-gray-400">Enter clinical note sections. You can sign later.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -147,7 +147,7 @@ const confirmDelete = async () => {
               </div>
             </div>
             <div>
-              <Label class="text-gray-700 dark:text-gray-300">Subjective</Label>
+              <Label class="text-gray-700 dark:text-gray-300">Chief Complaint</Label>
               <textarea
                 v-model="form.subjective"
                 class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[100px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -158,7 +158,7 @@ const confirmDelete = async () => {
               </div>
             </div>
             <div>
-              <Label class="text-gray-700 dark:text-gray-300">Objective</Label>
+              <Label class="text-gray-700 dark:text-gray-300">Diagnosis</Label>
               <textarea
                 v-model="form.objective"
                 class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[100px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -169,7 +169,7 @@ const confirmDelete = async () => {
               </div>
             </div>
             <div>
-              <Label class="text-gray-700 dark:text-gray-300">Assessment</Label>
+              <Label class="text-gray-700 dark:text-gray-300">Oral Examination</Label>
               <textarea
                 v-model="form.assessment"
                 class="w-full border border-gray-200 dark:border-gray-700 rounded-md p-2 min-h-[100px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

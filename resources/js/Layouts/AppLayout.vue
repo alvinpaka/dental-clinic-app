@@ -115,8 +115,13 @@ onMounted(async () => {
         <!-- Logo and Title Section -->
         <div class="flex items-center space-x-3">
           <!-- Logo/Icon -->
-          <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-white/5 rounded-lg backdrop-blur-sm">
-            <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
+          <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-white/1 rounded-lg backdrop-blur-sm">
+            <img 
+              src="/images/tooth.png" 
+              alt="Tooth Logo" 
+              class="h-6 w-6" 
+              style="filter: invert(40%) sepia(73%) saturate(2000%) hue-rotate(200deg) brightness(90%) contrast(90%);"
+            />
           </div>
           <div>
             <Link href="/dashboard" class="text-2xl font-bold hover:text-white/90 dark:hover:text-slate-200 transition-colors">

@@ -58,9 +58,19 @@
         .logo {
             flex: 1;
             text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
         
-        .logo h1 {
+        .logo img {
+            height: 60px;
+            width: auto;
+            max-width: 150px;
+            object-fit: contain;
+        }
+        
+        .logo-text h1 {
             color: var(--primary);
             font-size: 18px;
             font-weight: 700;
@@ -321,9 +331,16 @@
         <!-- Header Section -->
         <div class="header">
             <div class="logo">
-                <h1>Victoria Dental Lounge</h1>
-                <p>123 Dental Street, Kampala, Uganda<br>
-                Phone: +256 700 123456 | Email: info@victoriadental.com</p>
+                <img src="{{ public_path('images/viclogo.png') }}" alt="Hospital Logo">
+                <div class="logo-text">
+                    
+                <p>
+                    Victoria Dental Lounge<br>
+                Phone: +256 708720139 <br> Email: vcare90@yahoo.com
+                P.O.BOX 723, Plot 24, Gower's Rd, <br>
+                Entebbe, Uganda.
+            
+                </p>
             </div>
             <div class="invoice-info">
                 <h2>INVOICE #{{ $invoice->id }}</h2>
@@ -370,17 +387,26 @@
                 <div class="detail-item">
                     <span class="detail-label">Due Date:</span>
                     <span class="detail-value">{{ $invoice->due_date->format('M d, Y') }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Status:</span>
-                    <span class="status-{{ $invoice->status }}">
-                        {{ ucfirst($invoice->status) }}
-                    </span>
-                </div>
             </div>
-        </div>
 
-        <!-- Treatment Details -->
+            <!-- Client & Invoice Info -->
+            <div class="grid">
+                <div class="grid-col">
+                    <div class="grid-title">Bill To</div>
+                    <div class="detail-item">
+                        <span class="detail-label">Name:</span>
+                        <span class="detail-value">{{ $invoice->patient->name }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Email:</span>
+                        <span class="detail-value">{{ $invoice->patient->email }}</span>
+                    </div>
+                    @if($invoice->patient->phone)
+                    <div class="detail-item">
+                        <span class="detail-label">Phone:</span>
+                        <span class="detail-value">{{ $invoice->patient->phone }}</span>
+                    </div>
+                    @endif
         @if($invoice->treatment)
         <div class="section">
             <div class="section-title">Treatment Details</div>

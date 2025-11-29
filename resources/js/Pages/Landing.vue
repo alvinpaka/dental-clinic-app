@@ -127,7 +127,12 @@ const iconMap: Record<string, string> = {
             <!-- Logo/Icon -->
             <Link href="/" class="flex items-center space-x-3">
               <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
-                <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
+                <img 
+                  src="/images/your-tooth-image.png" 
+                  alt="Tooth Logo" 
+                  class="h-6 w-6" 
+                  style="filter: invert(40%) sepia(73%) saturate(2000%) hue-rotate(200deg) brightness(90%) contrast(90%);"
+                />
               </div>
               <div>
                 <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
