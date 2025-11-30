@@ -109,6 +109,8 @@ interface PaginationLink {
 const props = defineProps<Props>();
 
 const isCreateTreatmentOpen = ref(false);
+const isAttachmentModalOpen = ref(false);
+const currentAttachment = ref<{ url: string; name: string } | null>(null);
 const filters = ref({
   treatments_page: props.filters?.treatments_page || 1,
   treatments_per_page: props.filters?.treatments_per_page || 10,
@@ -216,7 +218,9 @@ const formState = ref<TreatmentFormValues>(initialFormState());
 const treatmentForm = useForm({ ...formState.value });
 
 const syncTreatmentForm = (state: TreatmentFormValues) => {
-  Object.assign(treatmentForm, state);
+  // Sync all fields except file to avoid conflicts with FormData
+  const { file, ...stateWithoutFile } = state;
+  Object.assign(treatmentForm, stateWithoutFile);
 };
 
 const updateProceduresState = (procedures: TreatmentFormValues['procedures']) => {
@@ -317,7 +321,6 @@ const handleFileChange = (e: Event) => {
       return;
     }
     formState.value.file = file;
-    treatmentForm.file = file;
     filePreview.value = URL.createObjectURL(file);
   }
 };
@@ -329,7 +332,6 @@ const removeFile = () => {
     filePreview.value = null;
   }
   formState.value.file = null;
-  treatmentForm.file = null;
   if (fileInput.value) {
     fileInput.value.value = '';
   }
@@ -380,8 +382,8 @@ const submitTreatment = () => {
     formData.append('file', formState.value.file);
   }
   
-  // Submit the form
-  treatmentForm.post(route('treatments.store'), {
+  // Submit the form using direct router.post for FormData
+  router.post(route('treatments.store'), formData, {
     onSuccess: () => {
       isCreateTreatmentOpen.value = false;
       formState.value = initialFormState();
@@ -420,6 +422,22 @@ const calculateTotalCost = (treatment: Treatment) => {
   }, 0) || 0;
 
   return procedureCost + prescriptionCost;
+};
+
+const viewAttachment = (treatment: Treatment) => {
+  if (treatment.file_path) {
+    currentAttachment.value = {
+      url: `/storage/${treatment.file_path}`,
+      name: `Treatment ${treatment.id} Attachment`
+    };
+    isAttachmentModalOpen.value = true;
+  }
+};
+
+const openInNewTab = () => {
+  if (currentAttachment.value?.url) {
+    window.open(currentAttachment.value.url, '_blank');
+  }
 };
 
 </script>
@@ -518,6 +536,7 @@ const calculateTotalCost = (treatment: Treatment) => {
                     <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Prescriptions</th>
                     <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Date</th>
                     <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Total Cost</th>
+                    <th class="text-left py-2 px-3 font-medium text-gray-700 dark:text-gray-300">Attachments</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -571,6 +590,20 @@ const calculateTotalCost = (treatment: Treatment) => {
                       <span class="font-medium text-red-600 dark:text-red-400">
                         {{ formatCurrency(calculateTotalCost(treatment)) }}
                       </span>
+                    </td>
+                    <td class="py-3 px-3">
+                      <div v-if="treatment.file_path" class="flex items-center space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          @click="viewAttachment(treatment)"
+                          class="bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-800/30 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 transition-all duration-300"
+                        >
+                          <FileText class="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                      </div>
+                      <span v-else class="text-gray-500 dark:text-gray-400 italic text-xs">No attachment</span>
                     </td>
                   </tr>
                 </tbody>
@@ -670,7 +703,7 @@ const calculateTotalCost = (treatment: Treatment) => {
                     />
                   </div>
                   <div class="col-span-1 flex justify-end">
-                    <Button type="button" variant="ghost" size="icon" @click="removeProcedureRow(index)">
+                    <Button type="button" variant="ghost" size="icon" @click="removeProcedureRow(index)" class="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
                       <X class="h-4 w-4" />
                     </Button>
                   </div>
@@ -752,7 +785,7 @@ const calculateTotalCost = (treatment: Treatment) => {
                     type="button" 
                     variant="ghost" 
                     size="icon" 
-                    class="h-10 w-10"
+                    class="h-10 w-10 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                     @click="removePrescriptionRow(index)"
                   >
                     <X class="h-4 w-4" />
@@ -797,7 +830,7 @@ const calculateTotalCost = (treatment: Treatment) => {
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        class="h-8 w-8 p-0"
+                        class="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                         @click="removeFile"
                       >
                         <X class="h-4 w-4" />
@@ -826,6 +859,43 @@ const calculateTotalCost = (treatment: Treatment) => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Attachment Modal -->
+      <Dialog v-model:open="isAttachmentModalOpen">
+        <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle class="text-gray-900 dark:text-white">{{ currentAttachment?.name }}</DialogTitle>
+            <DialogDescription class="text-gray-600 dark:text-gray-400">
+              View attachment for this treatment
+            </DialogDescription>
+          </DialogHeader>
+          <div class="mt-4">
+            <div v-if="currentAttachment" class="space-y-4">
+              <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <iframe 
+                  :src="currentAttachment.url" 
+                  class="w-full h-[600px] border-0 rounded bg-white dark:bg-gray-900"
+                  v-if="currentAttachment.url.includes('.pdf')"
+                ></iframe>
+                <img 
+                  :src="currentAttachment.url" 
+                  class="w-full h-auto max-h-[600px] object-contain rounded bg-white dark:bg-gray-900"
+                  v-else
+                  alt="Attachment"
+                />
+              </div>
+              <div class="flex justify-end space-x-2">
+                <Button variant="outline" @click="isAttachmentModalOpen = false" class="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  Close
+                </Button>
+                <Button @click="openInNewTab" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white">
+                  Open in New Tab
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -374,4 +374,27 @@ class TreatmentController extends Controller
 
         return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created');
     }
+
+    public function download(Treatment $treatment)
+    {
+        // Load treatment with relationships
+        $treatment->load(['patient', 'appointment', 'prescriptions.medicine', 'procedures']);
+        
+        // Generate PDF with treatment information
+        $pdf = \PDF::loadView('treatments.pdf', [
+            'treatment' => $treatment,
+            'hasFile' => !empty($treatment->file_path),
+            'filePath' => $treatment->file_path ? storage_path('app/public/' . $treatment->file_path) : null
+        ]);
+        
+        // Set PDF options for better compatibility
+        $pdf->setOptions([
+            'isRemoteEnabled' => false,
+            'isHtml5ParserEnabled' => true,
+            'defaultFont' => 'Inter',
+        ]);
+        
+        // Download the PDF
+        return $pdf->download('treatment-' . $treatment->id . '-' . str_replace(' ', '-', strtolower($treatment->procedure)) . '.pdf');
+    }
 }

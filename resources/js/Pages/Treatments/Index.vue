@@ -554,8 +554,7 @@ const openDelete = (treatment: Treatment) => {
 };
 
 const openView = (treatment: Treatment) => {
-  viewingTreatment.value = treatment;
-  isViewOpen.value = true;
+  router.visit(route('treatments.show', treatment.id));
 };
 
 const createInvoice = (treatment: Treatment) => {
@@ -920,7 +919,7 @@ const calculateTotalCost = (treatment: Treatment) => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                  <tr v-for="treatment in filteredTreatments" :key="treatment.id" class="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" @click="openView(treatment)">
+                  <tr v-for="treatment in filteredTreatments" :key="treatment.id" class="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" @click="router.visit(route('treatments.show', treatment.id))">
                     <td class="px-4 py-3">
                       <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
@@ -1014,7 +1013,7 @@ const calculateTotalCost = (treatment: Treatment) => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" class="w-48">
-                            <DropdownMenuItem @click="openView(treatment)">
+                            <DropdownMenuItem @click="router.visit(route('treatments.show', treatment.id))">
                               <i class="fas fa-eye mr-2 w-4 h-4 text-center"></i>View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem v-if="!treatment.invoice" @click="openEdit(treatment)">

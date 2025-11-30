@@ -72,13 +72,19 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('appointments', AppointmentController::class);
 
+    // Treatment specific routes (before resource to avoid conflicts)
+    Route::get('treatments/{treatment}/download', [TreatmentController::class, 'download'])
+        ->middleware('can:view,treatment')
+        ->name('treatments.download');
+
     Route::resource('treatments', TreatmentController::class);
 
-    Route::resource('invoices', InvoiceController::class);
-
+    // Invoice specific routes (before resource to avoid conflicts)
     Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])
         ->middleware('can:view,invoice')
         ->name('invoices.download');
+
+    Route::resource('invoices', InvoiceController::class);
 
     Route::put('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid'])
         ->middleware('can:update,invoice')

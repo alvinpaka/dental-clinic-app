@@ -184,7 +184,7 @@ class PatientController extends Controller
         
         // Get paginated treatments
         $treatmentsQuery = $patient->treatments()
-            ->select('id', 'patient_id', 'cost', 'created_at', 'updated_at')
+            ->select('id', 'patient_id', 'cost', 'created_at', 'updated_at', 'file_path')
             ->with([
                 'procedures:id,treatment_id,name,cost', 
                 'prescriptions' => function($q) {
