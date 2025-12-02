@@ -341,8 +341,9 @@
         <div class="header">
             <div class="logo">
                 <h1>Victoria Dental Lounge</h1>
-                <p>123 Dental Street, Kampala, Uganda<br>
-                Phone: +256 700 123456 | Email: info@victoriadental.com</p>
+                <p>Phone: +256 708720139 <br> Email: vcare90@yahoo.com
+                P.O.BOX 723, Plot 24, Gower's Rd, <br>
+                Entebbe, Uganda.</p>
             </div>
             <div class="treatment-info">
                 <h2>TREATMENT REPORT</h2>
@@ -523,12 +524,12 @@
                 </div>
             </div>
             <p>Generated on {{ now()->format('M d, Y \a\t h:i A') }}</p>
-            <p>This document was generated automatically by the Dental Clinic Management System.</p>
+            <p>This document was generated automatically by the Victoria Dental Lounge System.</p>
             <p>For any questions, please contact our office.</p>
             <p style="margin-top: 10px;">
-                <strong>Phone:</strong> +256 700 123456 | 
-                <strong>Email:</strong> info@victoriadental.com | 
-                <strong>Website:</strong> www.victoriadental.com
+                <strong>Phone:</strong> +256 708720139 | 
+                <strong>Email:</strong> vcare90@yahoo.com | 
+                <!-- <strong>Website:</strong> www.victoriadental.com -->
             </p>
         </div>
     </div>

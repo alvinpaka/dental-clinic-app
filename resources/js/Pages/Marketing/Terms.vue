@@ -86,7 +86,7 @@ const terms = [
               <div class="ml-3">
                 <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Questions?</h3>
                 <div class="mt-2 text-sm text-blue-700 dark:text-blue-400">
-                  <p>If you have any questions about these Terms, please contact us at <a href="mailto:legal@Victoria Dental Lounge.com" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-400">legal@Victoria Dental Lounge.com</a>.</p>
+                  <p>If you have any questions about these Terms, please contact us at <a href="mailto:vcare90@yahoo.com" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-400">vcare90@yahoo.com</a>.</p>
                 </div>
               </div>
             </div>
