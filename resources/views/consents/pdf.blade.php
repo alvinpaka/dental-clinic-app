@@ -170,7 +170,7 @@
     <div class="header">
       <div class="logo">
         <h1>Victoria Dental Lounge</h1>
-        <p class="muted">Dental Care Excellence</p>
+        <p class="muted">You Smile, We Smile</p>
       </div>
       <div class="invoice-info">
         <h2>PATIENT CONSENT</h2>
