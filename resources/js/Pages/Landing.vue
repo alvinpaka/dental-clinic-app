@@ -6,6 +6,7 @@ import { Badge } from '@/Components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { ref, onMounted, computed } from 'vue';
 import { useThemeStore } from '@/Stores/theme';
+import ChatWidget from '@/Components/ChatWidget.vue';
 
 const themeStore = useThemeStore();
 const isScrolled = ref(false);
@@ -406,6 +407,7 @@ const iconMap: Record<string, string> = {
         </div>
       </footer>
     </div>
+    <ChatWidget />
   </div>
 </template>
 

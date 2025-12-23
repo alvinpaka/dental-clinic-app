@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'clinic_id',
     ];
 
     /**
@@ -48,5 +49,10 @@ class User extends Authenticatable
             'updated_at' => 'datetime',
             'password_changed_at' => 'datetime',
         ];
+    }
+
+    public function clinic()
+    {
+        return $this->belongsTo(Clinic::class);
     }
 }

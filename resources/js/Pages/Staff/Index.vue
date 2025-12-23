@@ -20,10 +20,20 @@ interface Staff {
   email: string;
   email_verified_at: string | null;
   created_at: string;
+  clinic_id?: number | null;
+  clinic?: {
+    id: number;
+    name: string;
+  } | null;
   roles: Role[];
 }
 
 interface Role {
+  id: number;
+  name: string;
+}
+
+interface Clinic {
   id: number;
   name: string;
 }
@@ -63,10 +73,28 @@ const props = defineProps<{
     meta?: PaginationMeta;
   };
   roles: Role[];
+  clinics?: Clinic[];
   filters?: Filters;
+  auth?: {
+    user: {
+      id: number;
+      name: string;
+      email: string;
+      roles: Role[];
+      clinic_id?: number | null;
+    };
+  };
 }>();
 
-// Reactive data
+// Form data
+const createForm = useForm({
+  name: '',
+  email: '',
+  password: '',
+  password_confirmation: '',
+  role_ids: [],
+  clinic_id: props.auth?.user?.clinic_id || null
+});
 const searchQuery = ref(props.filters?.search ?? '');
 const roleFilter = ref(props.filters?.role ?? 'all');
 const sortBy = ref(props.filters?.sort_by ?? 'name');
@@ -151,21 +179,6 @@ const isEditRolesOpen = ref(false);
 const isViewOpen = ref(false);
 const selectedStaff = ref<Staff | null>(null);
 const isDeleteOpen = ref(false);
-
-// Form data
-const createForm = useForm({
-  name: '',
-  email: '',
-  password: '',
-  password_confirmation: '',
-  role_ids: []
-});
-
-const editForm = useForm({
-  name: '',
-  email: '',
-  role_ids: []
-});
 
 const editRolesForm = useForm({
   role_ids: []
@@ -466,6 +479,9 @@ const formatDate = (dateString: string) => {
                       <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
                         Role
                       </th>
+                      <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        Clinic
+                      </th>
                       <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 cursor-pointer" @click="toggleSort('created_at')">
                         <div class="flex items-center gap-1">
                           <span>Joined Date</span>
@@ -520,6 +536,15 @@ const formatDate = (dateString: string) => {
                         </div>
                       </td>
                       <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
+                        <div v-if="staffMember.clinic" class="flex items-center gap-2">
+                          <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                          {{ staffMember.clinic.name }}
+                        </div>
+                        <div v-else class="text-gray-400">
+                          No Clinic
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
                         <div class="flex items-center gap-2">
                           <Calendar class="w-4 h-4 text-gray-400" />
                           {{ formatDate(staffMember.created_at) }}
@@ -559,7 +584,7 @@ const formatDate = (dateString: string) => {
                       </td>
                     </tr>
                     <tr v-if="filteredStaff.length === 0">
-                      <td colspan="5" class="px-6 py-12 text-center">
+                      <td colspan="6" class="px-6 py-12 text-center">
                         <div class="flex flex-col items-center gap-4 text-gray-600 dark:text-gray-400">
                           <Users class="w-10 h-10 text-gray-400" />
                           <div>
@@ -649,6 +674,7 @@ const formatDate = (dateString: string) => {
               type="email"
               v-model="createForm.email"
               placeholder="staff@example.com"
+              autocomplete="username"
               class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
               required
             />
@@ -662,6 +688,7 @@ const formatDate = (dateString: string) => {
                 type="password"
                 v-model="createForm.password"
                 placeholder="Create password"
+                autocomplete="new-password"
                 class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                 required
               />
@@ -674,10 +701,27 @@ const formatDate = (dateString: string) => {
                 type="password"
                 v-model="createForm.password_confirmation"
                 placeholder="Confirm password"
+                autocomplete="new-password"
                 class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                 required
               />
             </div>
+          </div>
+
+          <!-- Clinic Selection for Super Admins -->
+          <div v-if="props.auth?.user?.roles?.some((role: any) => role.name === 'super-admin')" class="space-y-2">
+            <Label for="clinic" class="text-gray-700 dark:text-gray-300">Clinic Assignment</Label>
+            <Select v-model="createForm.clinic_id">
+              <SelectTrigger class="h-12 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <SelectValue placeholder="Select a clinic (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem :value="null">No Clinic (Super Admin Only)</SelectItem>
+                <SelectItem v-for="clinic in props.clinics" :key="clinic.id" :value="clinic.id">
+                  {{ clinic.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div class="space-y-2">

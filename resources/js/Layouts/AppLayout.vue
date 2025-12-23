@@ -14,6 +14,7 @@ import { computed, ref, onMounted } from 'vue';
 import { useThemeStore } from '@/Stores/theme';
 import UnauthorizedModal from '@/Components/UnauthorizedModal.vue';
 import { useUnauthorizedModal } from '@/Composables/useUnauthorizedModal';
+import ChatWidget from '@/Components/ChatWidget.vue';
 
 const themeStore = useThemeStore();
 const unauthorizedModal = useUnauthorizedModal();
@@ -41,8 +42,32 @@ onMounted(() => {
   themeStore.initTheme();
 });
 
+// Get current user's clinic name
+const currentUser = computed(() => page.props.auth.user);
+const currentClinic = computed(() => page.props.currentClinic);
+const clinicName = computed(() => {
+  // Check if user is superadmin
+  const roles = ((page as any)?.props?.auth?.user?.roles || []).map((r: any) => r?.name ?? r);
+  const isSuperAdmin = Array.isArray(roles) && roles.includes('super-admin');
+  
+  // Superadmin sees "Vintech Solutions" (system name)
+  if (isSuperAdmin) {
+    return 'Vintech Solutions';
+  }
+  
+  // Other users see their actual clinic name
+  if (currentClinic.value?.name) {
+    return currentClinic.value.name;
+  }
+  
+  // Fallback for users without clinic assignment
+  return 'Vintech Solutions';
+});
+
 const navigationItems = [
   { value: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: 'fas fa-tachometer-alt' },
+  { value: 'clinics', label: 'Clinics', href: '/clinics', icon: 'fas fa-clinic-medical', superAdminOnly: true },
+  { value: 'my-clinic', label: 'My Clinic', href: '/my-clinic', icon: 'fas fa-hospital', clinicUserOnly: true },
   { value: 'patients', label: 'Patients', href: '/patients', icon: 'fas fa-users' },
   { value: 'appointments', label: 'Appointments', href: '/appointments', icon: 'fas fa-calendar-check' },
   { value: 'treatments', label: 'Treatments', href: '/treatments', icon: 'fas fa-tooth' },
@@ -55,6 +80,7 @@ const navigationItems = [
   { value: 'expenses', label: 'Expenses', href: '/expenses', icon: 'fas fa-receipt' },
   { value: 'reports', label: 'Financial Reports', href: '/reports', icon: 'fas fa-chart-bar' },
   { value: 'consent-templates', label: 'Consent Templates', href: '/consent-templates', icon: 'fas fa-file-signature' },
+  { value: 'audit-logs', label: 'Audit Logs', href: '/audit-logs', icon: 'fas fa-clipboard-list', hasPermission: 'view-audit-logs' },
 ];
 
 const activeTab = computed(() => {
@@ -75,9 +101,21 @@ const activeTab = computed(() => {
 
 const visibleNavigationItems = computed(() => {
   const roles = ((page as any)?.props?.auth?.user?.roles || []).map((r: any) => r?.name ?? r);
+  const permissions = ((page as any)?.props?.auth?.user?.permissions || []).map((p: any) => p?.name ?? p);
   const isCashier = Array.isArray(roles) && (roles.includes('admin') || roles.includes('receptionist'));
   const isAdmin = Array.isArray(roles) && roles.includes('admin');
+  const isSuperAdmin = Array.isArray(roles) && roles.includes('super-admin');
+  const hasClinic = (page as any)?.props?.auth?.user?.clinic_id;
+  
+  // If user is superadmin, only show Clinics tab
+  if (isSuperAdmin) {
+    return navigationItems.filter(item => item.value === 'clinics');
+  }
+  
   return navigationItems.filter((item) => {
+    if (item.superAdminOnly && !isSuperAdmin) return false;
+    if (item.clinicUserOnly && !hasClinic) return false;
+    if (item.hasPermission && !permissions.includes(item.hasPermission)) return false;
     if (item.value === 'cash-drawer') return isCashier;
     if (item.value === 'consent-templates') return isCashier;
     if (item.value.startsWith('admin-')) return isAdmin;
@@ -125,7 +163,7 @@ onMounted(async () => {
           </div>
           <div>
             <Link href="/dashboard" class="text-2xl font-bold hover:text-white/90 dark:hover:text-slate-200 transition-colors">
-              Victoria Dental Lounge
+              {{ clinicName }}
             </Link>
             <p class="text-xs text-primary-foreground/70 dark:text-slate-300 hidden sm:block">You Smile We Smile</p>
           </div>
@@ -238,8 +276,16 @@ onMounted(async () => {
       </aside>
 
       <!-- Main Content Area (offset for fixed sidebar) -->
-      <main class="flex-1 md:ml-64 p-6">
-        <slot />
+      <main class="flex-1 md:ml-64">
+        <!-- Header Slot -->
+        <div v-if="$slots.header" class="bg-background shadow-sm border-b">
+          <slot name="header" />
+        </div>
+        
+        <!-- Page Content -->
+        <div class="p-6">
+          <slot />
+        </div>
       </main>
     </div>
 
@@ -252,5 +298,6 @@ onMounted(async () => {
       :resource="unauthorizedModal.errorDetails.value.resource"
       @close="unauthorizedModal.hideUnauthorizedModal"
     />
+    <ChatWidget />
   </div>
 </template>

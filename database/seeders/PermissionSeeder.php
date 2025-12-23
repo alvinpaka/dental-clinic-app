@@ -13,6 +13,8 @@ class PermissionSeeder extends Seeder
         // Define permissions
         $perms = [
             'manageClinicalTemplates',
+            'manage-clinics',
+            'view-audit-logs',
         ];
 
         foreach ($perms as $name) {
@@ -22,9 +24,18 @@ class PermissionSeeder extends Seeder
         // Assign to admin and dentist roles
         $admin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         $dentist = Role::firstOrCreate(['name' => 'dentist', 'guard_name' => 'web']);
+        $superAdmin = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+        
         foreach ($perms as $name) {
-            $admin->givePermissionTo($name);
-            $dentist->givePermissionTo($name);
+            if ($name === 'manage-clinics') {
+                $superAdmin->givePermissionTo($name);
+            } elseif ($name === 'view-audit-logs') {
+                $superAdmin->givePermissionTo($name);
+                $admin->givePermissionTo($name);
+            } else {
+                $admin->givePermissionTo($name);
+                $dentist->givePermissionTo($name);
+            }
         }
     }
 }

@@ -29,6 +29,7 @@
         "@fullcalendar/timegrid": "^6.1.15",
         "@fullcalendar/vue3": "^6.1.15",
         "@heroicons/vue": "^2.2.0",
+        "@stripe/stripe-js": "^8.5.3",
         "@tanstack/vue-table": "^8.21.3",
         "@types/lodash": "^4.17.20",
         "@vee-validate/zod": "^4.15.1",

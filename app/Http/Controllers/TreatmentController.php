@@ -118,7 +118,7 @@ class TreatmentController extends Controller
             'procedureTemplates' => $procedureTemplates,
             'appointmentTypes' => array_column($procedureTemplates, 'name'),
             'stats' => [
-                'total_treatments' => Treatment::count(),
+                'total_treat' => Treatment::count(),
                 'total_revenue' => Treatment::sum('cost'),
                 'this_month_treatments' => Treatment::whereMonth('created_at', now()->month)->count(),
             ],
