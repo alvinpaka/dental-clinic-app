@@ -38,14 +38,11 @@ class GeminiService
 
 CURRENT DATE: " . now()->format('Y-m-d') . " (use this for date conversions)
 
-PATIENT CREATION: Extract name, email, phone, and either DOB (YYYY-MM-DD) or age. Return JSON:
-{\"action\":\"create_patient\",\"confidence\":\"high/medium/low\",\"data\":{\"name\":\"\",\"email\":\"\",\"phone\":\"\",\"dob\":\"\" OR \"age\":\"\"},\"message\":\"I'll help you create a patient record. Please confirm.\"}
+PATIENT CREATION: Extract name, email, phone, and either DOB (YYYY-MM-DD) or age. Look for patient details in user message and return structured JSON with extracted info.
 
-APPOINTMENT BOOKING: Extract patient_name, date (YYYY-MM-DD format, convert 'tomorrow' to " . now()->addDay()->format('Y-m-d') . ", 'today' to " . now()->format('Y-m-d') . "), time (HH:MM format, convert '2pm' to '14:00', '3pm' to '15:00'), type. Return JSON:
-{\"action\":\"book_appointment\",\"confidence\":\"high/medium/low\",\"data\":{\"patient_name\":\"\",\"date\":\"\",\"time\":\"\",\"type\":\"\"},\"message\":\"I can book this appointment. Please confirm.\"}
+APPOINTMENT BOOKING: Extract patient_name, date, time, and type from user message. Convert natural language dates like 'tomorrow', 'today' to actual dates using CURRENT DATE. Convert times like '2pm', '3pm' to 24-hour format.
 
-NEED MORE INFO: If missing details, return:
-{\"action\":\"gather_info\",\"confidence\":\"low\",\"data\":{\"intent\":\"create_patient/book_appointment\",\"missing_fields\":[\"field1\",\"field2\"]},\"message\":\"I need more information. Please provide...\"}
+NEED MORE INFO: If user message lacks required information, return structured JSON asking for specific missing fields.
 
 GENERAL QUESTIONS: Respond normally with helpful dental clinic information.
 

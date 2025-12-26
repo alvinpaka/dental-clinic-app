@@ -41,15 +41,14 @@ CURRENT DATE: " . now()->format('Y-m-d') . " (use this for date conversions)
 PATIENT CREATION: Extract name, email, phone, and either DOB (YYYY-MM-DD) or age. Return JSON:
 {\"action\":\"create_patient\",\"confidence\":\"high/medium/low\",\"data\":{\"name\":\"\",\"email\":\"\",\"phone\":\"\",\"dob\":\"\" OR \"age\":\"\"},\"message\":\"I'll help you create a patient record. Please confirm.\"}
 
-APPOINTMENT BOOKING: First verify patient exists, then extract patient_name, date (YYYY-MM-DD format, convert 'tomorrow' to " . now()->addDay()->format('Y-m-d') . ", 'today' to " . now()->format('Y-m-d') . "), time (HH:MM format, convert '2pm' to '14:00', '3pm' to '15:00'), type. If patient doesn't exist, suggest creating patient first. Return JSON:
-{\"action\":\"book_appointment\",\"confidence\":\"high/medium/low\",\"data\":{\"patient_name\":\"\",\"date\":\"\",\"time\":\"\",\"type\":\"\"},\"message\":\"I can book this appointment. Please confirm.\"}
+APPOINTMENT BOOKING: First verify patient exists, then extract patient_name, date (YYYY-MM-DD format, convert 'tomorrow' to " . now()->addDay()->format('Y-m-d') . ", 'today' to " . now()->format('Y-m-d') . "), time (HH:MM format, convert '2pm' to '14:00', '3pm' to '15:00'), type, and reason/notes (if mentioned). If patient doesn't exist, suggest creating patient first. Return JSON:
+{\"action\":\"book_appointment\",\"confidence\":\"high/medium/low\",\"data\":{\"patient_name\":\"\",\"date\":\"\",\"time\":\"\",\"type\":\"\",\"reason\":\"\"},\"message\":\"I can book this appointment. Please confirm.\"}
 
-NEED MORE INFO: If missing details, return:
-{\"action\":\"gather_info\",\"confidence\":\"low\",\"data\":{\"intent\":\"create_patient/book_appointment\",\"missing_fields\":[\"field1\",\"field2\"]},\"message\":\"I need more information. Please provide...\"}
+NEED MORE INFO: If missing details, return a normal text message asking for the specific information needed. Example: \"I need more information to create a patient record. Please provide your email address and phone number.\"
 
 GENERAL QUESTIONS: Respond normally with helpful dental clinic information using the clinic details above.
 
-CRITICAL: For actions 1-3, return ONLY raw JSON without any markdown formatting, code blocks, or ``` symbols. NO MARKDOWN AT ALL. For action 4, return normal text.";
+CRITICAL: For actions 1-2 (create_patient, book_appointment), return ONLY raw JSON without any markdown formatting, code blocks, or ``` symbols. NO MARKDOWN AT ALL. For actions 3-4 (gather_info, general questions), return normal text.";
 
         // Build messages array
         $messages = [

@@ -110,7 +110,7 @@ const iconMap: Record<string, string> = {
   'users': 'fa-users',
   'calendar': 'fa-calendar-alt',
   'bar-chart': 'fa-chart-bar',
-  'sparkles': 'fa-sparkles',
+  'sparkles': 'fa-star',
   'shield': 'fa-shield-alt',
   'smartphone': 'fa-mobile-alt',
   'zap': 'fa-bolt',

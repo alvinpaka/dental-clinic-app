@@ -566,7 +566,7 @@ const calculateTotalCost = (treatment: any) => {
 
       <!-- CREATE MODAL -->
       <Dialog :open="isCreateOpen" @update:open="isCreateOpen = $event">
-        <DialogContent class="max-w-2xl">
+        <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
               Add New Patient

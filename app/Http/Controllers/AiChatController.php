@@ -152,6 +152,7 @@ class AiChatController extends Controller
             'time' => 'required|string',
             'type' => 'required|string',
             'notes' => 'nullable|string',
+            'reason' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -164,8 +165,11 @@ class AiChatController extends Controller
         }
 
         try {
-            // Find patient by name
-            $patient = Patient::where('name', 'like', '%' . $request->patient_name . '%')->first();
+            // Find patient by name - case-insensitive and flexible matching
+            $searchName = strtolower($request->patient_name);
+            $patient = Patient::whereRaw('LOWER(name) LIKE ?', ['%' . $searchName . '%'])
+                        ->orWhereRaw('LOWER(name) LIKE ?', ['%' . str_replace(' ', '%', $searchName) . '%'])
+                        ->first();
             
             if (!$patient) {
                 return response()->json([
@@ -199,7 +203,7 @@ class AiChatController extends Controller
                 'end_time' => $endDateTime,
                 'type' => $request->type,
                 'status' => 'scheduled',
-                'notes' => $request->notes,
+                'notes' => $request->reason ?? $request->notes,
             ]);
 
             return response()->json([
