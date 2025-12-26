@@ -14,6 +14,7 @@ import { computed, ref, onMounted } from 'vue';
 import { useThemeStore } from '@/Stores/theme';
 import UnauthorizedModal from '@/Components/UnauthorizedModal.vue';
 import { useUnauthorizedModal } from '@/Composables/useUnauthorizedModal';
+import ChatWidget from '@/Components/ChatWidget.vue';
 
 const themeStore = useThemeStore();
 const unauthorizedModal = useUnauthorizedModal();
@@ -252,5 +253,6 @@ onMounted(async () => {
       :resource="unauthorizedModal.errorDetails.value.resource"
       @close="unauthorizedModal.hideUnauthorizedModal"
     />
+    <ChatWidget />
   </div>
 </template>

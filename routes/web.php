@@ -19,6 +19,7 @@ use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\ClinicalNotesController;
 use App\Http\Controllers\CashSessionsAdminController;
 use App\Http\Controllers\ClinicalNoteTemplatesAdminController;
+use App\Http\Controllers\AiChatController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
