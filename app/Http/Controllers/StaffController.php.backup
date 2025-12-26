@@ -1,0 +1,265 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use App\Models\Clinic;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Spatie\Permission\Models\Role;
+
+class StaffController extends Controller
+{
+    public function __construct()
+    {
+        // Remove authorizeResource to avoid dependency injection issues
+        // Authorization will be handled manually in each method
+    }
+
+    public function index(Request $request)
+    {
+        // Manual authorization check
+        $this->authorize('viewAny', User::class);
+        
+        $perPage = (int) $request->input('per_page', 12);
+        if ($perPage <= 0) {
+            $perPage = 12;
+        }
+
+        $search = trim((string) $request->input('search', ''));
+        $roleFilter = $request->input('role', 'all');
+        $sortBy = $request->input('sort_by', 'name');
+        $sortOrder = $request->input('sort_order', 'asc');
+
+        $allowedSorts = ['name', 'email', 'created_at'];
+        if (!in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'name';
+        }
+
+        if (!in_array($sortOrder, ['asc', 'desc'], true)) {
+            $sortOrder = 'asc';
+        }
+
+        // Get current user's clinic
+        $user = auth()->user();
+        if (!$user->clinic_id && !$user->hasRole('super-admin')) {
+            abort(403, 'You must be assigned to a clinic to view staff.');
+        }
+
+        $query = User::with('roles', 'clinic');
+
+        // Filter by clinic (unless super-admin)
+        if (!$user->hasRole('super-admin')) {
+            $query->where('clinic_id', $user->clinic_id);
+        }
+
+        // Apply search
+        if ($search !== '') {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        // Apply role filter
+        if ($roleFilter !== 'all') {
+            $query->whereHas('roles', function($q) use ($roleFilter) {
+                $q->where('id', $roleFilter);
+            });
+        }
+
+        // Apply sorting
+        $query->orderBy($sortBy, $sortOrder);
+
+        $staff = $query->paginate($perPage)->withQueryString();
+        $roles = Role::all();
+        
+        // Get clinics for super-admins
+        $clinics = null;
+        if ($user->hasRole('super-admin')) {
+            $clinics = Clinic::all();
+        }
+
+        return Inertia::render('Staff/Index', [
+            'auth' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'roles' => $user->roles,
+                    'clinic_id' => $user->clinic_id,
+                    'hasRole' => fn($role) => $user->hasRole($role),
+                ],
+            ],
+            'staff' => $staff,
+            'roles' => $roles,
+            'clinics' => $clinics,
+            'filters' => [
+                'search' => $search,
+                'role' => $roleFilter,
+                'sort_by' => $sortBy,
+                'sort_order' => $sortOrder,
+                'per_page' => $perPage,
+                'page' => (int) $request->input('page', 1),
+                'total' => $staff->total(),
+                'from' => $staff->firstItem(),
+                'to' => $staff->lastItem(),
+            ],
+        ]);
+    }
+
+    public function create()
+    {
+        // Manual authorization check
+        $this->authorize('create', User::class);
+        
+        $roles = Role::all();
+        $clinics = null;
+        
+        if (auth()->user()->hasRole('super-admin')) {
+            $clinics = \App\Models\Clinic::all();
+        }
+        
+        return Inertia::render('Staff/Create', [
+            'roles' => $roles,
+            'clinics' => $clinics,
+        ]);
+    }
+
+    public function show(User $staff)
+    {
+        // Manual authorization check
+        $this->authorize('view', $staff);
+        
+        return Inertia::render('Staff/Show', [
+            'staff' => $staff->load('roles', 'clinic'),
+        ]);
+    }
+
+    public function edit(User $staff)
+    {
+        // Manual authorization check
+        $this->authorize('update', $staff);
+        
+        $roles = Role::all();
+        $clinics = null;
+        
+        if (auth()->user()->hasRole('super-admin')) {
+            $clinics = \App\Models\Clinic::all();
+        }
+        
+        return Inertia::render('Staff/Edit', [
+            'staff' => $staff->load('roles', 'clinic'),
+            'roles' => $roles,
+            'clinics' => $clinics,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        // Manual authorization check
+        $this->authorize('create', User::class);
+        
+        $user = auth()->user();
+        
+        // Validate based on user role
+        $rules = [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
+            'role_ids' => 'required|array|min:1',
+            'role_ids.*' => 'exists:roles,id',
+        ];
+
+        // Only super-admins can assign clinics
+        if ($user->hasRole('super-admin')) {
+            $rules['clinic_id'] = 'nullable|exists:clinics,id';
+        }
+
+        $validated = $request->validate($rules);
+
+        // Determine clinic_id
+        $clinicId = null;
+        if ($user->hasRole('super-admin') && isset($validated['clinic_id'])) {
+            $clinicId = $validated['clinic_id'];
+        } elseif (!$user->hasRole('super-admin')) {
+            $clinicId = $user->clinic_id;
+        }
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => bcrypt($validated['password']),
+            'clinic_id' => $clinicId,
+        ]);
+
+        $user->roles()->sync($validated['role_ids']);
+
+        return back()->with('success', 'Staff member created successfully');
+    }
+
+    public function update(Request $request, User $staff)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'email', Rule::unique('users')->ignore($staff->id)],
+            'role_ids' => 'required|array|min:1',
+            'role_ids.*' => 'exists:roles,id',
+        ]);
+
+        $staff->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+        ]);
+
+        $staff->roles()->sync($validated['role_ids']);
+
+        return back()->with('success', 'Staff member updated successfully');
+    }
+
+    public function updateRoles(Request $request, User $staff)
+    {
+        $this->authorize('update', $staff);
+
+        $validated = $request->validate([
+            'role_ids' => 'required|array|min:1',
+            'role_ids.*' => 'exists:roles,id',
+        ]);
+
+        $staff->roles()->sync($validated['role_ids']);
+
+        return back()->with('success', 'Staff roles updated successfully');
+    }
+
+    public function destroy(User $staff)
+    {
+        // Prevent self-deletion
+        if ($staff->id === auth()->id()) {
+            return back()->with('error', 'You cannot delete your own account');
+        }
+
+        $staff->delete();
+
+        return back()->with('success', 'Staff member deleted successfully');
+    }
+
+    public function sendResetLink(Request $request, User $staff)
+    {
+        $this->authorize('update', $staff);
+
+        if (!$staff->email) {
+            return back()->with('error', 'User has no email address');
+        }
+
+        $status = Password::sendResetLink(['email' => $staff->email]);
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return back()->with('success', 'Password reset link sent to '.$staff->email);
+        }
+
+        return back()->with('error', __($status));
+    }
+}

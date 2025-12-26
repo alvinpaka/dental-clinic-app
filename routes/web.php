@@ -9,6 +9,8 @@ use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\TreatmentController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\TestController;
+use App\Http\Controllers\TeamController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\OdontogramController;
@@ -24,6 +26,9 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
+Route::post('/api/chat', [AiChatController::class, 'chat'])->name('api.chat');
+Route::post('/api/chat/patient', [AiChatController::class, 'createPatient'])->name('api.chat.patient');
+Route::post('/api/chat/appointment', [AiChatController::class, 'bookAppointment'])->name('api.chat.appointment');
 
 // Public Demo scheduling page
 Route::get('/demo', [DemoController::class, 'index'])->name('demo');
@@ -68,6 +73,12 @@ require __DIR__.'/auth.php';
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Clinic Management (super-admin only)
+    Route::resource('clinics', ClinicController::class);
+    
+    // View own clinic (for admins/dentists)
+    Route::get('my-clinic', [ClinicController::class, 'showMyClinic'])->name('clinics.my');
+
     // Resources
     Route::resource('patients', PatientController::class);
 
@@ -102,9 +113,14 @@ Route::middleware('auth')->group(function () {
     Route::get('invoices/payments/export', [InvoiceController::class, 'exportPayments'])
         ->middleware('can:viewAny,App\\Models\\Invoice')
         ->name('invoices.payments.export');
+    // Test route to debug container issues
+    Route::get('/test', [TestController::class, 'index']);
+    Route::get('/team', [TeamController::class, 'index']);
+    
     // Staff Management Routes
     Route::resource('staff', StaffController::class);
-
+    
+    // Additional staff routes
     Route::put('staff/{staff}/update-roles', [StaffController::class, 'updateRoles'])
         ->middleware('can:update,staff')
         ->name('staff.update-roles');
@@ -234,4 +250,21 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::post('treatments/{treatment}/create-invoice', [TreatmentController::class, 'createInvoice'])->name('treatments.createInvoice');
+
+    // Clinic management routes
+    Route::get('clinics/{clinic}/billing', [BillingController::class, 'show'])->name('clinics.billing');
+    Route::post('clinics/{clinic}/checkout', [BillingController::class, 'createCheckoutSession'])->name('billing.checkout');
+    Route::post('clinics/{clinic}/cancel', [BillingController::class, 'cancelSubscription'])->name('billing.cancel');
+    Route::post('stripe/webhook', [BillingController::class, 'handleWebhook'])->name('stripe.webhook');
+    
+    // Clinic settings routes
+    Route::get('clinics/{clinic}/settings', [ClinicSettingsController::class, 'edit'])->name('clinics.settings');
+    Route::put('clinics/{clinic}/settings', [ClinicSettingsController::class, 'update'])->name('clinics.settings.update');
+    Route::put('clinics/{clinic}/branding', [ClinicSettingsController::class, 'updateBranding'])->name('clinics.branding.update');
+    
+    // Export routes
+    Route::get('clinics/export', [ClinicController::class, 'export'])->name('clinics.export');
+    
+    // Audit logs
+    Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
 });

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuditLog extends Model
 {
@@ -11,15 +12,33 @@ class AuditLog extends Model
 
     protected $fillable = [
         'user_id',
+        'clinic_id',
         'action',
         'subject_type',
         'subject_id',
         'metadata',
+        'new_values',
         'ip_address',
         'user_agent',
     ];
 
     protected $casts = [
         'metadata' => 'array',
+        'new_values' => 'array',
     ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function clinic(): BelongsTo
+    {
+        return $this->belongsTo(Clinic::class);
+    }
+
+    public function subject(): BelongsTo
+    {
+        return $this->morphTo();
+    }
 }

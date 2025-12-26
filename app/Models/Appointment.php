@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Traits\HasClinicScope;
 
 class Appointment extends Model
 {
-    use HasFactory;
+    use HasFactory, HasClinicScope;
 
-    protected $fillable = ['patient_id', 'dentist_id', 'start_time', 'end_time', 'status', 'type', 'notes'];
+    protected $fillable = ['patient_id', 'dentist_id', 'start_time', 'end_time', 'status', 'type', 'notes', 'clinic_id'];
 
     protected $casts = [
         'start_time' => 'datetime',
@@ -29,5 +30,10 @@ class Appointment extends Model
     public function treatments()
     {
         return $this->hasMany(Treatment::class);
+    }
+
+    public function clinic()
+    {
+        return $this->belongsTo(Clinic::class);
     }
 }

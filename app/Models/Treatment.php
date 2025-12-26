@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Invoice;
 use App\Models\TreatmentProcedure;
+use App\Models\Traits\HasClinicScope;
 
 class Treatment extends Model
 {
-    use HasFactory;
+    use HasFactory, HasClinicScope;
 
     protected $fillable = [
         'patient_id',
@@ -17,6 +18,7 @@ class Treatment extends Model
         'cost',
         'notes',
         'file_path',
+        'clinic_id',
         // Prescription fields
         'medicine_id',
         'medication',
@@ -74,5 +76,10 @@ class Treatment extends Model
             ->pluck('name')
             ->filter()
             ->implode(', ');
+    }
+
+    public function clinic()
+    {
+        return $this->belongsTo(Clinic::class);
     }
 }

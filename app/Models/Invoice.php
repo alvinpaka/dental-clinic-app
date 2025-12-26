@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Traits\HasClinicScope;
 
 class Invoice extends Model
 {
-    use HasFactory;
+    use HasFactory, HasClinicScope;
 
-    protected $fillable = ['patient_id', 'treatment_id', 'prescription_id', 'amount', 'status', 'due_date', 'pdf_path', 'notes'];
+    protected $fillable = ['patient_id', 'treatment_id', 'prescription_id', 'amount', 'status', 'due_date', 'pdf_path', 'notes', 'clinic_id'];
 
     protected $casts = [
         'due_date' => 'date',
@@ -82,5 +83,10 @@ class Invoice extends Model
             return 'partial';
         }
         return 'paid';
+    }
+
+    public function clinic()
+    {
+        return $this->belongsTo(Clinic::class);
     }
 }
