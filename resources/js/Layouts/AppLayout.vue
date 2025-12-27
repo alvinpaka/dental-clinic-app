@@ -148,7 +148,7 @@ onMounted(async () => {
 <template>
   <div class="min-h-screen bg-background">
     <!-- Fixed Header -->
-    <nav class="fixed top-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-cyan-600 text-primary-foreground shadow-lg z-50 border-b border-primary-foreground/10 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800">
+    <nav class="fixed top-0 left-0 right-0 bg-gradient-to-r from-[#045c4b] to-[#045c4b] text-primary-foreground shadow-lg z-50 border-b border-primary-foreground/10 dark:bg-[#045c4b] dark:text-slate-100 dark:border-slate-800" style="background-color: #045c4b !important;">
       <div class="flex items-center justify-between px-4 py-3">
         <!-- Logo and Title Section -->
         <div class="flex items-center space-x-3">
@@ -176,7 +176,7 @@ onMounted(async () => {
             variant="ghost"
             @click="themeStore.toggleDarkMode"
             size="sm"
-            class="hover:bg-white/10 dark:hover:bg-slate-800/50 transition-all duration-200"
+            class="hover:bg-[#045c4b]/10 dark:hover:bg-[#045c4b]/20 transition-all duration-200"
           >
             <i :class="[
               'fas transition-all duration-200',
@@ -192,7 +192,7 @@ onMounted(async () => {
               <DropdownMenuTrigger as-child>
                 <Button
                   variant="ghost"
-                  class="hover:bg-white/10 dark:hover:bg-slate-800/50 transition-all duration-200 px-3"
+                  class="hover:bg-[#045c4b]/10 dark:hover:bg-[#045c4b]/20 transition-all duration-200 px-3"
                 >
                   <i class="fas fa-user-md mr-2 dark:text-slate-300"></i>
                   <span class="hidden sm:inline dark:text-slate-200">{{ page.props.auth?.user?.name || 'User' }}</span>
@@ -231,7 +231,7 @@ onMounted(async () => {
         <Button
           variant="ghost"
           size="sm"
-          class="md:hidden hover:bg-white/10 dark:hover:bg-slate-800/50"
+          class="md:hidden hover:bg-[#045c4b]/10 dark:hover:bg-[#045c4b]/20"
         >
           <i class="fas fa-bars dark:text-slate-300"></i>
         </Button>
@@ -249,7 +249,7 @@ onMounted(async () => {
             :class="[
               'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
               activeTab === item.value
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-[#045c4b] text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent'
             ]"
           >
@@ -265,7 +265,7 @@ onMounted(async () => {
             :class="[
               'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
               activeTab === item.value
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-[#045c4b] text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent'
             ]"
           >

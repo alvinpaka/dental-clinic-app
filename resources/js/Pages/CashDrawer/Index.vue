@@ -112,7 +112,7 @@ const net = computed(() => Number((props.totals && (props.totals as any).inflow)
     <div class="container mx-auto px-4 py-8">
       <div class="mb-6 flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold">Cash Drawer</h1>
+          <h1 class="text-2xl font-bold text-[#045c4b]">Cash Drawer</h1>
           <p class="text-gray-500 dark:text-slate-400">Open/close cashier sessions and view today's movements</p>
         </div>
         <div v-if="canManage">
@@ -153,7 +153,7 @@ const net = computed(() => Number((props.totals && (props.totals as any).inflow)
                 />
                 <div v-if="openForm.errors.notes" class="text-red-600 text-xs mt-1">{{ openForm.errors.notes }}</div>
               </div>
-              <Button class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300" :disabled="openForm.processing || !!props.active_session || !canManage" @click="openSession">{{ openForm.processing ? 'Opening...' : 'Open Session' }}</Button>
+              <Button class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90 text-white shadow-lg hover:shadow-xl transition-all duration-300" :disabled="openForm.processing || !!props.active_session || !canManage" @click="openSession">{{ openForm.processing ? 'Opening...' : 'Open Session' }}</Button>
             </div>
           </CardContent>
         </Card>
@@ -264,7 +264,7 @@ const net = computed(() => Number((props.totals && (props.totals as any).inflow)
               <Input v-model="adjustForm.reason" placeholder="e.g., petty cash" />
             </div>
             <div class="md:col-span-2 flex justify-end">
-              <Button @click="submitAdjustment" :disabled="adjustForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">Save Adjustment</Button>
+              <Button @click="submitAdjustment" :disabled="adjustForm.processing" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">Save Adjustment</Button>
             </div>
           </div>
         </CardContent>

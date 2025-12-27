@@ -171,7 +171,7 @@ const quickActions = [
         <div class="mb-8">
           <div class="flex items-center justify-between">
             <div>
-              <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
+              <h1 class="text-4xl font-bold text-[#045c4b] dark:text-white mb-2">
                 {{ greeting }}, {{ auth.user.name }}!
               </h1>
               <p class="text-gray-600 dark:text-gray-400 text-lg">

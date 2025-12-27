@@ -95,6 +95,13 @@ const createForm = useForm({
   role_ids: [],
   clinic_id: props.auth?.user?.clinic_id || null
 });
+
+const editForm = useForm({
+  name: '',
+  email: '',
+  role_ids: [],
+});
+
 const searchQuery = ref(props.filters?.search ?? '');
 const roleFilter = ref(props.filters?.role ?? 'all');
 const sortBy = ref(props.filters?.sort_by ?? 'name');
@@ -396,7 +403,7 @@ const formatDate = (dateString: string) => {
         <div class="mb-8">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
+              <h1 class="text-4xl font-bold text-[#045c4b] dark:text-white mb-2">
                 Staff Management
               </h1>
               <p class="text-gray-600 dark:text-gray-400 text-lg">
@@ -410,7 +417,7 @@ const formatDate = (dateString: string) => {
                 {{ props.staff.total }} Team Members
               </Badge>
 
-              <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+              <Button @click="openCreate" class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                 <Plus class="w-4 h-4 mr-2" />
                 Add Staff Member
               </Button>
@@ -596,7 +603,7 @@ const formatDate = (dateString: string) => {
                             </p>
                           </div>
                           <div class="flex gap-2">
-                            <Button @click.stop="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                            <Button @click.stop="openCreate" class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90">
                               <Plus class="w-4 h-4 mr-2" />
                               Add Staff Member
                             </Button>
@@ -647,7 +654,7 @@ const formatDate = (dateString: string) => {
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
       <DialogContent class="max-w-4xl">
         <DialogHeader>
-          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+          <DialogTitle class="text-2xl font-bold text-[#045c4b] dark:text-white">
             Add New Staff Member
           </DialogTitle>
           <DialogDescription class="text-gray-600 dark:text-gray-400">
@@ -750,7 +757,7 @@ const formatDate = (dateString: string) => {
             <Button
               type="submit"
               :disabled="createForm.processing"
-              class="bg-blue-600 hover:bg-blue-700 text-white"
+              class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white"
             >
               <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-user-plus mr-2"></i>
@@ -765,7 +772,7 @@ const formatDate = (dateString: string) => {
     <Dialog :open="isEditOpen" @update:open="(value) => isEditOpen = value">
       <DialogContent class="max-w-4xl">
         <DialogHeader>
-          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+          <DialogTitle class="text-2xl font-bold text-[#045c4b] dark:text-white">
             Edit Staff Member
           </DialogTitle>
           <DialogDescription class="text-gray-600 dark:text-gray-400">
@@ -823,7 +830,7 @@ const formatDate = (dateString: string) => {
             <Button
               type="submit"
               :disabled="editForm.processing"
-              class="bg-blue-600 hover:bg-blue-700 text-white"
+              class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white"
             >
               <i v-if="editForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-save mr-2"></i>

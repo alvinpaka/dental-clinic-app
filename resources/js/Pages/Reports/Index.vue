@@ -184,11 +184,11 @@ const formatCurrency = (amount: number) => {
 <template>
   <AppLayout title="Reports">
     <Head title="Reports" />
-    <div class="space-y-6">
+    <div class="px-4 py-8 space-y-6">
       <!-- Header -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Financial Reports</h1>
+          <h1 class="text-3xl font-bold text-[#045c4b] dark:text-white">Financial Reports</h1>
           <p class="text-gray-600 dark:text-gray-400 mt-1">Track revenue, expenses, and business performance</p>
         </div>
         

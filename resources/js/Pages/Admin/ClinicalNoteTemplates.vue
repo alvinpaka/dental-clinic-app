@@ -67,7 +67,7 @@ const removeTpl = (id: number) => {
     <div class="container mx-auto px-4 py-8 space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold">Clinical Note Templates</h1>
+          <h1 class="text-2xl font-bold text-[#045c4b] dark:text-white">Clinical Note Templates</h1>
           <p class="text-gray-500 dark:text-slate-400">Manage templates used to prefill SOAP notes</p>
         </div>
       </div>
@@ -92,7 +92,7 @@ const removeTpl = (id: number) => {
               </select>
             </div>
             <div class="flex gap-2">
-              <Button @click="applyFilters" class="bg-blue-600 hover:bg-blue-700 text-white">Apply</Button>
+              <Button @click="applyFilters" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">Apply</Button>
             </div>
           </div>
         </CardContent>
@@ -129,7 +129,7 @@ const removeTpl = (id: number) => {
               <label class="text-sm flex items-center gap-2">
                 <input type="checkbox" v-model="(createForm.active as any)" /> Active
               </label>
-              <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">Create</Button>
+              <Button type="submit" :disabled="createForm.processing" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">Create</Button>
             </div>
           </form>
         </CardContent>
@@ -189,7 +189,7 @@ const removeTpl = (id: number) => {
                           </label>
                           <div class="flex gap-2">
                             <Button size="sm" variant="outline" @click="cancelEdit(t.id)">Cancel</Button>
-                            <Button size="sm" class="bg-blue-600 hover:bg-blue-700" :disabled="editForms[t.id].processing" @click="saveEdit(t.id)">Save</Button>
+                            <Button size="sm" class="bg-[#045c4b] hover:bg-[#045c4b]/90" :disabled="editForms[t.id].processing" @click="saveEdit(t.id)">Save</Button>
                           </div>
                         </div>
                       </div>

@@ -62,7 +62,7 @@ const formatDate = (val?: string | null) => {
     <div class="container mx-auto px-4 py-8 space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold">Cash Sessions</h1>
+          <h1 class="text-2xl font-bold text-[#045c4b] dark:text-white">Cash Sessions</h1>
           <p class="text-gray-500 dark:text-slate-400">Filter by date, user, or status. Export CSV.</p>
         </div>
       </div>
@@ -111,7 +111,7 @@ const formatDate = (val?: string | null) => {
               <Input type="date" v-model="props.filters.to" class="bg-white text-gray-800 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700" />
             </div>
             <div class="flex gap-2">
-              <Button @click="submitFilters" class="bg-blue-600 hover:bg-blue-700 text-white">Apply</Button>
+              <Button @click="submitFilters" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">Apply</Button>
               <Button variant="outline" @click="exportCsv">Export CSV</Button>
             </div>
           </div>

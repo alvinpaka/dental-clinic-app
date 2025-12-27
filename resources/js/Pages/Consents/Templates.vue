@@ -123,15 +123,15 @@ const submit = () => {
 
     <div class="container mx-auto px-4 py-8 space-y-6">
       <div class="flex flex-col gap-2">
-        <h1 class="text-3xl font-semibold text-gray-900 dark:text-white">Consent Templates</h1>
+        <h1 class="text-3xl font-bold text-[#045c4b] dark:text-white">Consent Templates</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400">Create reusable consent language and keep previous versions by saving with the same title.</p>
       </div>
 
-      <Alert class="border-blue-200 bg-blue-50/80 dark:border-blue-800 dark:bg-blue-900/20">
-        <Info class="mr-3 h-5 w-5 text-blue-600 dark:text-blue-400" />
+      <Alert class="border-[#045c4b]/30 bg-[#045c4b]/10 dark:border-[#045c4b]/50 dark:bg-[#045c4b]/20">
+        <Info class="mr-3 h-5 w-5 text-[#045c4b] dark:text-white" />
         <div>
-          <AlertTitle class="text-blue-800 dark:text-blue-300">Tip: Personalise your templates</AlertTitle>
-          <AlertDescription class="text-blue-700 dark:text-blue-200">
+          <AlertTitle class="text-[#045c4b] dark:text-white">Tip: Personalise your templates</AlertTitle>
+          <AlertDescription class="text-[#045c4b]/80 dark:text-white">
             Use the dynamic variables below to pull in patient and clinic information automatically when a consent is recorded.
           </AlertDescription>
         </div>
@@ -196,7 +196,7 @@ const submit = () => {
               </div>
               <div
                 ref="editorRef"
-                class="rounded-md border border-dashed border-gray-300 bg-white/80 p-4 text-sm leading-relaxed text-gray-800 shadow-inner focus-within:ring-2 focus-within:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                class="rounded-md border border-dashed border-gray-300 bg-white/80 p-4 text-sm leading-relaxed text-gray-800 shadow-inner focus-within:ring-2 focus-within:ring-[#045c4b]/50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 contenteditable
                 role="textbox"
                 aria-multiline="true"
@@ -215,7 +215,7 @@ const submit = () => {
                   <span>Signature required</span>
                 </label>
               </div>
-              <Button type="submit" :disabled="form.processing" class="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" :disabled="form.processing" class="gap-2 bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">
                 <i v-if="form.processing" class="fas fa-spinner fa-spin"></i>
                 {{ form.processing ? 'Saving...' : 'Save Template' }}
               </Button>

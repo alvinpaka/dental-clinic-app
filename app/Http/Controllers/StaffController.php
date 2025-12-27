@@ -15,26 +15,14 @@ class StaffController extends Controller
         $user = auth()->user();
         
         // Get staff based on user role
-        $staffQuery = User::with('roles', 'clinic');
+        $staffQuery = User::with('roles');
         
         if ($user->hasRole('super-admin')) {
             // Super admin can see all staff
             $staff = $staffQuery->paginate(12);
-        } elseif ($user->clinic_id) {
-            // Clinic users can only see staff from their clinic
-            $staff = $staffQuery->where('clinic_id', $user->clinic_id)->paginate(12);
         } else {
-            // Users without clinic assignment see no staff
-            $staff = new \Illuminate\Pagination\LengthAwarePaginator(
-                collect([]),
-                0,
-                12,
-                1,
-                [
-                    'path' => request()->url(),
-                    'pageName' => 'page',
-                ]
-            );
+            // All other users can see all staff for now (since clinic_id doesn't exist)
+            $staff = $staffQuery->paginate(12);
         }
         
         // Get all roles for role assignment
@@ -133,15 +121,12 @@ class StaffController extends Controller
         $clinicId = null;
         if ($user->hasRole('super-admin')) {
             $clinicId = $request->clinic_id;
-        } else {
-            $clinicId = $user->clinic_id;
         }
         
         $staff = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => bcrypt($request->password),
-            'clinic_id' => $clinicId,
         ]);
         
         // Assign roles
@@ -149,5 +134,40 @@ class StaffController extends Controller
         
         return redirect()->route('staff.index')
             ->with('success', 'Staff member created successfully!');
+    }
+    
+    public function update(Request $request, User $staff)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $staff->id,
+            'role_ids' => 'required|array',
+            'role_ids.*' => 'exists:roles,id',
+        ]);
+        
+        $staff->update([
+            'name' => $request->name,
+            'email' => $request->email,
+        ]);
+        
+        // Update roles
+        $staff->syncRoles($request->role_ids);
+        
+        return redirect()->route('staff.index')
+            ->with('success', 'Staff member updated successfully!');
+    }
+    
+    public function destroy(User $staff)
+    {
+        // Prevent deletion of the current user
+        if ($staff->id === auth()->id()) {
+            return redirect()->route('staff.index')
+                ->with('error', 'You cannot delete your own account.');
+        }
+        
+        $staff->delete();
+        
+        return redirect()->route('staff.index')
+            ->with('success', 'Staff member removed successfully!');
     }
 }

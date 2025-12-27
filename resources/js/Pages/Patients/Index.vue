@@ -346,7 +346,7 @@ const calculateTotalCost = (treatment: any) => {
         <div class="mb-8">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
+              <h1 class="text-4xl text-3xl font-bold text-[#045c4b] dark:text-white mb-2">
                 Patient Management
               </h1>
               <p class="text-gray-600 dark:text-gray-400 text-lg">
@@ -361,7 +361,7 @@ const calculateTotalCost = (treatment: any) => {
               <Button
                 v-if="props.can.createPatient"
                 @click="openCreate"
-                class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90 text-white shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <Plus class="w-4 h-4 mr-2" />
                 Add New Patient
@@ -568,7 +568,7 @@ const calculateTotalCost = (treatment: any) => {
       <Dialog :open="isCreateOpen" @update:open="isCreateOpen = $event">
         <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-[#045c4b] to-[#045c4b] bg-clip-text text-transparent">
               Add New Patient
             </DialogTitle>
             <DialogDescription class="text-gray-600 dark:text-gray-400">
@@ -620,7 +620,7 @@ const calculateTotalCost = (treatment: any) => {
               <Button type="button" variant="outline" @click="isCreateOpen = false">
                 Cancel
               </Button>
-              <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" :disabled="createForm.processing" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">
                 <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
                 <i v-else class="fas fa-user-plus mr-2"></i>
                 {{ createForm.processing ? 'Creating...' : 'Create Patient' }}

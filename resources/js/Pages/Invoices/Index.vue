@@ -860,7 +860,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
         <div class="mb-8">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
+              <h1 class="text-4xl font-bold text-[#045c4b] dark:text-white mb-2">
                 Invoice Management
               </h1>
               <p class="text-gray-600 dark:text-gray-400 text-lg">
@@ -1182,7 +1182,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                             <Button
                               v-if="!searchQuery && statusFilter === 'all'"
                               @click.stop="openCreate"
-                              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                              class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90"
                             >
                               <Plus class="w-4 h-4 mr-2" />
                               Create First Invoice
@@ -1415,7 +1415,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
             <Button
               type="submit"
               :disabled="createForm.processing"
-              class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90"
             >
               <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-plus mr-2"></i>
