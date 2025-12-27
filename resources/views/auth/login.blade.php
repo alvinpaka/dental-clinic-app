@@ -59,7 +59,7 @@ onMounted(() => {
             <i class="fas fa-sparkles text-white text-xl"></i>
           </div>
           <span class="text-3xl font-bold text-white">
-            Victoria Dental Lounge
+            Vintech Solutions
           </span>
         </Link>
 
@@ -135,7 +135,7 @@ onMounted(() => {
               <i class="fas fa-sparkles text-white text-xl"></i>
             </div>
             <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              Victoria Dental Lounge
+              Vintech Solutions
             </span>
           </Link>
         </div>

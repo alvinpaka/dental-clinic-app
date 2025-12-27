@@ -215,7 +215,7 @@ const printInvoice = () => {
     <body>
       <div class="header">
         <div class="logo">
-          <h1>Victoria Dental Lounge</h1>
+          <h1>Vintech Solutions</h1>
           <div class="muted">Dental Care Excellence</div>
         </div>
         <div class="text-right">
@@ -353,7 +353,7 @@ const printInvoice = () => {
   printContent += `
       <div class="mt-4" style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
         <div class="text-center muted" style="font-size: 10px;">
-          Thank you for choosing Victoria Dental Lounge
+          Thank you for choosing Vintech Solutions
         </div>
       </div>
     </body>

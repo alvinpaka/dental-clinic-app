@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Clinic;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,9 +16,6 @@ class PatientFactory extends Factory
      */
     public function definition(): array
     {
-        // Get a random clinic or use the first one
-        $clinic = Clinic::inRandomOrder()->first() ?? Clinic::first();
-        
         return [
             'name' => $this->faker->name(),
             'email' => $this->faker->unique()->safeEmail(),
@@ -43,7 +39,6 @@ class PatientFactory extends Factory
                 ['Aspirin'],
                 ['Codeine', 'Local anesthetics'],
             ]),
-            'clinic_id' => $clinic->id,
         ];
     }
 }

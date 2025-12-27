@@ -43,12 +43,12 @@ const securityFeatures = [
   >
     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl overflow-hidden">
       <!-- Hero Section -->
-      <div class="bg-gradient-to-br from-blue-600 to-cyan-600 px-6 py-16 sm:py-20 lg:px-8">
+      <div class="bg-gradient-to-br from-[#045c4b] to-[#0a8c74] px-6 py-16 sm:py-20 lg:px-8">
         <div class="mx-auto max-w-3xl text-center">
           <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Enterprise-Grade Security
           </h2>
-          <p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-blue-100">
+          <p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/90">
             We take a proactive approach to security, implementing multiple layers of protection to safeguard your data.
           </p>
         </div>
@@ -58,7 +58,7 @@ const securityFeatures = [
       <div class="mx-auto max-w-7xl px-6 lg:px-8 py-16 sm:py-20">
         <div class="grid grid-cols-1 gap-x-8 gap-y-16 md:grid-cols-2 lg:grid-cols-3">
           <div v-for="(feature, index) in securityFeatures" :key="index" class="group relative bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-            <div class="absolute -top-6 left-6 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-lg">
+            <div class="absolute -top-6 left-6 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#045c4b] to-[#0a8c74] text-white shadow-lg">
               <component :is="feature.icon" class="h-7 w-7" aria-hidden="true" />
             </div>
             <h3 class="mt-8 text-lg font-semibold text-gray-900 dark:text-white">{{ feature.title }}</h3>
@@ -88,7 +88,7 @@ const securityFeatures = [
                 'Be cautious of phishing attempts'
               ]" :key="index" class="flex items-start">
                 <div class="flex-shrink-0">
-                  <div class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                  <div class="flex h-6 w-6 items-center justify-center rounded-full bg-[#045c4b]/10 text-[#045c4b] dark:bg-[#0a8c74]/50 dark:text-[#0a8c74]">
                     <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
@@ -105,7 +105,7 @@ const securityFeatures = [
               Our security team is available 24/7 to address any questions or concerns.
             </p>
             <div class="mt-6">
-              <a href="/contact" class="text-base font-medium text-blue-600 hover:text-blue-500 dark:text-cyan-400 dark:hover:text-cyan-300">
+              <a href="/contact" class="inline-flex items-center rounded-md bg-[#045c4b] px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-[#0a8c74] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#045c4b] transition-colors">
                 Contact our security team
                 <span aria-hidden="true"> &rarr;</span>
               </a>

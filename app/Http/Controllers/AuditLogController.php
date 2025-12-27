@@ -15,13 +15,8 @@ class AuditLogController extends Controller
 
     public function index(Request $request)
     {
-        $query = AuditLog::with(['user', 'clinic', 'subject'])
+        $query = AuditLog::with(['user', 'subject'])
             ->orderBy('created_at', 'desc');
-
-        // Filter by clinic if user is not super-admin
-        if (!auth()->user()->hasRole('super-admin')) {
-            $query->where('clinic_id', auth()->user()->clinic_id);
-        }
 
         // Filter by action
         if ($request->filled('action') && $request->action !== 'all') {

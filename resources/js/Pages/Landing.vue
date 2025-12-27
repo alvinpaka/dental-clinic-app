@@ -82,7 +82,7 @@ const stats = [
 
 const testimonials = [
   {
-    quote: "Victoria Dental Lounge has transformed how we manage our practice. We've reduced administrative time by 40% and improved patient satisfaction significantly.",
+    quote: "Vintech Solutions has transformed how we manage our practice. We've reduced administrative time by 40% and improved patient satisfaction significantly.",
     author: "Dr. Sarah Johnson",
     role: "Owner, Bright Smile Dental",
     rating: 5
@@ -119,7 +119,7 @@ const iconMap: Record<string, string> = {
 </script>
 
 <template>
-  <div :class="['min-h-screen transition-colors duration-300', themeStore.isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50']">
+  <div :class="['min-h-screen transition-colors duration-300', themeStore.isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-gray-50 via-white to-gray-50']">
     <!-- Floating Header -->
     <header :class="['fixed top-0 left-0 right-0 z-50 transition-all duration-300', isScrolled ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg shadow-lg' : 'bg-transparent']">
       <div class="container mx-auto px-4 py-4">
@@ -127,7 +127,7 @@ const iconMap: Record<string, string> = {
           <div class="flex items-center space-x-3">
             <!-- Logo/Icon -->
             <Link href="/" class="flex items-center space-x-3">
-              <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+              <div class="flex items-center justify-center w-10 h-10 bg-[#045c4b]/10 dark:bg-white/5 rounded-lg backdrop-blur-sm">
                 <img 
                   src="/images/tooth.png" 
                   alt="Tooth Logo" 
@@ -136,8 +136,8 @@ const iconMap: Record<string, string> = {
                 />
               </div>
               <div>
-                <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                  Victoria Dental Lounge
+                <span class="text-2xl font-bold text-[#045c4b] dark:text-white">
+                  Vintech Solutions
                 </span>
                 <p class="text-xs text-gray-600 dark:text-slate-300 hidden sm:block">You Smile We Smile</p>
               </div>
@@ -146,9 +146,9 @@ const iconMap: Record<string, string> = {
 
           <!-- Desktop Navigation -->
           <nav class="hidden md:flex items-center space-x-8">
-            <Link href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Features</Link>
-            <!-- <Link href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Pricing</Link> -->
-            <Link href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Testimonials</Link>
+            <Link href="#features" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-cyan-400 transition-colors">Features</Link>
+            <!-- <Link href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-cyan-400 transition-colors">Pricing</Link> -->
+            <Link href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-cyan-400 transition-colors">Testimonials</Link>
           </nav>
 
           <div class="flex items-center space-x-3">
@@ -156,17 +156,21 @@ const iconMap: Record<string, string> = {
               <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon text-gray-700']"></i>
             </Button>
 
-            <Button variant="ghost" class="hidden md:inline-flex text-gray-700 dark:text-gray-300" as-child>
+            <Button 
+              variant="ghost" 
+              class="hidden md:inline-flex bg-[#045c4b] hover:bg-[#0a8c74] dark:bg-[#045c4b] dark:hover:bg-[#0a8c74] text-white transition-colors duration-200" 
+              as-child
+            >
               <Link href="/login">Login</Link>
             </Button>
 
             <!-- Signup button (hidden) -->
-            <Button v-if="false" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hidden md:inline-flex" as-child>
+            <!-- Button class="bg-[#045c4b] hover:bg-[#0a8c74] text-white shadow-lg hidden md:inline-flex" as-child>
               <Link href="/register" class="flex items-center">
                 Get Started
                 <i class="fas fa-arrow-right ml-2"></i>
               </Link>
-            </Button>
+            </Button-->
 
             <Button variant="ghost" size="icon" class="md:hidden text-gray-700 dark:text-gray-300" @click="mobileMenuOpen = !mobileMenuOpen">
               <i :class="['fas', mobileMenuOpen ? 'fa-times' : 'fa-bars']"></i>
@@ -177,14 +181,14 @@ const iconMap: Record<string, string> = {
         <!-- Mobile Menu -->
         <div v-if="mobileMenuOpen" class="md:hidden mt-4 py-4 border-t border-gray-200 dark:border-gray-800">
           <nav class="flex flex-col space-y-4">
-            <Link href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Features</Link>
-            <!-- <Link href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Pricing</Link> -->
-            <Link href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600">Testimonials</Link>
+            <Link href="#features" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-cyan-400">Features</Link>
+            <!-- <Link href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-cyan-400">Pricing</Link> -->
+            <Link href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-cyan-400">Testimonials</Link>
             <Button variant="outline" class="w-full" as-child>
               <Link href="/login">Login</Link>
             </Button>
             <!-- Mobile signup button (hidden) -->
-            <Button v-if="false" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600" as-child>
+            <Button v-if="false" class="w-full bg-[#045c4b] hover:bg-[#0a8c74]" as-child>
               <Link href="/register">Get Started</Link>
             </Button>
           </nav>
@@ -195,13 +199,13 @@ const iconMap: Record<string, string> = {
     <div class="container mx-auto px-4 pt-32 pb-16">
       <!-- Hero Section -->
       <section class="text-center mb-24">
-        <Badge class="mb-6 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0 px-4 py-2">
+        <Badge class="mb-6 bg-[#045c4b]/10 text-[#045c4b] dark:bg-[#0a8c74]/30 dark:text-cyan-400 border-0 px-4 py-2">
           <i class="fas fa-sparkles mr-2"></i>
           Trusted by 500+ dental practices
         </Badge>
         
         <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-          <span class="bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">
+          <span class="bg-gradient-to-r from-[#045c4b] to-[#0a8c74] bg-clip-text text-transparent">
             Transform Your
           </span>
           <br />
@@ -319,7 +323,7 @@ const iconMap: Record<string, string> = {
 
       <!-- CTA Section -->
       <section class="mb-16">
-        <Card class="border-0 shadow-2xl bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 text-white overflow-hidden relative">
+        <Card class="border-0 shadow-2xl bg-gradient-to-r from-[#045c4b] to-[#0a8c74] text-white overflow-hidden relative">
           <div class="absolute inset-0 opacity-10">
             <div class="absolute inset-0" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 19px, white 19px, white 20px), repeating-linear-gradient(90deg, transparent, transparent 19px, white 19px, white 20px);"></div>
           </div>
@@ -357,12 +361,17 @@ const iconMap: Record<string, string> = {
               <Link href="/" class="inline-block">
                 <div class="flex items-center space-x-3 mb-4">
                   <!-- Logo/Icon -->
-                  <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
-                    <i class="fa-solid fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
+                  <div class="flex items-center justify-center w-10 h-10 bg-[#045c4b]/10 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+                    <img 
+                      src="/images/tooth.png" 
+                      alt="Tooth Logo" 
+                      class="h-6 w-6" 
+                      style="filter: invert(40%) sepia(73%) saturate(2000%) hue-rotate(200deg) brightness(90%) contrast(90%);"
+                    />
                   </div>
                   <div>
-                    <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                      Victoria Dental Lounge
+                    <span class="text-xl font-bold text-[#045c4b] dark:text-white">
+                      Vintech Solutions
                     </span>
                     <p class="text-xs text-gray-600 dark:text-slate-300">You Smile We Smile</p>
                   </div>
@@ -376,33 +385,33 @@ const iconMap: Record<string, string> = {
             <div>
               <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Product</h3>
               <ul class="space-y-2">
-                <li><Link href="#features" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Features</Link></li>
-                <!-- <li><Link href="#pricing" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Pricing</Link></li> -->
-                <li><Link href="/demo" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Demo</Link></li>
+                <li><Link href="#features" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">Features</Link></li>
+                <!-- <li><Link href="#pricing" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">Pricing</Link></li> -->
+                <li><Link href="/demo" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">Demo</Link></li>
               </ul>
             </div>
 
             <div>
               <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Company</h3>
               <ul class="space-y-2">
-                <li><Link href="/about" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">About</Link></li>
-                <li><Link href="/contact" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Contact</Link></li>
-                <!-- <li><Link href="/careers" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Careers</Link></li> -->
+                <li><Link href="/about" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">About</Link></li>
+                <li><Link href="/contact" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">Contact</Link></li>
+                <!-- <li><Link href="/careers" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">Careers</Link></li> -->
               </ul>
             </div>
 
             <div>
               <h3 class="font-semibold mb-4 text-gray-900 dark:text-white">Legal</h3>
               <ul class="space-y-2">
-                <!-- <li><Link href="/privacy" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Privacy</Link></li> -->
-                <li><Link href="/terms" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Terms</Link></li>
-                <li><Link href="/security" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-cyan-400">Security</Link></li>
+                <!-- <li><Link href="/privacy" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">Privacy</Link></li> -->
+                <li><Link href="/terms" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">Terms</Link></li>
+                <li><Link href="/security" class="text-gray-600 dark:text-gray-400 hover:text-[#045c4b] dark:hover:text-cyan-400">Security</Link></li>
               </ul>
             </div>
           </div>
 
           <div class="pt-8 border-t border-gray-200 dark:border-gray-800 text-center text-gray-600 dark:text-gray-400">
-            <p>&copy; {{ new Date().getFullYear() }} Victoria Dental Lounge. All rights reserved.</p>
+            <p>&copy; {{ new Date().getFullYear() }} Vintech Solutions. All rights reserved.</p>
           </div>
         </div>
       </footer>

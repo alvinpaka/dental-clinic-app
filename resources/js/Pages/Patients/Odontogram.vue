@@ -97,7 +97,7 @@ const getToothForDisplay = (displayCode: string) => getTooth(toFdi(displayCode))
     <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Odontogram</h1>
+          <h1 class="text-2xl font-bold text-[#045c4b] dark:text-white">Odontogram</h1>
           <p class="text-gray-500 dark:text-gray-400">{{ props.patient.name }}</p>
         </div>
         <div class="flex items-center gap-2">
@@ -128,7 +128,7 @@ const getToothForDisplay = (displayCode: string) => getTooth(toFdi(displayCode))
                   </SelectContent>
                 </Select>
               </div>
-              <Button @click="save" class="bg-blue-600 hover:bg-blue-700 text-white">Save</Button>
+              <Button @click="save" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">Save</Button>
             </div>
           </CardTitle>
         </CardHeader>

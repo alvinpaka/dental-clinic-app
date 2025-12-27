@@ -5,14 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Prescription;
-use App\Models\Traits\HasClinicScope;
 
 class Patient extends Model
 {
-    use HasFactory, HasClinicScope;
+    use HasFactory;
 
     protected $fillable = [
-        'name', 'email', 'phone', 'dob', 'address', 'medical_history', 'allergies', 'clinic_id'
+        'name', 'email', 'phone', 'dob', 'address', 'medical_history', 'allergies', 'created_by'
     ];
 
     protected $casts = [

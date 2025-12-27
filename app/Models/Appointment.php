@@ -4,13 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Traits\HasClinicScope;
 
 class Appointment extends Model
 {
-    use HasFactory, HasClinicScope;
+    use HasFactory;
 
-    protected $fillable = ['patient_id', 'dentist_id', 'start_time', 'end_time', 'status', 'type', 'notes', 'clinic_id'];
+    protected $fillable = ['patient_id', 'dentist_id', 'start_time', 'end_time', 'status', 'type', 'notes', 'created_by'];
 
     protected $casts = [
         'start_time' => 'datetime',

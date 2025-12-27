@@ -33,7 +33,7 @@ const formError = ref<string | null>(null)
 const renderPreview = (tpl: string | undefined) => {
   if (!tpl) return ''
   const today = new Date()
-  const clinicName = (props.context_vars?.clinic_name) || (page?.props?.app?.name) || 'Victoria Dental Lounge'
+  const clinicName = (props.context_vars?.clinic_name) || (page?.props?.app?.name) || 'Vintech Solutions'
   const dentistName = props.context_vars?.dentist_name || ''
   const apptDate = props.context_vars?.appointment_date || today.toLocaleDateString()
   const vars: Record<string,string> = {
@@ -254,7 +254,7 @@ const submit = () => {
               />
             </div>
             <div class="md:col-span-4 flex flex-wrap gap-2 md:justify-end items-end">
-              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto">
+              <Button type="submit" :disabled="form.processing" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white w-full md:w-auto">
                 {{ form.processing ? 'Saving...' : 'Record Consent' }}
               </Button>
               <Button type="button" variant="outline" :disabled="!selectedTemplate" @click="openPreview" class="w-full md:w-auto">

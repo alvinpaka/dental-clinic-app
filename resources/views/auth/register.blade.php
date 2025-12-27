@@ -59,7 +59,7 @@ onMounted(() => {
             <i class="fas fa-sparkles text-white text-xl"></i>
           </div>
           <span class="text-3xl font-bold text-white">
-            Victoria Dental Lounge
+            Vintech Solutions
           </span>
         </Link>
 
@@ -67,7 +67,7 @@ onMounted(() => {
         <div class="space-y-8">
           <div>
             <h2 class="text-4xl font-bold text-white mb-4">
-              Join Victoria Dental Lounge Today
+              Join Vintech Solutions Today
             </h2>
             <p class="text-blue-100 text-lg">
               Start your free trial and transform your dental practice with our comprehensive management platform.
@@ -135,7 +135,7 @@ onMounted(() => {
               <i class="fas fa-sparkles text-white text-xl"></i>
             </div>
             <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              Victoria Dental Lounge
+              Vintech Solutions
             </span>
           </Link>
         </div>

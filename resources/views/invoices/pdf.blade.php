@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Invoice #{{ $invoice->id }} - Victoria Dental Lounge</title>
+    <title>Invoice #{{ $invoice->id }} - Vintech Solutions</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
@@ -335,9 +335,9 @@
                 <div class="logo-text">
                     
                 <p>
-                    Victoria Dental Lounge<br>
-                Phone: +256 708720139 <br> Email: vcare90@yahoo.com
-                P.O.BOX 723, Plot 24, Gower's Rd, <br>
+                    Vintech Solutions<br>
+                Phone: +256 392911652 <br> Email: alvinpaka@gmail.com
+                Plot 8, Hill Road, <br>
                 Entebbe, Uganda.
             
                 </p>
@@ -596,11 +596,11 @@
             <div class="stamp">
                 <div>Authorized Signature</div>
                 <div style="margin-top: 10px; border-top: 1px solid #d1d5db; padding-top: 5px;">
-                    Victoria Dental Lounge
+                    Vintech Solutions
                 </div>
             </div>
             <p>Generated on {{ now()->format('M d, Y \a\t h:i A') }}</p>
-            <p>Thank you for choosing Victoria Dental Lounge. For any inquiries, please contact our office.</p>
+            <p>Thank you for choosing Vintech Solutions. For any inquiries, please contact our office.</p>
             <p style="margin-top: 10px;">
                 <strong>Phone:</strong> +256 700 123456 | 
                 <strong>Email:</strong> info@victoriadental.com | 

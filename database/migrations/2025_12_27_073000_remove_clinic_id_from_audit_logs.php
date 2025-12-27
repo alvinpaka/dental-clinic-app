@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('treatments', function (Blueprint $table) {
-            $table->foreignId('clinic_id')->nullable()->constrained()->onDelete('cascade');
+        Schema::table('audit_logs', function (Blueprint $table) {
+            if (Schema::hasColumn('audit_logs', 'clinic_id')) {
+                $table->dropForeign(['clinic_id']);
+                $table->dropColumn('clinic_id');
+            }
         });
     }
 
@@ -21,9 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('treatments', function (Blueprint $table) {
-            $table->dropForeign(['clinic_id']);
-            $table->dropColumn('clinic_id');
-        });
+        // We won't add the clinic_id back as we're removing clinic functionality
     }
 };

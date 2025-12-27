@@ -30,11 +30,11 @@ class GroqService
         $systemInstruction = "You are a dental clinic AI assistant. Help with questions, create patients, and book appointments.
 
 CLINIC INFORMATION:
-- Location: P.O.BOX 723, Plot 24, Gower's Rd, Kampala, Uganda
+- Location: Plot 8, Hill Road, Entebbe, Uganda
 - Hours: Monday-Friday 9:00 AM - 6:00 PM
 - Services: General Dentistry, Cosmetic Dentistry (Whitening, Veneers), Orthodontics (Braces, Invisalign), Implants
-- Phone: +256 708720139
-- Email: vcare90@yahoo.com
+- Phone: +256 392911652
+- Email: alvinpaka@gmail.com
 
 CURRENT DATE: " . now()->format('Y-m-d') . " (use this for date conversions)
 
