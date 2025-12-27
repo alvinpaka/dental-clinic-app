@@ -818,12 +818,12 @@ watch(messages, () => {
              style="height: 500px; max-height: 80vh;">
             
             <!-- Header -->
-            <div class="bg-blue-600 dark:bg-slate-900 p-4 flex justify-between items-center text-white">
+            <div class="bg-[#045c4b] dark:bg-[#045c4b] p-4 flex justify-between items-center text-white">
                 <div class="flex items-center space-x-2">
                     <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                     <h3 class="font-semibold">Dental Assistant</h3>
                 </div>
-                <button @click="toggleChat" class="hover:bg-blue-700 dark:hover:bg-slate-800 p-1 rounded transition-colors">
+                <button @click="toggleChat" class="hover:bg-[#045c4b]/80 dark:hover:bg-[#045c4b]/80 p-1 rounded transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
@@ -849,11 +849,11 @@ watch(messages, () => {
                         <!-- Simple Confirmation Buttons -->
                         <div v-if="msg.showButtons" class="mt-3 flex space-x-2">
                             <button @click="confirmAction" 
-                                    class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                    class="px-3 py-1.5 bg-[#045c4b] text-white text-sm rounded-md hover:bg-[#045c4b]/80 focus:outline-none focus:ring-2 focus:ring-[#045c4b]/50 focus:ring-offset-2">
                                 ✓ Confirm
                             </button>
                             <button @click="cancelAction" 
-                                    class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                    class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#045c4b]/50 focus:ring-offset-2">
                                 Cancel
                             </button>
                         </div>
@@ -883,7 +883,7 @@ watch(messages, () => {
                     <button 
                         type="submit" 
                         :disabled="!newMessage.trim() || isLoading"
-                        class="bg-blue-600 dark:bg-blue-700 text-white rounded-full p-2 hover:bg-blue-700 dark:hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        class="bg-[#045c4b] dark:bg-[#045c4b] text-white rounded-full p-2 hover:bg-[#045c4b]/80 dark:hover:bg-[#045c4b]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
@@ -896,7 +896,7 @@ watch(messages, () => {
         <!-- Toggle Button -->
         <button 
             @click="toggleChat"
-            class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-full p-4 shadow-lg transition-all duration-300 transform hover:scale-110 flex items-center justify-center"
+            class="bg-[#045c4b] dark:bg-[#045c4b] hover:bg-[#045c4b]/80 dark:hover:bg-[#045c4b]/80 text-white rounded-full p-4 shadow-lg transition-all duration-300 transform hover:scale-110 flex items-center justify-center"
             :class="{ 'rotate-90 opacity-0 pointer-events-none absolute': isOpen }"
         >
             <!-- Chat Icon -->

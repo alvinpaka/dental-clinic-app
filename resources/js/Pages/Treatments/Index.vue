@@ -799,7 +799,7 @@ const calculateTotalCost = (treatment: Treatment) => {
         <!-- Header -->
         <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Treatment Management</h1>
+            <h1 class="text-3xl font-bold text-[#045c4b] dark:text-white">Treatment Management</h1>
             <p class="text-gray-600 dark:text-gray-400">Manage dental procedures and patient records</p>
           </div>
           <div class="flex items-center gap-3">
@@ -807,7 +807,7 @@ const calculateTotalCost = (treatment: Treatment) => {
               <Stethoscope class="w-4 h-4 mr-2" />
               {{ totalTreatments }} Treatments
             </Badge>
-            <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+            <Button @click="openCreate" class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90 text-white shadow-lg hover:shadow-xl transition-all duration-300">
               <Plus class="w-4 h-4 mr-2" />
               Add Treatment
             </Button>
@@ -1049,7 +1049,7 @@ const calculateTotalCost = (treatment: Treatment) => {
                       <Button
                         v-if="!searchQuery && filterPatient === 'all'"
                         @click="openCreate"
-                        class="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+                        class="mt-4 bg-[#045c4b] hover:bg-[#045c4b]/90 text-white"
                       >
                         <Plus class="w-4 h-4 mr-2" />Add Treatment
                       </Button>
@@ -1097,7 +1097,7 @@ const calculateTotalCost = (treatment: Treatment) => {
       <Dialog :open="isCreateOpen" @update:open="val => isCreateOpen = val">
         <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Add New Treatment</DialogTitle>
+            <DialogTitle class="text-2xl font-bold text-[#045c4b] dark:text-white">Add New Treatment</DialogTitle>
             <DialogDescription>Record a new dental procedure</DialogDescription>
           </DialogHeader>
           <form @submit.prevent="submitCreate" class="space-y-4">
@@ -1230,7 +1230,7 @@ const calculateTotalCost = (treatment: Treatment) => {
             </div>
             <DialogFooter>
               <Button variant="outline" @click="isCreateOpen = false">Cancel</Button>
-              <Button type="submit" :disabled="createForm.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" :disabled="createForm.processing" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">
                 <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
                 <i v-else class="fas fa-plus mr-2"></i>
                 {{ createForm.processing ? 'Creating...' : 'Create' }}

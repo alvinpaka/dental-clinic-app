@@ -470,7 +470,7 @@ const submitUseItem = () => {
         <div class="mb-8">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
+              <h1 class="text-4xl font-bold text-[#045c4b] dark:text-white mb-2">
                 Inventory Management
               </h1>
               <p class="text-gray-600 dark:text-gray-400 text-lg">
@@ -482,7 +482,7 @@ const submitUseItem = () => {
                 <Package class="w-4 h-4 mr-2" />
                 {{ props.stats?.total_items || 0 }} Total Items
               </Badge>
-              <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+              <Button @click="openCreate" class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                 <Plus class="w-4 h-4 mr-2" />
                 Add Item
               </Button>
@@ -750,7 +750,7 @@ const submitUseItem = () => {
                               {{ searchQuery || categoryFilter || stockStatusFilter ? 'Try adjusting your filters' : 'Start by adding your first item' }}
                             </p>
                           </div>
-                          <Button @click="openCreate" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                          <Button @click="openCreate" class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90">
                             <Plus class="w-4 h-4 mr-2" />
                             Add First Item
                           </Button>
@@ -801,7 +801,7 @@ const submitUseItem = () => {
         @close-auto-focus="(e) => e.preventDefault()"
       >
         <DialogHeader>
-          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+          <DialogTitle class="text-2xl font-bold text-[#045c4b] dark:text-white">
             Add Inventory Item
           </DialogTitle>
           <DialogDescription class="text-gray-600 dark:text-gray-400">
@@ -953,7 +953,7 @@ const submitUseItem = () => {
             <Button
               type="submit"
               :disabled="createForm.processing"
-              class="bg-blue-600 hover:bg-blue-700 text-white"
+              class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white"
             >
               <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-plus mr-2"></i>
@@ -1365,7 +1365,7 @@ const submitUseItem = () => {
           <Button type="button" variant="outline" @click="isViewOpen = false">
             Close
           </Button>
-          <Button @click="openEdit(viewingItem!); isViewOpen = false" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+          <Button @click="openEdit(viewingItem!); isViewOpen = false" class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90 text-white">
             <i class="fas fa-edit mr-2"></i>
             Edit Item
           </Button>
