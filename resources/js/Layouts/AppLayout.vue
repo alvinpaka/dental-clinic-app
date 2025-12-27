@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/Components/ui/dropdown-menu';
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import { useThemeStore } from '@/Stores/theme';
 import UnauthorizedModal from '@/Components/UnauthorizedModal.vue';
 import { useUnauthorizedModal } from '@/Composables/useUnauthorizedModal';
@@ -133,15 +133,59 @@ const isCashierRole = computed(() => {
   return Array.isArray(roles) && (roles.includes('admin') || roles.includes('receptionist'))
 })
 
-onMounted(async () => {
-  themeStore.initTheme();
-  try {
-    if (isCashierRole.value) {
-      const res = await fetch(route('cash-drawer.active'), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      const data = await res.json()
-      showCashBanner.value = !data?.active
-    }
-  } catch {}
+const rootElement = ref<HTMLElement | null>(null)
+
+const handleDialogState = () => {
+  if (!rootElement.value) return
+  
+  const dialogs = document.querySelectorAll('[role="dialog"][data-state="open"]')
+  const hasOpenDialog = dialogs.length > 0
+  
+  // Remove aria-hidden from root element when any dialog is open
+  if (hasOpenDialog) {
+    rootElement.value?.removeAttribute('aria-hidden')
+    rootElement.value?.removeAttribute('data-aria-hidden')
+  }
+}
+
+onMounted(() => {
+  themeStore.initTheme()
+  rootElement.value = document.getElementById('app')
+  
+  // Set up a mutation observer to watch for dialog state changes
+  const observer = new MutationObserver(handleDialogState)
+  
+  if (rootElement.value) {
+    observer.observe(rootElement.value, {
+      attributes: true,
+      attributeFilter: ['aria-hidden', 'data-aria-hidden'],
+      childList: true,
+      subtree: true
+    })
+  }
+  
+  // Initial check
+  handleDialogState()
+  
+  // Check for active cash drawer
+  const checkCashDrawer = async () => {
+    try {
+      if (isCashierRole.value) {
+        const res = await fetch(route('cash-drawer.active'), { 
+          headers: { 'X-Requested-With': 'XMLHttpRequest' } 
+        })
+        const data = await res.json()
+        showCashBanner.value = !data?.active
+      }
+    } catch {}
+  }
+  
+  checkCashDrawer()
+  
+  // Clean up observer on unmount
+  return () => {
+    observer.disconnect()
+  }
 });
 </script>
 

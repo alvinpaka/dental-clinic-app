@@ -6,11 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Invoice;
 use App\Models\TreatmentProcedure;
-use App\Models\Traits\HasClinicScope;
 
 class Treatment extends Model
 {
-    use HasFactory, HasClinicScope;
+    use HasFactory;
 
     protected $fillable = [
         'patient_id',
@@ -18,7 +17,7 @@ class Treatment extends Model
         'cost',
         'notes',
         'file_path',
-        'clinic_id',
+        'created_by',
         // Prescription fields
         'medicine_id',
         'medication',

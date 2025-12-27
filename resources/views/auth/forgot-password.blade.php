@@ -14,7 +14,7 @@
             <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
           </div>
           <div>
-            <span class="text-2xl font-bold text-white">Victoria Dental Lounge</span>
+            <span class="text-2xl font-bold text-white">Vintech Solutions</span>
             <p class="text-xs text-blue-100">You Smile We Smile</p>
           </div>
         </a>
@@ -76,7 +76,7 @@
             <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center shadow-lg">
               <i class="fas fa-sparkles text-white text-xl"></i>
             </div>
-            <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">Victoria Dental Lounge</span>
+            <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">Vintech Solutions</span>
           </a>
         </div>
 

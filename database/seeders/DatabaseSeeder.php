@@ -15,9 +15,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RoleSeeder::class);
         $this->call(PermissionSeeder::class);
-        $this->call(ClinicSeeder::class);
 
-        // Create super-admin user (no clinic assignment)
+        // Create super-admin user
         $superAdmin = User::firstOrCreate(
             ['email' => 'superadmin@example.com'],
             [
@@ -27,56 +26,52 @@ class DatabaseSeeder extends Seeder
         );
         $superAdmin->assignRole('super-admin');
 
-        // Get first clinic for demo users
-        $clinic = \App\Models\Clinic::first();
-
+        // Create admin user
         $admin = User::firstOrCreate(
             ['email' => 'admin@example.com'],
             [
                 'name' => 'Admin User',
                 'password' => Hash::make('password'),
-                'clinic_id' => $clinic->id,
             ]
         );
         $admin->assignRole('admin');
 
+        // Create receptionist user
         $receptionist = User::firstOrCreate(
             ['email' => 'receptionist@example.com'],
             [
                 'name' => 'Receptionist User',
                 'password' => Hash::make('password'),
-                'clinic_id' => $clinic->id,
             ]
         );
         $receptionist->assignRole('receptionist');
 
+        // Create dentist user
         $dentist = User::firstOrCreate(
             ['email' => 'dentist@example.com'],
             [
                 'name' => 'Dentist User',
                 'password' => Hash::make('password'),
-                'clinic_id' => $clinic->id,
             ]
         );
         $dentist->assignRole('dentist');
 
+        // Create assistant user
         $assistant = User::firstOrCreate(
             ['email' => 'assistant@example.com'],
             [
                 'name' => 'Assistant User',
                 'password' => Hash::make('password'),
-                'clinic_id' => $clinic->id,
             ]
         );
         $assistant->assignRole('assistant');
 
-        User::factory(5)->create()->each(function (User $user) use ($clinic) {
-            $user->clinic_id = $clinic->id;
-            $user->save();
+        // Create additional assistant users
+        User::factory(5)->create()->each(function (User $user) {
             $user->assignRole('assistant');
         });
 
-        // Seed patients for the first clinic
+        // Seed patients
         $this->call(PatientSeeder::class);
 
         // Default Clinical Note Templates

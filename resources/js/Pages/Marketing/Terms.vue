@@ -6,7 +6,7 @@ const terms = [
   {
     icon: DocumentTextIcon,
     title: '1. Introduction',
-    content: 'Welcome to Victoria Dental Lounge. These Terms of Service ("Terms") govern your access to and use of our website and services (collectively, the "Service"). By accessing or using the Service, you agree to be bound by these Terms.'
+    content: 'Welcome to Vintech Solutions. These Terms of Service ("Terms") govern your access to and use of our website and services (collectively, the "Service"). By accessing or using the Service, you agree to be bound by these Terms.'
   },
   {
     icon: UserCircleIcon,
@@ -21,12 +21,12 @@ const terms = [
   {
     icon: ExclamationTriangleIcon,
     title: '4. Intellectual Property',
-    content: 'The Service and its original content, features, and functionality are and will remain the exclusive property of Victoria Dental Lounge and its licensors. The Service is protected by copyright, trademark, and other laws of both the United States and foreign countries.'
+    content: 'The Service and its original content, features, and functionality are and will remain the exclusive property of Vintech Solutions and its licensors. The Service is protected by copyright, trademark, and other laws of both the United States and foreign countries.'
   },
   {
     icon: ScaleIcon,
     title: '5. Limitation of Liability',
-    content: 'In no event shall Victoria Dental Lounge, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Service.'
+    content: 'In no event shall Vintech Solutions, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Service.'
   },
   {
     icon: ClockIcon,
@@ -43,7 +43,7 @@ const terms = [
   >
     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl overflow-hidden">
       <!-- Hero Section -->
-      <div class="bg-gradient-to-br from-blue-600 to-cyan-600 px-6 py-16 sm:py-20 lg:px-8">
+      <div class="bg-gradient-to-br from-[#045c4b] to-[#0a8c74] px-6 py-16 sm:py-20 lg:px-8">
         <div class="mx-auto max-w-3xl text-center">
           <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Terms of Service
@@ -59,8 +59,8 @@ const terms = [
         <div class="prose dark:prose-invert prose-lg max-w-none">
           <div v-for="(term, index) in terms" :key="index" class="mb-12 last:mb-0">
             <div class="flex items-start">
-              <div class="flex-shrink-0 bg-blue-100 dark:bg-blue-900/50 p-2 rounded-lg">
-                <component :is="term.icon" class="h-6 w-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+              <div class="flex-shrink-0 bg-[#045c4b] dark:bg-[#0a8c74]/50 p-2 rounded-lg">
+                <component :is="term.icon" class="h-6 w-6 text-[#045c4b] dark:text-[#0a8c74]" aria-hidden="true" />
               </div>
               <div class="ml-4">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ term.title }}</h3>
@@ -86,7 +86,7 @@ const terms = [
               <div class="ml-3">
                 <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Questions?</h3>
                 <div class="mt-2 text-sm text-blue-700 dark:text-blue-400">
-                  <p>If you have any questions about these Terms, please contact us at <a href="mailto:vcare90@yahoo.com" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-400">vcare90@yahoo.com</a>.</p>
+                  <p>If you have any questions about these Terms, please contact us at <a href="mailto:alvinpaka@gmail.com" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-400">alvinpaka@gmail.com</a>.</p>
                 </div>
               </div>
             </div>

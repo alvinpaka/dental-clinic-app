@@ -59,18 +59,18 @@ const team = [
 
 <template>
   <PageTemplate
-    title="About Victoria Dental Lounge"
+    title="About Vintech Solutions"
     description="Transforming dental practices with innovative technology solutions."
   >
     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl overflow-hidden">
       <!-- Hero Section -->
-      <div class="bg-gradient-to-br from-blue-600 to-cyan-600 px-6 py-16 sm:py-20 lg:px-8">
+      <div class="bg-gradient-to-br from-[#045c4b] to-[#0a8c74] px-6 py-16 sm:py-20 lg:px-8">
         <div class="mx-auto max-w-3xl text-center">
           <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Revolutionizing Dental Practice Management
           </h2>
           <p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-blue-100">
-            Founded in 2023, Victoria Dental Lounge was born out of a simple idea: to make dental practice management simpler, more efficient, and more effective.
+            Founded in 2023, Vintech Solutions was born out of a simple idea: to make dental practice management simpler, more efficient, and more effective.
           </p>
         </div>
       </div>
@@ -84,10 +84,10 @@ const team = [
               Our Story
             </h2>
             <p class="text-gray-600 dark:text-gray-400">
-              Victoria Dental Lounge was founded by a team of dental professionals and technology experts who saw an opportunity to transform how dental practices operate. After years of experiencing the challenges of outdated practice management systems first-hand, we set out to build a solution that truly meets the needs of modern dental practices.
+              Vintech Solutions was founded by a team of dental professionals and technology experts who saw an opportunity to transform how dental practices operate. After years of experiencing the challenges of outdated practice management systems first-hand, we set out to build a solution that truly meets the needs of modern dental practices.
             </p>
             <p class="text-gray-600 dark:text-gray-400">
-              Today, Victoria Dental Lounge serves hundreds of dental practices across the country, helping them streamline operations, improve patient care, and grow their businesses. Our platform is built on the latest technology and designed with input from dental professionals at every step.
+              Today, Vintech Solutions serves hundreds of dental practices across the country, helping them streamline operations, improve patient care, and grow their businesses. Our platform is built on the latest technology and designed with input from dental professionals at every step.
             </p>
           </div>
 
@@ -124,16 +124,19 @@ const team = [
               Our Values
             </h2>
             <p class="mt-4 text-gray-600 dark:text-gray-400">
-              These principles guide everything we do at Victoria Dental Lounge
+              These principles guide everything we do at Vintech Solutions
             </p>
           </div>
 
           <div class="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2">
             <div v-for="value in values" :key="value.name" class="flex">
               <div class="flex-shrink-0">
-                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
-                  <component :is="value.icon" class="h-6 w-6" aria-hidden="true" />
-                </div>
+                <a href="/contact" class="mt-8 inline-flex items-center justify-center rounded-md border border-transparent bg-white px-5 py-3 text-base font-medium text-[#045c4b] hover:bg-white/90 transition-colors sm:px-10">
+                Contact Us
+                <svg class="ml-3 -mr-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </a>
               </div>
               <div class="ml-4">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ value.name }}</h3>
@@ -150,7 +153,7 @@ const team = [
               Meet Our Leadership
             </h2>
             <p class="mt-4 text-gray-600 dark:text-gray-400">
-              The passionate team behind Victoria Dental Lounge
+              The passionate team behind Vintech Solutions
             </p>
           </div>
 
@@ -177,10 +180,10 @@ const team = [
         <div class="mt-24 text-center">
           <h2 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">Ready to transform your practice?</h2>
           <p class="mx-auto mt-4 max-w-2xl text-gray-600 dark:text-gray-400">
-            Join thousands of dental professionals who trust Victoria Dental Lounge to power their practice.
+            Join thousands of dental professionals who trust Vintech Solutions to power their practice.
           </p>
           <div class="mt-6">
-            <a href="/contact" class="inline-flex items-center rounded-md bg-blue-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <a href="/contact" class="inline-flex items-center rounded-md bg-[#045c4b] px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-[#0a8c74]/80 focus:outline-none focus:ring-2 focus:ring-[#045c4b] focus:ring-offset-2">
               Get in touch
             </a>
           </div>

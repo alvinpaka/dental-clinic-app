@@ -48,7 +48,7 @@ const submit = () => {
     <div class="container mx-auto px-4 py-8 space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Medical History</h1>
+          <h1 class="text-2xl font-bold text-[#045c4b] dark:text-white">Medical History</h1>
           <p class="text-gray-500 dark:text-gray-400">{{ props.patient.name }}</p>
         </div>
         <Button variant="outline" as-child>
@@ -58,7 +58,7 @@ const submit = () => {
 
       <Card class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm">
         <CardHeader>
-          <CardTitle class="text-gray-900 dark:text-white">Clinical Background</CardTitle>
+          <CardTitle class="text-[#045c4b] dark:text-white">Clinical Background</CardTitle>
           <CardDescription class="text-gray-600 dark:text-gray-400">Record conditions, medications, allergies, and critical alerts</CardDescription>
         </CardHeader>
         <CardContent>
@@ -100,7 +100,7 @@ const submit = () => {
                 <span v-if="lastReviewed">Last reviewed: {{ lastReviewed }}</span>
                 <span v-else>Not reviewed yet</span>
               </div>
-              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" :disabled="form.processing" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">
                 {{ form.processing ? 'Saving...' : 'Save' }}
               </Button>
             </div>

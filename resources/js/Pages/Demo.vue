@@ -40,9 +40,9 @@ function submit() {
 
 <template>
   <Head title="Schedule a Demo" />
-  <div :class="['min-h-screen transition-colors duration-300 flex', themeStore.isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50']">
+  <div :class="['min-h-screen transition-colors duration-300 flex', themeStore.isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-gray-50 via-white to-gray-50']">
     <!-- Left Branding Panel -->
-    <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-600 p-12 flex-col justify-between relative overflow-hidden">
+    <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#045c4b] to-[#0a8c74] p-12 flex-col justify-between relative overflow-hidden">
       <div class="absolute inset-0 opacity-10">
         <div class="absolute inset-0" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, white 39px, white 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, white 39px, white 40px);"></div>
       </div>
@@ -51,7 +51,7 @@ function submit() {
         <div class="space-y-8">
           <div>
             <h2 class="text-4xl font-bold text-white mb-4">Schedule a Live Demo</h2>
-            <p class="text-blue-100 text-lg">See how Victoria Dental Lounge streamlines your daily operations in a 20–30 minute walkthrough.</p>
+            <p class="text-blue-100 text-lg">See how Vintech Solutions streamlines your daily operations in a 20–30 minute walkthrough.</p>
           </div>
 
           <div class="space-y-6">
@@ -146,10 +146,9 @@ function submit() {
               </div>
 
               <div class="md:col-span-2">
-                <Button type="submit" class="w-full h-12 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 text-base font-semibold" :disabled="submitting || form.processing">
-                  <i v-if="submitting || form.processing" class="fas fa-spinner fa-spin mr-2"></i>
-                  <i v-else class="fas fa-calendar-check mr-2"></i>
-                  {{ (submitting || form.processing) ? 'Submitting...' : 'Schedule Demo' }}
+                <Button type="submit" class="w-full bg-[#045c4b] hover:bg-[#0a8c74] text-white shadow-lg hover:shadow-xl transition-all duration-200" :disabled="form.processing || submitting">
+                  <span v-if="!submitting">Request Demo</span>
+                  <span v-else>Submitting...</span>
                 </Button>
 
                 <!-- Back to Home -->

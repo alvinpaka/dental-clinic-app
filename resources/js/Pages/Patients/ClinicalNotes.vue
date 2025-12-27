@@ -119,7 +119,7 @@ const confirmDelete = async () => {
     <div class="container mx-auto px-4 py-8 space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Clinical Notes</h1>
+          <h1 class="text-2xl font-bold text-[#045c4b] dark:text-white">Clinical Notes</h1>
           <p class="text-gray-500 dark:text-gray-400">{{ props.patient.name }}</p>
         </div>
         <Button variant="outline" as-child>
@@ -129,7 +129,7 @@ const confirmDelete = async () => {
 
       <Card class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm">
         <CardHeader>
-          <CardTitle class="text-gray-900 dark:text-white">New Notes (SOAP)</CardTitle>
+          <CardTitle class="text-[#045c4b] dark:text-white">New Notes (SOAP)</CardTitle>
           <CardDescription class="text-gray-600 dark:text-gray-400">Enter clinical note sections. You can sign later.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -191,7 +191,7 @@ const confirmDelete = async () => {
               </div>
             </div>
             <div class="md:col-span-2 flex justify-end">
-              <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700 text-white">Save Note</Button>
+              <Button type="submit" :disabled="form.processing" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">Save Note</Button>
             </div>
           </form>
         </CardContent>

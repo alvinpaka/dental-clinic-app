@@ -33,7 +33,7 @@ defineExpose({
         <div class="flex items-center space-x-3">
           <!-- Logo/Icon -->
           <Link href="/" class="flex items-center space-x-3">
-            <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+            <div class="flex items-center justify-center w-10 h-10 bg-[#045c4b]/10 dark:bg-white/5 rounded-lg backdrop-blur-sm">
               <img 
                 src="/images/tooth.png" 
                 alt="Tooth Logo" 
@@ -42,8 +42,8 @@ defineExpose({
               />
             </div>
             <div>
-              <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                Victoria Dental Lounge
+              <span class="text-2xl font-bold text-[#045c4b] dark:text-white">
+                  Vintech Solutions
               </span>
               <p class="text-xs text-gray-600 dark:text-slate-300 hidden sm:block">You Smile We Smile</p>
             </div>
@@ -52,9 +52,9 @@ defineExpose({
 
         <!-- Desktop Navigation -->
         <nav class="hidden md:flex items-center space-x-8">
-          <Link href="#features" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Features</Link>
-          <!-- <Link href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Pricing</Link> -->
-          <Link href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors">Testimonials</Link>
+          <Link href="#features" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-[#0a8c74] transition-colors">Features</Link>
+          <!-- <Link href="#pricing" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-[#0a8c74] transition-colors">Pricing</Link> -->
+          <Link href="#testimonials" class="text-gray-700 dark:text-gray-300 hover:text-[#045c4b] dark:hover:text-[#0a8c74] transition-colors">Testimonials</Link>
         </nav>
 
         <div class="flex items-center space-x-3">
@@ -62,7 +62,11 @@ defineExpose({
             <i :class="['fas', themeStore.isDark ? 'fa-sun text-yellow-300' : 'fa-moon text-gray-700']"></i>
           </Button>
           
-          <Button variant="ghost" class="hidden md:inline-flex text-gray-700 dark:text-gray-300" as-child>
+          <Button 
+            variant="ghost" 
+            class="hidden md:inline-flex bg-[#045c4b] hover:bg-[#0a8c74] dark:bg-[#045c4b] dark:hover:bg-[#0a8c74] text-white transition-colors duration-200" 
+            as-child
+          >
             <Link href="/login">Login</Link>
           </Button>
           

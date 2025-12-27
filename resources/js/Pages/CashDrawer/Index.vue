@@ -112,7 +112,7 @@ const net = computed(() => Number((props.totals && (props.totals as any).inflow)
     <div class="container mx-auto px-4 py-8">
       <div class="mb-6 flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-[#045c4b]">Cash Drawer</h1>
+          <h1 class="text-2xl font-bold text-[#045c4b] dark:text-white">Cash Drawer</h1>
           <p class="text-gray-500 dark:text-slate-400">Open/close cashier sessions and view today's movements</p>
         </div>
         <div v-if="canManage">

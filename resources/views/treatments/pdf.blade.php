@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Treatment Report - {{ $treatment->procedure }} - Victoria Dental Lounge</title>
+    <title>Treatment Report - {{ $treatment->procedure }} - Vintech Solutions</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
@@ -340,9 +340,9 @@
         <!-- Header Section -->
         <div class="header">
             <div class="logo">
-                <h1>Victoria Dental Lounge</h1>
-                <p>Phone: +256 708720139 <br> Email: vcare90@yahoo.com
-                P.O.BOX 723, Plot 24, Gower's Rd, <br>
+                <h1>Vintech Solutions</h1>
+                <p>Phone: +256 392911652 <br> Email: alvinpaka@gmail.com
+                Plot 8, Hill Road, <br>
                 Entebbe, Uganda.</p>
             </div>
             <div class="treatment-info">
@@ -520,15 +520,15 @@
             <div class="stamp">
                 <div>Authorized Signature</div>
                 <div style="margin-top: 10px; border-top: 1px solid #d1d5db; padding-top: 5px;">
-                    Victoria Dental Lounge
+                    Vintech Solutions
                 </div>
             </div>
             <p>Generated on {{ now()->format('M d, Y \a\t h:i A') }}</p>
-            <p>This document was generated automatically by the Victoria Dental Lounge System.</p>
+            <p>This document was generated automatically by the Vintech Solutions System.</p>
             <p>For any questions, please contact our office.</p>
             <p style="margin-top: 10px;">
-                <strong>Phone:</strong> +256 708720139 | 
-                <strong>Email:</strong> vcare90@yahoo.com | 
+                <strong>Phone:</strong> +256 392911652 | 
+                <strong>Email:</strong> alvinpaka@gmail.com | 
                 <!-- <strong>Website:</strong> www.victoriadental.com -->
             </p>
         </div>

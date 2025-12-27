@@ -461,7 +461,7 @@ const openInNewTab = () => {
         </div>
         <div class="flex items-center gap-2">
           <template v-if="!$page.url.includes('/patients/')">
-            <Button @click="openCreateTreatment" class="bg-dental-blue hover:bg-dental-dark flex items-center space-x-2">
+            <Button @click="openCreateTreatment" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white flex items-center space-x-2">
               <Plus class="mr-2 h-4 w-4" />
               <span>Add Treatment</span>
             </Button>
@@ -516,7 +516,7 @@ const openInNewTab = () => {
               <CardDescription>Medical procedures performed</CardDescription>
             </div>
             <div class="flex items-center gap-2">
-              <Button @click="isCreateTreatmentOpen = true" size="sm" class="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button @click="isCreateTreatmentOpen = true" size="sm" class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white">
                 <Plus class="h-4 w-4 mr-2" />
                 Add Treatment
               </Button>
@@ -652,7 +652,7 @@ const openInNewTab = () => {
       <Dialog v-model:open="isCreateTreatmentOpen">
         <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Add New Treatment</DialogTitle>
+            <DialogTitle class="text-2xl font-bold text-[#045c4b] dark:text-white">Add New Treatment</DialogTitle>
             <DialogDescription>Record a new dental procedure</DialogDescription>
           </DialogHeader>
           <form @submit.prevent="submitTreatment" class="space-y-4">
@@ -846,7 +846,7 @@ const openInNewTab = () => {
               <Button 
                 type="submit" 
                 :disabled="treatmentForm.processing"
-                class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+                class="w-full sm:w-auto bg-[#045c4b] hover:bg-[#045c4b]/90 text-white"
               >
                 <span v-if="treatmentForm.processing" class="flex items-center">
                   <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

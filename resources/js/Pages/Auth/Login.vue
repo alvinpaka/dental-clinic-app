@@ -37,9 +37,9 @@ const submit = () => {
 </script>
 
 <template>
-  <div :class="['min-h-screen transition-colors duration-300 flex', themeStore.isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50']">
+  <div :class="['min-h-screen transition-colors duration-300 flex', themeStore.isDark ? 'dark bg-gray-950' : 'bg-gradient-to-br from-gray-50 via-white to-gray-50']">
     <!-- Left Side - Branding & Info -->
-    <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-600 p-12 flex-col justify-between relative overflow-hidden">
+    <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#045c4b] to-[#0a8c74] p-12 flex-col justify-between relative overflow-hidden">
       <!-- Background Pattern -->
       <div class="absolute inset-0 opacity-10">
         <div class="absolute inset-0" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, white 39px, white 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, white 39px, white 40px);"></div>
@@ -49,14 +49,14 @@ const submit = () => {
         <!-- Logo -->
         <Link href="/" class="flex items-center space-x-3 mb-12">
           <!-- Logo/Icon -->
-          <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-white/5 rounded-lg backdrop-blur-sm">
-            <i class="fas fa-tooth text-xl text-blue-600 dark:text-slate-200"></i>
+          <div class="flex items-center justify-center w-10 h-10 bg-white/20 dark:bg-white/5 rounded-lg backdrop-blur-sm">
+            <i class="fas fa-tooth text-xl text-white dark:text-slate-200"></i>
           </div>
           <div>
             <span class="text-2xl font-bold text-white">
-              Victoria Dental Lounge
+              Vintech Solutions
             </span>
-            <p class="text-xs text-blue-100">You Smile We Smile</p>
+            <p class="text-xs text-white/80">You Smile We Smile</p>
           </div>
         </Link>
 
@@ -66,39 +66,39 @@ const submit = () => {
             <h2 class="text-4xl font-bold text-white mb-4">
               Welcome Back!
             </h2>
-            <p class="text-blue-100 text-lg">
+            <p class="text-white/80 text-lg">
               Access your practice management dashboard and continue delivering exceptional patient care.
             </p>
           </div>
 
           <div class="space-y-6">
             <div class="flex items-start space-x-4">
-              <div class="w-12 h-12 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <div class="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-calendar-check text-white text-xl"></i>
               </div>
               <div>
                 <h3 class="text-white font-semibold text-lg mb-1">Smart Scheduling</h3>
-                <p class="text-blue-100">Manage appointments with ease and reduce no-shows.</p>
+                <p class="text-white/80">Manage appointments with ease and reduce no-shows.</p>
               </div>
             </div>
 
             <div class="flex items-start space-x-4">
-              <div class="w-12 h-12 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <div class="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-chart-line text-white text-xl"></i>
               </div>
               <div>
                 <h3 class="text-white font-semibold text-lg mb-1">Real-time Analytics</h3>
-                <p class="text-blue-100">Track your practice performance at a glance.</p>
+                <p class="text-white/80">Track your practice performance at a glance.</p>
               </div>
             </div>
 
             <div class="flex items-start space-x-4">
-              <div class="w-12 h-12 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <div class="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-shield-alt text-white text-xl"></i>
               </div>
               <div>
                 <h3 class="text-white font-semibold text-lg mb-1">Secure & Compliant</h3>
-                <p class="text-blue-100">HIPAA-compliant platform protecting patient data.</p>
+                <p class="text-white/80">HIPAA-compliant platform protecting patient data.</p>
               </div>
             </div>
           </div>
@@ -128,11 +128,11 @@ const submit = () => {
         <!-- Mobile Logo -->
         <div class="lg:hidden mb-8 text-center">
           <Link href="/" class="inline-flex items-center space-x-3">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center shadow-lg">
+            <div class="w-12 h-12 rounded-xl bg-[#045c4b] flex items-center justify-center shadow-lg">
               <i class="fas fa-sparkles text-white text-xl"></i>
             </div>
-            <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              Victoria Dental Lounge
+            <span class="text-3xl font-bold bg-gradient-to-r from-[#045c4b] to-[#0a8c74] bg-clip-text text-transparent">
+              Vintech Solutions
             </span>
           </Link>
         </div>
@@ -238,21 +238,19 @@ const submit = () => {
                 <a
                   v-if="canResetPassword"
                   :href="route('password.request')"
-                  class="text-sm text-blue-600 hover:text-blue-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-medium"
+                  class="text-[#045c4b] hover:text-[#0a8c74] dark:text-cyan-400 dark:hover:text-cyan-300 text-sm font-medium"
                 >
-                  Forgot password?
+                  Forgot your password?
                 </a>
               </div>
 
               <!-- Submit Button -->
               <Button
                 type="submit"
-                class="w-full h-12 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 text-base font-semibold"
-                :disabled="form.processing"
+                class="w-full bg-[#045c4b] hover:bg-[#0a8c74] text-white shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                <i v-if="form.processing" class="fas fa-spinner fa-spin mr-2"></i>
-                <i v-else class="fas fa-sign-in-alt mr-2"></i>
-                {{ form.processing ? 'Signing in...' : 'Sign In' }}
+                <i class="fas fa-sign-in-alt mr-2"></i>
+                Sign In
               </Button>
 
               <!-- Divider (hidden) -->

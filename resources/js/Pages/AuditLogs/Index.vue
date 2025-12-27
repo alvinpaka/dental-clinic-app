@@ -100,12 +100,12 @@ const toggleFilters = () => {
 
   <AppLayout title="Audit Logs">
     <template #header>
-      <div class="px-6 py-4">
+      <div class="container mx-auto px-4 py-8">
         <div class="flex justify-between items-center">
           <div class="flex items-center space-x-4">
             <div>
-              <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                <Shield class="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
+              <h1 class="text-2xl font-bold text-[#045c4b] dark:text-white flex items-center">
+                <Shield class="w-6 h-6 mr-2 text-[#045c4b] dark:text-white" />
                 Audit Logs
               </h1>
               <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
@@ -185,7 +185,7 @@ const toggleFilters = () => {
                 <div class="flex items-end">
                   <Button
                     type="submit"
-                    class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                    class="w-full bg-[#045c4b] hover:bg-[#045c4b]/90 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     <Search class="w-4 h-4 mr-2" />
                     Apply Filters

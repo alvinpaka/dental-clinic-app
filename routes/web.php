@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\DemoController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\AppointmentController;
@@ -72,12 +73,6 @@ require __DIR__.'/auth.php';
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
-    // Clinic Management (super-admin only)
-    Route::resource('clinics', ClinicController::class);
-    
-    // View own clinic (for admins/dentists)
-    Route::get('my-clinic', [ClinicController::class, 'showMyClinic'])->name('clinics.my');
 
     // Resources
     Route::resource('patients', PatientController::class);
@@ -238,33 +233,21 @@ Route::middleware('auth')->group(function () {
         ->name('patients.notes.destroy');
 
     // Consent templates (admin/receptionist via viewReports gate)
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Audit logs
+    Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+
+    // Webhook route for Stripe (if still needed for other features)
+    Route::post('webhooks/stripe', 'WebhookController@handleWebhook');
+
+    // Consent templates (admin/receptionist via viewReports gate)
     Route::get('/consent-templates', [ConsentController::class, 'templatesIndex'])
         ->middleware('can:viewReports')
         ->name('consents.templates.index');
     Route::post('/consent-templates', [ConsentController::class, 'templatesStore'])
         ->middleware('can:viewReports')
         ->name('consents.templates.store');
-
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
-    Route::post('treatments/{treatment}/create-invoice', [TreatmentController::class, 'createInvoice'])->name('treatments.createInvoice');
-
-    // Clinic management routes
-    Route::get('clinics/{clinic}/billing', [BillingController::class, 'show'])->name('clinics.billing');
-    Route::post('clinics/{clinic}/checkout', [BillingController::class, 'createCheckoutSession'])->name('billing.checkout');
-    Route::post('clinics/{clinic}/cancel', [BillingController::class, 'cancelSubscription'])->name('billing.cancel');
-    Route::post('stripe/webhook', [BillingController::class, 'handleWebhook'])->name('stripe.webhook');
-    
-    // Clinic settings routes
-    Route::get('clinics/{clinic}/settings', [ClinicSettingsController::class, 'edit'])->name('clinics.settings');
-    Route::put('clinics/{clinic}/settings', [ClinicSettingsController::class, 'update'])->name('clinics.settings.update');
-    Route::put('clinics/{clinic}/branding', [ClinicSettingsController::class, 'updateBranding'])->name('clinics.branding.update');
-    
-    // Export routes
-    Route::get('clinics/export', [ClinicController::class, 'export'])->name('clinics.export');
-    
-    // Audit logs
-    Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
 });

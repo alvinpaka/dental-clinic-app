@@ -1182,7 +1182,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
                             <Button
                               v-if="!searchQuery && statusFilter === 'all'"
                               @click.stop="openCreate"
-                              class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90"
+                              class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white"
                             >
                               <Plus class="w-4 h-4 mr-2" />
                               Create First Invoice
@@ -1234,15 +1234,20 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
     <Dialog :open="isCreateOpen" @update:open="(value) => isCreateOpen = value">
       <DialogContent class="max-w-3xl">
         <DialogHeader>
-          <DialogTitle class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+          <DialogTitle id="create-invoice-title" class="text-2xl font-bold text-[#045c4b] dark:text-white">
             Create New Invoice
           </DialogTitle>
-          <DialogDescription class="text-gray-600 dark:text-gray-400">
+          <DialogDescription id="create-invoice-description" class="text-gray-600 dark:text-gray-400">
             Generate an invoice for a patient's treatment or service.
           </DialogDescription>
         </DialogHeader>
 
-        <form @submit.prevent="submitCreate" class="space-y-6">
+        <form 
+          @submit.prevent="submitCreate" 
+          class="space-y-6"
+          aria-labelledby="create-invoice-title"
+          aria-describedby="create-invoice-description"
+        >
           <div class="space-y-2">
             <Label for="patient" class="text-gray-700 dark:text-gray-300">Patient</Label>
             <Select v-model="createForm.patient_id" @update:model-value="selectedPatient = props.patients.find(p => p.id === $event) || null">
@@ -1415,7 +1420,7 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
             <Button
               type="submit"
               :disabled="createForm.processing"
-              class="bg-gradient-to-r from-[#045c4b] to-[#045c4b] hover:from-[#045c4b]/90 hover:to-[#045c4b]/90"
+              class="bg-[#045c4b] hover:bg-[#045c4b]/90 text-white"
             >
               <i v-if="createForm.processing" class="fas fa-spinner fa-spin mr-2"></i>
               <i v-else class="fas fa-plus mr-2"></i>
@@ -1641,28 +1646,41 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
     <!-- Cash Session Required Dialog -->
     <Dialog :open="showCashSessionDialog" @update:open="(val) => {
       showCashSessionDialog = val;
-      if (!val) isPaymentOpen = false;
+      if (!val) {
+        paymentForm.reset();
+        selectedInvoice = null;
+      }
     }">
-      <DialogContent class="sm:max-w-md z-[1000] transition-all duration-300 ease-in-out" :class="{ 'scale-105': showCashSessionDialog }">
+      <DialogContent class="max-w-md">
         <DialogHeader>
-          <DialogTitle class="text-lg font-semibold flex items-center gap-2">
-            <AlertCircle class="h-5 w-5 text-amber-500" />
+          <DialogTitle class="text-lg font-semibold text-gray-900 dark:text-white">
             Cash Session Required
           </DialogTitle>
-          <DialogDescription class="pt-2">
-            You need to open a cash drawer session before processing cash payments.
+          <DialogDescription class="text-sm text-gray-600 dark:text-gray-400">
+            You need to start a cash session before recording payments. Would you like to open the cash drawer now?
           </DialogDescription>
         </DialogHeader>
-        <div class="flex justify-end gap-2 pt-4">
-          <Button variant="outline" @click="showCashSessionDialog = false">
-            Cancel
-          </Button>
-          <Button 
-            @click="navigateToCashDrawer"
-            class="bg-amber-600 hover:bg-amber-700 text-white"
-          >
-            Open Cash Drawer
-          </Button>
+        <div class="flex flex-col items-center text-center">
+          <div class="bg-red-100 dark:bg-red-900/20 p-3 rounded-full mb-4">
+            <AlertCircle class="w-8 h-8 text-red-500" />
+          </div>
+          <div class="flex gap-3 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              class="w-full"
+              @click="showCashSessionDialog = false"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              class="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+              @click="navigateToCashDrawer"
+            >
+              Open Cash Drawer
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -1691,10 +1709,19 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
     <Dialog :open="isPaymentOpen" @update:open="(value) => isPaymentOpen = value">
       <DialogContent class="max-w-md transition-opacity duration-300" :class="{ 'opacity-50': showCashSessionDialog }">
         <DialogHeader>
-          <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white">Record Payment</DialogTitle>
-          <DialogDescription>Add a payment to this invoice</DialogDescription>
+          <DialogTitle class="text-2xl font-bold text-gray-900 dark:text-white" id="payment-dialog-title">
+            Record Payment
+          </DialogTitle>
+          <DialogDescription id="payment-dialog-description">
+            Add a payment to invoice #{{ payingInvoice?.id || '' }}
+          </DialogDescription>
         </DialogHeader>
-        <form @submit.prevent="submitPayment" class="space-y-4">
+        <form 
+          @submit.prevent="submitPayment" 
+          class="space-y-4"
+          :aria-labelledby="'payment-dialog-title'"
+          :aria-describedby="'payment-dialog-description'"
+        >
           <div>
             <Label>Amount (UGX)</Label>
             <Input
@@ -1751,33 +1778,37 @@ watch([editSelectedTreatmentIds, editSelectedTreatmentPrescriptionIds, editSelec
     <Dialog :open="isDeleteOpen" @update:open="(value) => isDeleteOpen = value">
       <DialogContent class="max-w-md">
         <DialogHeader>
-          <DialogTitle class="text-xl font-bold text-red-600">Delete Invoice</DialogTitle>
-          <DialogDescription class="text-gray-600 dark:text-gray-400">
-            This action cannot be undone. This will permanently delete the invoice record.
+          <DialogTitle class="text-xl font-bold text-red-600" id="delete-dialog-title">
+            Delete Invoice #{{ editingInvoice?.id || '' }}
+          </DialogTitle>
+          <DialogDescription id="delete-dialog-description" class="text-gray-600 dark:text-gray-400">
+            Are you sure you want to delete this invoice? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
-
-        <div class="py-4">
-          <div class="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
-            <div>
-              <p class="font-medium text-red-800 dark:text-red-200">Delete Invoice #{{ editingInvoice?.id }}?</p>
-              <p class="text-sm text-red-600 dark:text-red-400">This will remove the invoice permanently.</p>
-            </div>
-          </div>
+        <div class="mt-4">
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            This will permanently delete the invoice and all associated data including payments and records.
+          </p>
         </div>
-
-        <DialogFooter class="gap-2">
-          <Button type="button" variant="outline" @click="isDeleteOpen = false">
+        <DialogFooter class="mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            @click="isDeleteOpen = false"
+            class="mr-2"
+          >
             Cancel
           </Button>
           <Button
-            @click="confirmDelete"
+            type="button"
             variant="destructive"
-            class="bg-red-600 hover:bg-red-700"
+            :disabled="isDeleting"
+            @click="confirmDelete"
+            class="bg-red-600 hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+            :aria-label="isDeleting ? 'Deleting invoice...' : 'Confirm delete invoice'"
           >
-            <i class="fas fa-trash mr-2"></i>
-            Delete Invoice
+            <i :class="['fas', isDeleting ? 'fa-spinner fa-spin' : 'fa-trash']" class="mr-2"></i>
+            {{ isDeleting ? 'Deleting...' : 'Delete Invoice' }}
           </Button>
         </DialogFooter>
       </DialogContent>

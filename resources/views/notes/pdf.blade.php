@@ -156,7 +156,7 @@
   <div class="container">
     <div class="header">
       <div class="logo">
-        <h1>Victoria Dental Lounge</h1>
+        <h1>Vintech Solutions</h1>
         <p class="muted">You Smile, We Smile</p>
       </div>
       <div class="invoice-info">
@@ -253,7 +253,7 @@
     </div>
 
     <div class="footer">
-      <p>Generated on {{ now()->format('M d, Y H:i') }} | Victoria Dental Lounge</p>
+      <p>Generated on {{ now()->format('M d, Y H:i') }} | Vintech Solutions</p>
     </div>
   </div>
 </body>

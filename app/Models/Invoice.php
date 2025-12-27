@@ -4,13 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Traits\HasClinicScope;
 
 class Invoice extends Model
 {
-    use HasFactory, HasClinicScope;
+    use HasFactory;
 
-    protected $fillable = ['patient_id', 'treatment_id', 'prescription_id', 'amount', 'status', 'due_date', 'pdf_path', 'notes', 'clinic_id'];
+    protected $fillable = [
+        'patient_id', 
+        'treatment_id', 
+        'prescription_id', 
+        'amount', 
+        'status', 
+        'due_date', 
+        'pdf_path', 
+        'notes', 
+        'created_by'
+    ];
 
     protected $casts = [
         'due_date' => 'date',
